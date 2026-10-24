@@ -1,0 +1,27 @@
+[project]
+name = "orion"
+version = "0.1.0"
+description = "Orion backend: AI-guided custom product ordering and manufacturer communication"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "langgraph",
+    "langgraph-checkpoint-postgres",
+    "langchain-openai",
+    "psycopg[binary,pool]",
+    "pydantic",
+    "pydantic-settings",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
