@@ -15,6 +15,7 @@ from orion.api.oidc import apple_verifier, google_verifier
 from orion.config.settings import Settings, get_settings
 from orion.db.accounts import AccountStore
 from orion.runtime import open_postgres_app
+from orion.tools.assist import OpenRouterAssistant
 from orion.tools.email import ConsoleEmailSender
 
 log = logging.getLogger("orion.api")
@@ -51,9 +52,12 @@ def create_app(context: Optional[ApiContext] = None, settings: Optional[Settings
             if settings.apple_client_id:
                 verifiers["apple"] = apple_verifier(settings.apple_client_id)
             # TODO(decide): email provider (Resend / Postmark / SES); console until then
+            assistant = OpenRouterAssistant(
+                settings.openrouter_api_key.get_secret_value(), settings.openrouter_base_url, settings.assist_model
+            )
             app.state.ctx = ApiContext(
                 graph=graph, deps=deps, pool=pool, settings=settings,
-                accounts=AccountStore(pool), email=ConsoleEmailSender(), verifiers=verifiers,
+                accounts=AccountStore(pool), email=ConsoleEmailSender(), verifiers=verifiers, assistant=assistant,
             )
             log.info("API ready (sign-in: email%s)", "".join(f", {p}" for p in verifiers))
             yield

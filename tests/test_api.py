@@ -182,6 +182,50 @@ async def test_google_login(api):
     assert (await api.post("/auth/google", json={"id_token": f"good:u{api.run}"})).status_code == 401
 
 
+# --- "Ask Orion" on form sections ---------------------------------------------------
+
+class FakeAssistant:
+    def __init__(self, answer="Most hoodies use 320-380 GSM cotton fleece."):
+        self.answer, self.calls = answer, []
+
+    async def help(self, product, section, questions, answers, question, lang):
+        self.calls.append({"product": product, "section": section, "ids": [q.id for q in questions],
+                           "answers": answers, "question": question, "lang": lang})
+        return self.answer
+
+
+async def test_assist_explains_a_section(api):
+    from orion.api.limits import SlidingWindowLimit
+
+    token = await _login(api, f"assist-{api.run}@example.com")
+    order_id = (await api.post("/orders", headers=_auth(token))).json()["order_id"]
+    api.ctx.assistant = FakeAssistant()
+    body = {"section": "quality", "question": "Which fabric for summer?", "answers": {"fabric": "cotton fleece", "x": 1}, "lang": "en"}
+
+    # Before a product is chosen there is nothing to explain
+    assert (await api.post(f"/orders/{order_id}/assist", json=body, headers=_auth(token))).status_code == 409
+    for reply in ({"choice": "apparel"}, {"choice": "hoodie"}):
+        await api.post(f"/orders/{order_id}/reply", json={"reply": reply}, headers=_auth(token))
+
+    r = await api.post(f"/orders/{order_id}/assist", json=body, headers=_auth(token))
+    assert r.status_code == 200 and r.json()["answer"].startswith("Most hoodies")
+    call = api.ctx.assistant.calls[-1]
+    assert call["product"] == "Hoodie" and call["section"] == "quality"
+    assert set(call["ids"]) == {"fabric", "fabric_gsm", "labels"} and call["answers"] == {"fabric": "cotton fleece"}
+
+    # Rule 1: an answer that talks money never reaches the customer
+    api.ctx.assistant = FakeAssistant("Cotton fleece costs about 45 SAR per piece")
+    r = await api.post(f"/orders/{order_id}/assist", json={**body, "lang": "ar"}, headers=_auth(token))
+    assert "45" not in r.json()["answer"] and "عرض السعر" in r.json()["answer"]
+
+    other = await _login(api, f"assist-other-{api.run}@example.com")
+    assert (await api.post(f"/orders/{order_id}/assist", json=body, headers=_auth(other))).status_code == 404
+
+    api.ctx.assist_limit = SlidingWindowLimit(1, 3600)
+    assert (await api.post(f"/orders/{order_id}/assist", json=body, headers=_auth(token))).status_code == 200
+    assert (await api.post(f"/orders/{order_id}/assist", json=body, headers=_auth(token))).status_code == 429
+
+
 # --- team -------------------------------------------------------------------------
 
 async def test_console_is_served_with_strict_headers(api):

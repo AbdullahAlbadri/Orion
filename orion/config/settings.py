@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     consultant_model: str          # customer-facing chat (Arabic / English)
     manufacturer_model: str        # Chinese manufacturer side: translation, reading replies, answers
     classifier_model: str
+    assist_model: str = "anthropic/claude-haiku-5.5"   # "Ask Orion" help on form sections (cheap)
 
     database_url: str
 

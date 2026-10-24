@@ -12,7 +12,20 @@ export type Question = {
   choices: string[];
   required: boolean;
   hint?: string | null;
+  section: Section;
 };
+
+export type Section = "design" | "quantity" | "quality";
+
+/** "Ask Orion" about one form section. Advice only; nothing is saved. */
+export async function askAboutSection(
+  orderId: string, section: Section, question: string, answers: Record<string, unknown>, lang: "ar" | "en",
+): Promise<string> {
+  const r = await api<{ answer: string }>(`/orders/${encodeURIComponent(orderId)}/assist`, {
+    method: "POST", body: { section, question, answers, lang },
+  });
+  return r.answer;
+}
 
 export type Prompt =
   | { step: string; kind: "choice"; prompt: string; options: { id: string; name: string }[]; error?: string | null }

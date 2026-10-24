@@ -7,7 +7,9 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from psycopg_pool import AsyncConnectionPool
 
+from orion.api.limits import SlidingWindowLimit
 from orion.api.oidc import IdTokenVerifier
+from orion.tools.assist import Assistant
 from orion.api.security import InvalidToken, TokenClaims, decode_access_token
 from orion.config.settings import Settings
 from orion.db.accounts import AccountStore
@@ -24,6 +26,8 @@ class ApiContext:
     accounts: AccountStore
     email: EmailSender
     verifiers: dict[str, IdTokenVerifier] = field(default_factory=dict)   # "google" / "apple" when configured
+    assistant: Optional[Assistant] = None
+    assist_limit: SlidingWindowLimit = field(default_factory=lambda: SlidingWindowLimit(30, 3600))
 
     @property
     def jwt_secret(self) -> str:

@@ -10,6 +10,8 @@ from typing import Any, Literal, Optional
 from pydantic import BaseModel, Field
 
 QuestionType = Literal["choice", "number", "text", "file", "size_table"]
+# Form sections shown to the customer (one tab each)
+Section = Literal["design", "quantity", "quality"]
 
 # Question ids with special meaning in the spec (everything else lives in `answers`)
 QUANTITY_ID = "quantity"
@@ -23,6 +25,7 @@ class Question(BaseModel):
     choices: list[str] = []
     required: bool = True
     hint: Optional[str] = None
+    section: Section = "design"
 
 
 class FileRef(BaseModel):

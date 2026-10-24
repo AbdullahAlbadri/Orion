@@ -34,12 +34,14 @@ _SIZE_TABLE = Question(
     prompt="How many pieces per size?",
     type="size_table",
     hint="e.g. S:20, M:50, L:50, XL:30",
+    section="quantity",
 )
 _LABELS = Question(
     id="labels",
     prompt="Which labels do you need?",
     type="text",
     hint="e.g. woven neck label with logo, size label, care label, hang tag",
+    section="quality",
 )
 _FIT_REFERENCE = Question(
     id="fit_reference",
@@ -52,11 +54,12 @@ _FABRIC_GSM = Question(
     prompt="Fabric weight in GSM (grams per square metre)?",
     type="number",
     hint="T-shirts are usually 160-240, hoodies 280-400. Say if you are unsure.",
+    section="quality",
 )
 
 
 def _fabric(*choices: str) -> Question:
-    return Question(id="fabric", prompt="Which fabric?", type="choice", choices=[*choices, "other"])
+    return Question(id="fabric", prompt="Which fabric?", type="choice", choices=[*choices, "other"], section="quality")
 
 
 APPAREL = Market(
@@ -142,7 +145,7 @@ APPAREL = Market(
                 _fabric("cotton canvas", "cotton", "non-woven", "jute"),
                 Question(id="dimensions", prompt="Bag dimensions (width x height x gusset, cm)?", type="text"),
                 Question(id="handle_length", prompt="Handle length (cm)?", type="number"),
-                Question(id=QUANTITY_ID, prompt="How many bags?", type="number"),
+                Question(id=QUANTITY_ID, prompt="How many bags?", type="number", section="quantity"),
             ],
         ),
         "corporate_uniform": Option(
@@ -161,6 +164,7 @@ APPAREL = Market(
                     prompt="Staff count per size?",
                     type="size_table",
                     hint="e.g. S:5, M:12, L:10, XL:4",
+                    section="quantity",
                 ),
                 _LABELS,
             ],

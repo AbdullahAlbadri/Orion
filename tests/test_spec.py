@@ -46,5 +46,13 @@ def test_market_config_is_consistent():
                     assert q.choices, f"{q.id} has no choices"
 
 
+def test_every_product_has_a_quantity_question():
+    for market in MARKETS.values():
+        for option_id, option in market.options.items():
+            if option.questions:
+                sections = {q.section for q in get_questions(market.id, option_id)}
+                assert "quantity" in sections, f"{market.id}/{option_id} has no quantity question"
+
+
 def test_custom_option_has_no_fixed_questions():
     assert get_questions("apparel", "custom") == []
