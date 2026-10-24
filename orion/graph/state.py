@@ -24,9 +24,11 @@ class OrderState(TypedDict, total=False):
 
     # Manufacturer phase
     spec_zh: Optional[dict]        # {"product_zh", "fields": [{"id", "label_zh", "value_zh"}]}
-    manufacturer_attempts: list[dict]  # {"manufacturer_id", "name", "contacted_at", "deadline_at", "outcome"}
+    # {"manufacturer_id", "name", "contacted_at", "deadline_at", "reminded",
+    #  "outcome": waiting | clarifying | quoted | declined | no_reply | blocked}
+    manufacturer_attempts: list[dict]
     current_manufacturer: Optional[str]
     event: Any                     # the event that resumed the order, consumed by handle_manufacturer_event
     processed_events: list[str]    # event ids already handled (idempotency)
     manufacturer_next: str         # "wait" | "contact_next"
-    quotes: list[dict]
+    quotes: list[dict]             # {"quote_id", "manufacturer_id", "prices", ..., "expires_at", "expired"}

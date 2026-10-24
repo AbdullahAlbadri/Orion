@@ -4,7 +4,7 @@ Orion is a middle-man platform for new business owners in Saudi Arabia. A custom
 
 This repo is the **LangGraph backend** that replaces the earlier n8n prototype (kept in a separate repo as reference only).
 
-> **Status:** early build. Ordering and the manufacturer layer (manual relay) work end to end in tests; timers, the API and deployment are next. See [Build order](#build-order).
+> **Status:** early build. Ordering, the manufacturer layer (manual relay) and timers work end to end in tests; the API and deployment are next. See [Build order](#build-order).
 
 ## Docs
 
@@ -103,6 +103,21 @@ uv run python -m orion.relay order ORDER_ID               # status, quotes and w
 
 Pasting the same reply twice is safe: it gets the same event id and is processed once.
 
+### Worker (timers)
+
+```bash
+uv run python -m orion.worker          # runs forever; fires due deadlines every 30 s
+uv run python -m orion.worker --once   # one pass
+```
+
+When an order starts waiting, a node writes a row to `deadlines`; the worker turns due rows into `timeout` events.
+Manufacturer reply clock: 3 China working days → one reminder → 1 more working day → next manufacturer (the
+first stays open). A quote stops the clock and starts the quote expiry (7 days, placeholder). Several workers can
+run at once.
+
+China holidays live in `orion/config/china_calendar.py` (2026 from the State Council notice). **Add next year's
+dates when the notice comes out (around November)**; until then a deadline in an unknown year is flagged.
+
 ## Code map
 
 | File | Role |
@@ -123,8 +138,11 @@ Pasting the same reply twice is safe: it gets the same event id and is processed
 | `orion/db/stores.py`, `postgres.py` | Manufacturer directory, append-only price dataset, message outbox |
 | `orion/db/migrations/` | Alembic migrations |
 | `orion/relay.py` | Manual relay CLI for the team |
+| `orion/worker.py` | Background worker: fires due deadlines as `timeout` events |
+| `orion/runtime.py` | Opens the Postgres-backed graph; per-order advisory lock (`send_event`) |
+| `orion/config/china_calendar.py` | China working days and official holidays |
 
-Events: `on_event(app, order_id, event)` resumes an order only if it is waiting for that event type, and `handle_manufacturer_event` ignores event ids it has already processed.
+Events: `on_event(app, order_id, event)` resumes an order only if it is waiting for that event type, and `handle_manufacturer_event` ignores event ids it has already processed. Processes that resume orders (relay, worker, later the API) go through `send_event`, which holds a per-order lock so events for one order never run at the same time.
 
 Customer interaction contract: the graph pauses with a `pending` prompt (`kind` = `choice`, `form`, `chat` or `confirm`), and the caller resumes it with `{"choice": ...}`, `{"answers": {...}}`, `{"message": ...}` or `{"confirm": bool, "changes": ...}`.
 
@@ -136,7 +154,7 @@ Customer interaction contract: the graph pauses with a `pending` prompt (`kind` 
 2. [x] Spec schema and the first market config (fashion & apparel)
 3. [x] Ordering graph: market → option → mandatory questions → AI gap-closing → pre-receipt → freeze spec (tested with a fake LLM; real-LLM run pending)
 4. [x] Manufacturer node with manual relay, price extraction, price dataset (customer quote document still to design)
-5. [ ] Event handler and timers (3-day manufacturer timeout, quote expiry)
+5. [x] Event handler and timers (3-day manufacturer timeout with one reminder, quote expiry; customer abandonment not yet)
 6. [ ] API and auth, then website connection
 7. [ ] Real email / WeCom channels, stats page, deployment
 8. [ ] Paperwork graph (separate)

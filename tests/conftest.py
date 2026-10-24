@@ -3,7 +3,7 @@ import asyncio
 import pytest
 from langgraph.checkpoint.memory import InMemorySaver
 
-from orion.db.stores import InMemoryDirectory, InMemoryOutbox, InMemoryPriceStore, Manufacturer
+from orion.db.stores import InMemoryDirectory, InMemoryOutbox, InMemoryPriceStore, InMemoryScheduler, Manufacturer
 from orion.deps import Deps
 from orion.graph.graph import build_graph
 from orion.spec import ProductSpec
@@ -90,6 +90,7 @@ def make_deps(consultant=None, manufacturer_agent=None, manufacturers=(FACTORY_A
         directory=InMemoryDirectory({("apparel", "hoodie"): list(manufacturers)}),
         prices=InMemoryPriceStore(),
         channel=InMemoryOutbox(),
+        scheduler=InMemoryScheduler(),
     )
 
 

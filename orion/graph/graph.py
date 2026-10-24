@@ -52,10 +52,12 @@ def build_graph(deps: Deps, checkpointer: BaseCheckpointSaver, policy: Optional[
         return await mfr.translate_spec(state, deps.manufacturer_agent)
 
     async def contact_manufacturer(state: OrderState) -> dict:
-        return await mfr.contact_manufacturer(state, deps.directory, deps.channel, policy)
+        return await mfr.contact_manufacturer(state, deps.directory, deps.channel, deps.scheduler, policy)
 
     async def handle_manufacturer_event(state: OrderState) -> dict:
-        return await mfr.handle_manufacturer_event(state, deps.manufacturer_agent, deps.channel, deps.prices)
+        return await mfr.handle_manufacturer_event(
+            state, deps.manufacturer_agent, deps.channel, deps.prices, deps.scheduler, policy
+        )
 
     g = StateGraph(OrderState)
     # Ordering
@@ -132,7 +134,8 @@ async def send_reply(app, order_id: str, reply: Any) -> Optional[dict]:
     return _pending(await app.ainvoke(Command(resume=reply), _config(order_id)))
 
 
-EVENT_WAITS = {"manufacturer_reply": WAIT_MANUFACTURER}
+# Which wait point each event type may resume. Timeouts are manufacturer-phase only for now.
+EVENT_WAITS = {"manufacturer_reply": WAIT_MANUFACTURER, "timeout": WAIT_MANUFACTURER}
 
 
 class OrderNotWaiting(Exception):

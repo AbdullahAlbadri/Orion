@@ -21,3 +21,10 @@ def render_request(spec: ProductSpec, spec_zh: dict) -> str:
     lines += [f"- {f['label_zh']}：{f['value_zh']}" for f in spec_zh["fields"]]
     lines += ["", "如有任何问题请随时告诉我们，谢谢！"]
     return "\n".join(lines)
+
+
+def render_reminder(spec_zh: dict) -> str:
+    return (
+        f"您好，想跟进一下我们之前发送的「{spec_zh['product_zh']}」询价。"
+        "方便的话请回复报价、起订量和交期，谢谢！"
+    )

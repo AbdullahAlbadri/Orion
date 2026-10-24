@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from psycopg_pool import AsyncConnectionPool
 
 from orion.config.settings import Settings
-from orion.db.stores import ManufacturerDirectory, PriceStore
+from orion.db.stores import ManufacturerDirectory, PriceStore, Scheduler
 from orion.tools.channel import Channel
 from orion.tools.llm import Consultant, OpenRouterConsultant
 from orion.tools.manufacturer_llm import ManufacturerAgent, OpenRouterManufacturerAgent
@@ -18,6 +18,7 @@ class Deps:
     directory: ManufacturerDirectory
     prices: PriceStore
     channel: Channel
+    scheduler: Scheduler
 
 
 def openrouter_agents(settings: Settings) -> tuple[Consultant, ManufacturerAgent]:
@@ -29,7 +30,7 @@ def openrouter_agents(settings: Settings) -> tuple[Consultant, ManufacturerAgent
 
 
 def postgres_deps(settings: Settings, pool: AsyncConnectionPool) -> Deps:
-    from orion.db.postgres import ManualRelayChannel, PostgresDirectory, PostgresPriceStore
+    from orion.db.postgres import ManualRelayChannel, PostgresDirectory, PostgresPriceStore, PostgresScheduler
 
     consultant, manufacturer_agent = openrouter_agents(settings)
     return Deps(
@@ -38,4 +39,5 @@ def postgres_deps(settings: Settings, pool: AsyncConnectionPool) -> Deps:
         directory=PostgresDirectory(pool),
         prices=PostgresPriceStore(pool),
         channel=ManualRelayChannel(pool),
+        scheduler=PostgresScheduler(pool),
     )

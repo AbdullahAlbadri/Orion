@@ -1,12 +1,13 @@
 """Postgres implementations of the stores and the manual relay channel."""
 
+from datetime import datetime, timedelta
 from typing import Optional
 
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from psycopg_pool import AsyncConnectionPool
 
-from orion.db.stores import Manufacturer, PriceRecord
+from orion.db.stores import DeadlineKind, Manufacturer, PriceRecord
 from orion.tools.channel import OutgoingMessage
 
 
@@ -15,7 +16,7 @@ def make_pool(database_url: str) -> AsyncConnectionPool:
     return AsyncConnectionPool(
         database_url,
         min_size=1,
-        max_size=5,
+        max_size=10,   # an order lock holds one connection while the graph runs
         open=False,
         kwargs={"autocommit": True, "prepare_threshold": 0, "row_factory": dict_row},
     )
@@ -90,6 +91,76 @@ class PostgresPriceStore:
                 data,
             )
             return cur.rowcount == 1
+
+
+class PostgresScheduler:
+    """Deadlines table. Nodes call schedule/cancel; the worker calls claim_due/finish/retry."""
+
+    def __init__(self, pool: AsyncConnectionPool):
+        self.pool = pool
+
+    async def schedule(self, order_id: str, kind: DeadlineKind, ref: str, due_at: datetime) -> None:
+        async with self.pool.connection() as conn:
+            await conn.execute(
+                """
+                INSERT INTO deadlines (order_id, kind, ref, due_at) VALUES (%s, %s, %s, %s)
+                ON CONFLICT (order_id, kind, ref) DO UPDATE SET
+                    due_at = EXCLUDED.due_at, status = 'pending', generation = deadlines.generation + 1,
+                    tries = 0, last_error = NULL, claimed_at = NULL, fired_at = NULL
+                """,
+                (order_id, kind, ref, due_at),
+            )
+
+    async def cancel(self, order_id: str, kind: DeadlineKind, ref: str) -> None:
+        async with self.pool.connection() as conn:
+            await conn.execute(
+                "UPDATE deadlines SET status = 'cancelled' "
+                "WHERE order_id = %s AND kind = %s AND ref = %s AND status = 'pending'",
+                (order_id, kind, ref),
+            )
+
+    async def claim_due(self, limit: int = 20) -> list[dict]:
+        """Mark due rows as firing and return them. SKIP LOCKED lets several workers run safely."""
+        async with self.pool.connection() as conn:
+            cur = await conn.execute(
+                """
+                UPDATE deadlines SET status = 'firing', tries = tries + 1, claimed_at = now()
+                WHERE id IN (
+                    SELECT id FROM deadlines WHERE status = 'pending' AND due_at <= now()
+                    ORDER BY due_at LIMIT %s FOR UPDATE SKIP LOCKED
+                )
+                RETURNING id, order_id, kind, ref, due_at, generation, tries
+                """,
+                (limit,),
+            )
+            return await cur.fetchall()
+
+    async def finish(self, deadline: dict, status: str, error: Optional[str] = None) -> None:
+        """fired / skipped / failed. No-op if the deadline was rescheduled while firing."""
+        async with self.pool.connection() as conn:
+            await conn.execute(
+                "UPDATE deadlines SET status = %s, fired_at = now(), last_error = %s "
+                "WHERE id = %s AND status = 'firing' AND generation = %s",
+                (status, error, deadline["id"], deadline["generation"]),
+            )
+
+    async def retry(self, deadline: dict, delay: timedelta, error: str) -> None:
+        async with self.pool.connection() as conn:
+            await conn.execute(
+                "UPDATE deadlines SET status = 'pending', due_at = now() + %s, last_error = %s, claimed_at = NULL "
+                "WHERE id = %s AND status = 'firing' AND generation = %s",
+                (delay, error, deadline["id"], deadline["generation"]),
+            )
+
+    async def release_stuck(self, older_than: timedelta) -> int:
+        """Rows left 'firing' by a worker that crashed go back to pending."""
+        async with self.pool.connection() as conn:
+            cur = await conn.execute(
+                "UPDATE deadlines SET status = 'pending', claimed_at = NULL "
+                "WHERE status = 'firing' AND claimed_at < now() - %s",
+                (older_than,),
+            )
+            return cur.rowcount
 
 
 class ManualRelayChannel:

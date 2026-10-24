@@ -2,16 +2,21 @@
 
 The flow after the spec is frozen:
 translate_spec → contact_manufacturer → (wait) → handle_manufacturer_event → (wait | contact next)
+
+handle_manufacturer_event takes two event types:
+- manufacturer_reply: {"type", "event_id", "manufacturer_id", "text"}
+- timeout:            {"type", "event_id", "kind", "ref"} fired by the worker from the deadlines table
 """
 
 import logging
 import re
 from datetime import datetime, timedelta, timezone
 
+from orion.config.china_calendar import KNOWN_YEARS, add_working_days
 from orion.config.markets import MARKETS, get_questions
 from orion.config.policy import Policy
-from orion.db.stores import ManufacturerDirectory, PriceRecord, PriceStore
-from orion.graph.manufacturer_request import NOT_TRANSLATED, render_request
+from orion.db.stores import ManufacturerDirectory, PriceRecord, PriceStore, Scheduler
+from orion.graph.manufacturer_request import NOT_TRANSLATED, render_reminder, render_request
 from orion.graph.state import OrderState
 from orion.spec import QUANTITY_ID, ProductSpec
 from orion.tools.channel import BlockedMessage, Channel, OutgoingMessage, send_to_manufacturer
@@ -20,6 +25,8 @@ from orion.tools.price_guard import find_negotiation
 from orion.tools.prices import check_price
 
 log = logging.getLogger(__name__)
+
+STILL_WAITING = ("waiting", "clarifying")   # attempt outcomes where the reply clock is running
 
 
 def _now() -> datetime:
@@ -43,6 +50,14 @@ def _with_tasks(state: OrderState, reasons: list[str], **context) -> dict:
     return {"human_tasks": tasks, "needs_human": reasons[-1]}
 
 
+def _reply_deadline(days: int) -> tuple[datetime, list[str]]:
+    due = add_working_days(_now(), days)
+    tasks = []
+    if due.year not in KNOWN_YEARS:
+        tasks.append(f"China holiday calendar for {due.year} is missing; deadline counts weekends only")
+    return due, tasks
+
+
 async def translate_spec(state: OrderState, agent: ManufacturerAgent) -> dict:
     """Translate the frozen spec once. Code checks every answer is covered."""
     spec = _spec(state)
@@ -64,9 +79,9 @@ async def translate_spec(state: OrderState, agent: ManufacturerAgent) -> dict:
 
 
 async def contact_manufacturer(
-    state: OrderState, directory: ManufacturerDirectory, channel: Channel, policy: Policy
+    state: OrderState, directory: ManufacturerDirectory, channel: Channel, scheduler: Scheduler, policy: Policy
 ) -> dict:
-    """Send the quote request to the next manufacturer on the ranked list."""
+    """Send the quote request to the next manufacturer on the ranked list and start its reply clock."""
     spec = _spec(state)
     attempts = list(state.get("manufacturer_attempts", []))
     contacted = {a["manufacturer_id"] for a in attempts}
@@ -75,18 +90,17 @@ async def contact_manufacturer(
 
     if manufacturer is None:
         return {
-            "stage": "sourcing",
             "current_manufacturer": None,
             **_with_tasks(state, [f"No manufacturer left to contact for {spec.market}/{spec.option}"]),
         }
 
-    now = _now()
+    due, tasks = _reply_deadline(policy.manufacturer_timeout_days)
     attempt = {
         "manufacturer_id": manufacturer.id,
         "name": manufacturer.name,
-        "contacted_at": now.isoformat(),
-        # TODO(step 5): count China working days and fire the timeout event
-        "deadline_at": (now + timedelta(days=policy.manufacturer_timeout_days)).isoformat(),
+        "contacted_at": _now().isoformat(),
+        "deadline_at": due.isoformat(),
+        "reminded": False,
         "outcome": "waiting",
     }
     message = OutgoingMessage(
@@ -95,15 +109,15 @@ async def contact_manufacturer(
         manufacturer_id=manufacturer.id,
         text=render_request(spec, state["spec_zh"]),
     )
-    tasks = []
     try:
         await send_to_manufacturer(channel, message)
+        await scheduler.schedule(state["order_id"], "manufacturer_reply", manufacturer.id, due)
     except BlockedMessage as e:
         attempt["outcome"] = "blocked"
         tasks.append(f"Quote request to {manufacturer.name} blocked by the price guard ({e}); check the spec")
 
     return {
-        "stage": "sourcing",
+        "stage": "quote_received" if state.get("quotes") else "sourcing",
         "manufacturer_attempts": attempts + [attempt],
         "current_manufacturer": manufacturer.id if attempt["outcome"] == "waiting" else None,
         **_with_tasks(state, tasks, manufacturer_id=manufacturer.id),
@@ -111,12 +125,16 @@ async def contact_manufacturer(
 
 
 def _ignored(state: OrderState, event: dict) -> bool:
-    """Rule 7: idempotent, and only events this order is waiting for."""
+    """Rule 7: idempotent, and only events this order can act on."""
+    if not isinstance(event, dict) or not event.get("event_id"):
+        return True
+    if event["event_id"] in state.get("processed_events", []):
+        return True
+    if event.get("type") == "timeout":
+        return event.get("kind") not in ("manufacturer_reply", "quote_expiry") or not event.get("ref")
     contacted = {a["manufacturer_id"] for a in state.get("manufacturer_attempts", [])}
     return (
         event.get("type") != "manufacturer_reply"
-        or not event.get("event_id")
-        or event["event_id"] in state.get("processed_events", [])
         or event.get("manufacturer_id") not in contacted
         or not str(event.get("text") or "").strip()
     )
@@ -127,22 +145,91 @@ async def handle_manufacturer_event(
     agent: ManufacturerAgent,
     channel: Channel,
     prices: PriceStore,
+    scheduler: Scheduler,
+    policy: Policy,
 ) -> dict:
     event = state.get("event") or {}
-    update: dict = {"event": None, "manufacturer_next": "wait"}
-    if not isinstance(event, dict) or _ignored(state, event):
+    if _ignored(state, event):
         log.info("order %s ignored event %r", state.get("order_id"), event)
-        return update
+        return {"event": None, "manufacturer_next": "wait"}
 
+    update = {
+        "event": None,
+        "manufacturer_next": "wait",
+        "processed_events": list(state.get("processed_events", [])) + [event["event_id"]],
+    }
+    if event["type"] == "timeout":
+        update.update(await _handle_timeout(state, event, channel, scheduler, policy))
+    else:
+        update.update(await _handle_reply(state, event, agent, channel, prices, scheduler, policy))
+    return update
+
+
+async def _handle_timeout(
+    state: OrderState, event: dict, channel: Channel, scheduler: Scheduler, policy: Policy
+) -> dict:
+    order_id, kind, ref = state["order_id"], event["kind"], event["ref"]
+
+    if kind == "quote_expiry":
+        quotes = [dict(q) for q in state.get("quotes", [])]
+        quote = next((q for q in quotes if q.get("quote_id") == ref), None)
+        if quote is None or quote.get("expired"):
+            return {}
+        quote["expired"] = True
+        return {
+            "quotes": quotes,
+            **_with_tasks(state, [f"Quote from {quote['manufacturer_id']} expired before the customer decided"],
+                          manufacturer_id=quote["manufacturer_id"]),
+        }
+
+    # manufacturer_reply: no usable reply in time
+    attempts = [dict(a) for a in state.get("manufacturer_attempts", [])]
+    attempt = next((a for a in attempts if a["manufacturer_id"] == ref), None)
+    if attempt is None or attempt["outcome"] not in STILL_WAITING:
+        return {}   # the clock already stopped (quote, decline...)
+
+    if not attempt.get("reminded"):
+        # One reminder before escalating
+        due, tasks = _reply_deadline(policy.manufacturer_reminder_days)
+        attempt.update(reminded=True, deadline_at=due.isoformat())
+        try:
+            await send_to_manufacturer(channel, OutgoingMessage(
+                id=f"{order_id}:reminder:{ref}",
+                order_id=order_id,
+                manufacturer_id=ref,
+                text=render_reminder(state["spec_zh"]),
+            ))
+            await scheduler.schedule(order_id, "manufacturer_reply", ref, due)
+        except BlockedMessage as e:
+            tasks.append(f"Reminder to {attempt['name']} blocked by the price guard ({e})")
+        return {"manufacturer_attempts": attempts, **_with_tasks(state, tasks, manufacturer_id=ref)}
+
+    # Already reminded: move on, but keep this manufacturer open (nothing is committed yet)
+    attempt["outcome"] = "no_reply"
+    update = {"manufacturer_attempts": attempts}
+    if state.get("current_manufacturer") == ref:
+        update["current_manufacturer"] = None
+        update["manufacturer_next"] = "contact_next"
+    return update
+
+
+async def _handle_reply(
+    state: OrderState,
+    event: dict,
+    agent: ManufacturerAgent,
+    channel: Channel,
+    prices: PriceStore,
+    scheduler: Scheduler,
+    policy: Policy,
+) -> dict:
     order_id, event_id, manufacturer_id = state["order_id"], event["event_id"], event["manufacturer_id"]
     text = str(event["text"]).strip()
-    update["processed_events"] = list(state.get("processed_events", [])) + [event_id]
     await channel.record_incoming(event_id, order_id, manufacturer_id, text)
 
     spec = _spec(state)
-    spec_zh = state["spec_zh"]
-    analysis = await agent.analyze_reply(spec, spec_zh, text)
+    analysis = await agent.analyze_reply(spec, state["spec_zh"], text)
     tasks: list[str] = []
+    update: dict = {}
 
     # Negotiation: never answered by the AI. Code check plus the model's flag.
     if find_negotiation(text) or analysis.mentions_negotiation:
@@ -193,25 +280,32 @@ async def handle_manufacturer_event(
 
     attempts = [dict(a) for a in state.get("manufacturer_attempts", [])]
     attempt = next(a for a in attempts if a["manufacturer_id"] == manufacturer_id)
-    now = _now().isoformat()
+    now = _now()
 
     if analysis.kind == "decline":
         attempt["outcome"] = "declined"
+        await scheduler.cancel(order_id, "manufacturer_reply", manufacturer_id)
         if state.get("current_manufacturer") == manufacturer_id:
             update["current_manufacturer"] = None
             update["manufacturer_next"] = "contact_next"
     elif analysis.kind == "quote":
-        attempt.update(outcome="quoted", answered_at=now)
+        # The clock stops only on a message with what we asked for, not on "received"
+        attempt.update(outcome="quoted", answered_at=now.isoformat())
+        await scheduler.cancel(order_id, "manufacturer_reply", manufacturer_id)
         if recorded:
+            expires_at = now + timedelta(days=policy.quote_validity_days)
+            await scheduler.schedule(order_id, "quote_expiry", event_id, expires_at)
             update["stage"] = "quote_received"
             update["quotes"] = list(state.get("quotes", [])) + [{
+                "quote_id": event_id,
                 "manufacturer_id": manufacturer_id,
-                "event_id": event_id,
                 "prices": recorded,
                 "moq": analysis.moq,
                 "lead_time_days": analysis.lead_time_days,
                 "sample_terms": analysis.sample_terms,
                 "summary": analysis.summary_en,
+                "expires_at": expires_at.isoformat(),
+                "expired": False,
             }]
             # TODO(decide): customer quote document (fee, shipping, customs) is not designed yet
             tasks.append("Quote received: prepare the customer quote")
@@ -219,7 +313,8 @@ async def handle_manufacturer_event(
             tasks.append("Manufacturer sent a quote but no price could be extracted")
     elif analysis.questions and attempt["outcome"] == "waiting":
         attempt["outcome"] = "clarifying"
-        update["stage"] = "clarifying"
+        if state.get("stage") == "sourcing":
+            update["stage"] = "clarifying"
 
     if analysis.questions and analysis.kind != "decline":
         tasks += await _answer_questions(state, agent, channel, spec, analysis.questions, event_id, manufacturer_id)

@@ -15,7 +15,7 @@ from contextlib import asynccontextmanager
 from langgraph.checkpoint.memory import InMemorySaver
 
 from orion.config.settings import get_settings
-from orion.db.stores import InMemoryDirectory, InMemoryOutbox, InMemoryPriceStore, Manufacturer
+from orion.db.stores import InMemoryDirectory, InMemoryOutbox, InMemoryPriceStore, InMemoryScheduler, Manufacturer
 from orion.deps import Deps, openrouter_agents
 from orion.graph.graph import build_graph, get_order, on_event, send_reply, start_order, waiting_on
 from orion.relay import print_order, read_pasted_text
@@ -82,8 +82,9 @@ async def open_memory_app(settings):
         directory=InMemoryDirectory({("apparel", None): [DEV_MANUFACTURER]}),
         prices=InMemoryPriceStore(),
         channel=InMemoryOutbox(),
+        scheduler=InMemoryScheduler(),   # no worker in memory mode: deadlines are recorded, never fired
     )
-    yield build_graph(deps, InMemorySaver()), deps
+    yield build_graph(deps, InMemorySaver()), deps, None
 
 
 async def play_manufacturer(app, deps: Deps, order_id: str) -> bool:
@@ -115,7 +116,7 @@ async def main() -> None:
 
     settings = get_settings()
     opener = open_postgres_app(settings) if args.postgres else open_memory_app(settings)
-    async with opener as (app, deps):
+    async with opener as (app, deps, _pool):
         order_id = args.order or f"order-{uuid.uuid4().hex[:8]}"
         prompt = await waiting_on(app, order_id) if args.order else await start_order(app, order_id)
         print(f"Order {order_id}  (Ctrl+C to stop)")

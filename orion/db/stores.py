@@ -4,6 +4,7 @@ Each store is a Protocol with an in-memory implementation (tests, quick local ru
 Postgres implementations live in orion/db/postgres.py.
 """
 
+from datetime import datetime
 from typing import Any, Literal, Optional, Protocol
 
 from pydantic import BaseModel
@@ -50,6 +51,17 @@ class PriceStore(Protocol):
     async def append(self, record: PriceRecord) -> bool: ...   # False if already recorded
 
 
+DeadlineKind = Literal["manufacturer_reply", "quote_expiry"]
+
+
+class Scheduler(Protocol):
+    """Deadlines for time-based events. One deadline per (order, kind, ref); scheduling again moves it."""
+
+    async def schedule(self, order_id: str, kind: DeadlineKind, ref: str, due_at: datetime) -> None: ...
+
+    async def cancel(self, order_id: str, kind: DeadlineKind, ref: str) -> None: ...
+
+
 # --- in-memory implementations ------------------------------------------------------
 
 class InMemoryDirectory:
@@ -72,6 +84,22 @@ class InMemoryPriceStore:
             return False
         self.records[record.source_key] = record
         return True
+
+
+class InMemoryScheduler:
+    def __init__(self):
+        self.deadlines: dict[tuple[str, str, str], dict] = {}
+
+    async def schedule(self, order_id: str, kind: DeadlineKind, ref: str, due_at: datetime) -> None:
+        self.deadlines[(order_id, kind, ref)] = {"due_at": due_at, "status": "pending"}
+
+    async def cancel(self, order_id: str, kind: DeadlineKind, ref: str) -> None:
+        deadline = self.deadlines.get((order_id, kind, ref))
+        if deadline and deadline["status"] == "pending":
+            deadline["status"] = "cancelled"
+
+    def pending(self, order_id: str) -> dict[tuple[str, str], datetime]:
+        return {(k, r): d["due_at"] for (o, k, r), d in self.deadlines.items() if o == order_id and d["status"] == "pending"}
 
 
 class InMemoryOutbox:

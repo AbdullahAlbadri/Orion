@@ -8,10 +8,10 @@ import json
 from typing import Literal, Optional, Protocol
 
 from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
 from orion.spec import ProductSpec
+from orion.tools.llm import OpenRouterModel
 from orion.tools.prices import ExtractedPrice
 from orion.tools.prompts import ANALYZE_REPLY_SYSTEM, ANSWER_QUESTIONS_SYSTEM, TRANSLATE_SPEC_SYSTEM
 
@@ -71,19 +71,16 @@ def _spec_json(spec: ProductSpec) -> str:
 
 class OpenRouterManufacturerAgent:
     def __init__(self, api_key: str, base_url: str, model: str):
-        llm = ChatOpenAI(model=model, api_key=api_key, base_url=base_url, temperature=0)
-        self._translate = llm.with_structured_output(SpecTranslation, method="function_calling")
-        self._analyze = llm.with_structured_output(ReplyAnalysis, method="function_calling")
-        self._answer = llm.with_structured_output(DraftAnswers, method="function_calling")
+        self._model = OpenRouterModel(api_key, base_url, model, temperature=0)
 
     async def translate_spec(self, spec: ProductSpec, product_name: str) -> SpecTranslation:
-        return await self._translate.ainvoke([
+        return await self._model.structured(SpecTranslation).ainvoke([
             SystemMessage(TRANSLATE_SPEC_SYSTEM),
             HumanMessage(f"Product: {product_name}\n\nSpec:\n{_spec_json(spec)}"),
         ])
 
     async def analyze_reply(self, spec: ProductSpec, spec_zh: dict, message: str) -> ReplyAnalysis:
-        return await self._analyze.ainvoke([
+        return await self._model.structured(ReplyAnalysis).ainvoke([
             SystemMessage(ANALYZE_REPLY_SYSTEM),
             HumanMessage(
                 f"Our spec:\n{_spec_json(spec)}\n\n"
@@ -92,7 +89,7 @@ class OpenRouterManufacturerAgent:
         ])
 
     async def answer_questions(self, spec: ProductSpec, spec_zh: dict, questions: list[str]) -> DraftAnswers:
-        return await self._answer.ainvoke([
+        return await self._model.structured(DraftAnswers).ainvoke([
             SystemMessage(ANSWER_QUESTIONS_SYSTEM),
             HumanMessage(
                 f"Spec:\n{_spec_json(spec)}\n\nChinese spec:\n{json.dumps(spec_zh, ensure_ascii=False, indent=1)}"

@@ -12,7 +12,8 @@ class Policy(BaseModel):
     sample_policy: Literal["stub", "free", "paid"] = "stub"                                      # TODO(decide)
     sample_paid_separately: bool = False
     post_confirmation_changes: Literal["route_to_team"] = "route_to_team"
-    manufacturer_timeout_days: int = 3
+    manufacturer_timeout_days: int = 3           # China working days
+    manufacturer_reminder_days: int = 1          # TODO(decide): working days after the one reminder before moving on
     quote_validity_days: int = 7                 # TODO(decide), placeholder
     customer_response_expiry_days: int = 14      # TODO(decide), placeholder
     production_stage: Literal["stub_to_team"] = "stub_to_team"

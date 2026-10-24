@@ -15,8 +15,8 @@ import sys
 
 from orion.config.settings import get_settings
 from orion.db.stores import Manufacturer
-from orion.graph.graph import OrderNotWaiting, get_order, on_event
-from orion.runtime import manual_event_id, open_postgres_app
+from orion.graph.graph import OrderNotWaiting, get_order
+from orion.runtime import manual_event_id, open_postgres_app, send_event
 
 
 def read_pasted_text() -> str:
@@ -34,7 +34,9 @@ def print_order(order: dict) -> None:
     print(f"Order {order.get('order_id')}  stage={order.get('stage')}  "
           f"product={spec.get('option')}  qty={spec.get('quantity')}")
     for a in order.get("manufacturer_attempts", []):
-        print(f"  - {a['name']} ({a['manufacturer_id']}): {a['outcome']}, deadline {a['deadline_at'][:16]}")
+        reminded = ", reminded" if a.get("reminded") else ""
+        print(f"  - {a['name']} ({a['manufacturer_id']}): {a['outcome']}{reminded}, "
+              f"deadline {a['deadline_at'][:16]} UTC")
     for q in order.get("quotes", []):
         print(f"  quote from {q['manufacturer_id']}: {json.dumps(q['prices'], ensure_ascii=False)}"
               f" MOQ={q['moq']} lead={q['lead_time_days']}d")
@@ -68,7 +70,7 @@ async def main() -> None:
     show.add_argument("order_id")
     args = parser.parse_args()
 
-    async with open_postgres_app(get_settings()) as (app, deps):
+    async with open_postgres_app(get_settings()) as (app, deps, pool):
         directory, channel = deps.directory, deps.channel
 
         if args.command == "add-manufacturer":
@@ -110,7 +112,7 @@ async def main() -> None:
                 "text": text,
             }
             try:
-                await on_event(app, args.order_id, event)
+                await send_event(app, pool, args.order_id, event)
             except OrderNotWaiting as e:
                 print(f"Not processed: {e}")
                 return

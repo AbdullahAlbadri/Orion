@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from conftest import HOODIE_ANSWERS, ScriptedConsultant, ScriptedManufacturerAgent, turn
+from orion.config.china_calendar import add_working_days
 from orion.graph.graph import get_order, on_event, send_reply, start_order
 from orion.tools.manufacturer_llm import DraftAnswer, DraftAnswers, ReplyAnalysis, SpecMismatch
 from orion.tools.prices import ExtractedPrice
@@ -51,8 +52,9 @@ async def test_frozen_spec_sends_request_to_first_manufacturer(make_order):
     assert "中-embroidery" in request["text"]
     assert order["stage"] == "sourcing" and order["current_manufacturer"] == "factory-a"
     attempt = order["manufacturer_attempts"][0]
-    days = (datetime.fromisoformat(attempt["deadline_at"]) - datetime.fromisoformat(attempt["contacted_at"])).days
-    assert days == 3
+    contacted = datetime.fromisoformat(attempt["contacted_at"])
+    assert attempt["deadline_at"] == add_working_days(contacted, 3).isoformat()
+    assert deps.scheduler.pending("o1") == {("manufacturer_reply", "factory-a"): add_working_days(contacted, 3)}
 
 
 async def test_missing_translation_falls_back_to_original(make_order):

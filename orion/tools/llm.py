@@ -62,20 +62,33 @@ def render_context(ctx: ConsultContext, include_chat: bool = True) -> str:
     return "\n\n".join(parts)
 
 
+class OpenRouterModel:
+    """Creates the chat model on first use, so processes that never call the LLM run without a key."""
+
+    def __init__(self, api_key: str, base_url: str, model: str, temperature: float):
+        self._args = dict(model=model, api_key=api_key, base_url=base_url, temperature=temperature)
+        self._llm = None
+
+    def structured(self, schema: type[BaseModel]):
+        if self._llm is None:
+            if not self._args["api_key"]:
+                raise RuntimeError("OPENROUTER_API_KEY is empty in .env")
+            self._llm = ChatOpenAI(**self._args)
+        # function_calling is the most widely supported structured-output method on OpenRouter
+        return self._llm.with_structured_output(schema, method="function_calling")
+
+
 class OpenRouterConsultant:
     def __init__(self, api_key: str, base_url: str, model: str):
-        llm = ChatOpenAI(model=model, api_key=api_key, base_url=base_url, temperature=0.3)
-        # function_calling is the most widely supported structured-output method on OpenRouter
-        self._deep_dive = llm.with_structured_output(DeepDiveTurn, method="function_calling")
-        self._completeness = llm.with_structured_output(CompletenessReport, method="function_calling")
+        self._model = OpenRouterModel(api_key, base_url, model, temperature=0.3)
 
     async def deep_dive(self, ctx: ConsultContext) -> DeepDiveTurn:
-        return await self._deep_dive.ainvoke(
+        return await self._model.structured(DeepDiveTurn).ainvoke(
             [SystemMessage(CONSULTANT_SYSTEM), HumanMessage(render_context(ctx))]
         )
 
     async def check_completeness(self, ctx: ConsultContext) -> CompletenessReport:
         # Separate prompt and no chat history: the asker does not grade itself.
-        return await self._completeness.ainvoke(
+        return await self._model.structured(CompletenessReport).ainvoke(
             [SystemMessage(COMPLETENESS_SYSTEM), HumanMessage(render_context(ctx, include_chat=False))]
         )
