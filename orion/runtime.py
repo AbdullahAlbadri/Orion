@@ -8,9 +8,19 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from psycopg_pool import AsyncConnectionPool
 
 from orion.config.settings import Settings
+from orion.db.accounts import sync_order_row
 from orion.db.postgres import make_pool
 from orion.deps import Deps, postgres_deps
-from orion.graph.graph import build_graph, on_event
+from orion.graph.graph import (
+    INTERACTIVE_STEPS,
+    OrderNotWaiting,
+    build_graph,
+    get_order,
+    on_event,
+    send_reply,
+    start_order,
+    waiting_on,
+)
 
 
 @asynccontextmanager
@@ -37,7 +47,30 @@ async def order_lock(pool: AsyncConnectionPool, order_id: str):
 async def send_event(app, pool: AsyncConnectionPool, order_id: str, event: dict) -> Optional[dict]:
     """on_event under the order lock. Use this from every process that resumes orders."""
     async with order_lock(pool, order_id):
-        return await on_event(app, order_id, event)
+        try:
+            return await on_event(app, order_id, event)
+        finally:
+            await sync_order_row(pool, await get_order(app, order_id))
+
+
+async def start_customer_order(app, pool: AsyncConnectionPool, order_id: str) -> Optional[dict]:
+    async with order_lock(pool, order_id):
+        try:
+            return await start_order(app, order_id)
+        finally:
+            await sync_order_row(pool, await get_order(app, order_id))
+
+
+async def send_customer_reply(app, pool: AsyncConnectionPool, order_id: str, reply) -> Optional[dict]:
+    """The customer's answer to the prompt the order is paused on. Raises OrderNotWaiting otherwise."""
+    async with order_lock(pool, order_id):
+        waiting = await waiting_on(app, order_id)
+        if not waiting or waiting.get("step") not in INTERACTIVE_STEPS:
+            raise OrderNotWaiting(f"order {order_id} is not waiting for the customer")
+        try:
+            return await send_reply(app, order_id, reply)
+        finally:
+            await sync_order_row(pool, await get_order(app, order_id))
 
 
 def manual_event_id(order_id: str, manufacturer_id: str, text: str) -> str:

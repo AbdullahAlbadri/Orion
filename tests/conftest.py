@@ -11,6 +11,31 @@ from orion.tools.llm import AnswerUpdate, CompletenessReport, ConsultContext, De
 from orion.tools.manufacturer_llm import DraftAnswers, ReplyAnalysis, SpecTranslation, TranslatedField
 
 
+@pytest.fixture(scope="session")
+def pg_url():
+    """A fresh, migrated `orion_test` database per test run. Skips the test when Postgres is not running."""
+    import psycopg
+    from alembic import command
+    from alembic.config import Config
+    from psycopg.conninfo import conninfo_to_dict
+
+    from orion.config.settings import get_settings
+
+    try:
+        base = get_settings().database_url
+        with psycopg.connect(base, autocommit=True, connect_timeout=3) as conn:
+            conn.execute("DROP DATABASE IF EXISTS orion_test WITH (FORCE)")
+            conn.execute("CREATE DATABASE orion_test")
+    except Exception as e:  # no settings or no server
+        pytest.skip(f"Postgres not available: {e}")
+
+    url = "postgresql://{user}:{password}@{host}:{port}/orion_test".format(**conninfo_to_dict(base))
+    cfg = Config("alembic.ini")
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.upgrade(cfg, "head")
+    return url
+
+
 def pytest_asyncio_loop_factories(config, item):
     # psycopg's async mode needs a selector event loop; Windows defaults to proactor.
     return {"selector": asyncio.SelectorEventLoop}

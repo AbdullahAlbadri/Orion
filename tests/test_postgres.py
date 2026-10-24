@@ -6,13 +6,9 @@ from datetime import datetime, timezone
 
 import psycopg
 import pytest
-from alembic import command
-from alembic.config import Config
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
 from conftest import HOODIE_ANSWERS, ScriptedConsultant, ScriptedManufacturerAgent, turn
-from orion.config.settings import get_settings
 from orion.db.postgres import (
     ManualRelayChannel,
     PostgresDirectory,
@@ -28,25 +24,6 @@ from orion.tools.prices import ExtractedPrice
 from orion.worker import fire_due
 
 QUOTE = "单价45元/件，含税，FOB深圳，起订量100件"
-
-
-@pytest.fixture(scope="module")
-def pg_url():
-    try:
-        base = get_settings().database_url
-        with psycopg.connect(base, autocommit=True, connect_timeout=3) as conn:
-            # Fresh database every run so earlier runs' rows never affect results
-            conn.execute("DROP DATABASE IF EXISTS orion_test WITH (FORCE)")
-            conn.execute("CREATE DATABASE orion_test")
-    except Exception as e:  # no settings or no server
-        pytest.skip(f"Postgres not available: {e}")
-
-    url = make_conninfo(**(conninfo_to_dict(base) | {"dbname": "orion_test"}))
-    url = "postgresql://{user}:{password}@{host}:{port}/{dbname}".format(**conninfo_to_dict(url))
-    cfg = Config("alembic.ini")
-    cfg.set_main_option("sqlalchemy.url", url)
-    command.upgrade(cfg, "head")
-    return url
 
 
 async def test_order_through_postgres(pg_url):
