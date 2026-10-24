@@ -154,6 +154,17 @@ async def on_event(app, order_id: str, event: dict) -> Optional[dict]:
     return _pending(await app.ainvoke(Command(resume=event), _config(order_id)))
 
 
+async def update_paused_order(app, order_id: str, values: dict) -> Optional[dict]:
+    """Change a paused order's state from outside (team actions, e.g. resolving flags).
+
+    update_state writes a new checkpoint, which drops the record of the pending interrupt; running the
+    graph with no input re-enters the same wait node, which pauses again on the same prompt.
+    """
+    config = _config(order_id)
+    await app.aupdate_state(config, values)
+    return _pending(await app.ainvoke(None, config))
+
+
 async def get_order(app, order_id: str) -> OrderState:
     return (await app.aget_state(_config(order_id))).values
 

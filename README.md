@@ -91,7 +91,24 @@ uv run python -m orion.cli --postgres              # same, saved in Postgres; ma
 uv run python -m orion.cli --postgres --order ID   # resume a saved order
 ```
 
-### Manual relay (team, while there is no WeChat/email integration)
+### API and team console
+
+```bash
+uv run python -m orion.admin add-member you@example.com --role admin   # first admin (once)
+uv run python -m orion.api                                             # http://localhost:8000
+```
+
+- API docs (try every endpoint): http://localhost:8000/docs
+- Team console: http://localhost:8000/console/ (log in with an email code)
+- Until an email service is connected, login codes are printed in the API terminal.
+
+Login is passwordless: a one-time email code (or link), or Google / Apple sign-in once `GOOGLE_CLIENT_ID` /
+`APPLE_CLIENT_ID` are set. Access tokens last 15 minutes; the refresh token is an httpOnly cookie that rotates on
+every use, and replaying an old one logs that user out everywhere. Customers and team members are separate
+accounts; team roles are `admin` and `agent`. Customers only see their own orders, never manufacturer data or
+prices.
+
+### Manual relay from the terminal (same actions as the console)
 
 ```bash
 uv run python -m orion.relay add-manufacturer factory-a "Factory A" --contact "WeChat: abc" --market apparel --option hoodie --rank 1
@@ -141,6 +158,10 @@ dates when the notice comes out (around November)**; until then a deadline in an
 | `orion/worker.py` | Background worker: fires due deadlines as `timeout` events |
 | `orion/runtime.py` | Opens the Postgres-backed graph; per-order advisory lock (`send_event`) |
 | `orion/config/china_calendar.py` | China working days and official holidays |
+| `orion/api/` | FastAPI app: `auth.py` (login), `orders.py` (customer), `team.py` (team), `console/` (team page) |
+| `orion/api/security.py`, `oidc.py` | Login codes, JWTs, refresh tokens; Google / Apple ID token checks |
+| `orion/db/accounts.py` | Customers, team members, login codes, refresh tokens, orders table |
+| `orion/admin.py` | Create team members from the terminal |
 
 Events: `on_event(app, order_id, event)` resumes an order only if it is waiting for that event type, and `handle_manufacturer_event` ignores event ids it has already processed. Processes that resume orders (relay, worker, later the API) go through `send_event`, which holds a per-order lock so events for one order never run at the same time.
 
@@ -155,7 +176,7 @@ Customer interaction contract: the graph pauses with a `pending` prompt (`kind` 
 3. [x] Ordering graph: market → option → mandatory questions → AI gap-closing → pre-receipt → freeze spec (tested with a fake LLM; real-LLM run pending)
 4. [x] Manufacturer node with manual relay, price extraction, price dataset (customer quote document still to design)
 5. [x] Event handler and timers (3-day manufacturer timeout with one reminder, quote expiry; customer abandonment not yet)
-6. [ ] API and auth, then website connection
+6. [ ] API and auth, then website connection (API, login and team console done; customer website next)
 7. [ ] Real email / WeCom channels, stats page, deployment
 8. [ ] Paperwork graph (separate)
 

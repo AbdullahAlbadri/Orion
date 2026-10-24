@@ -10,7 +10,7 @@ from orion.api.security import TokenClaims
 from orion.api.views import team_order_view
 from orion.db.stores import Manufacturer
 from orion.graph.graph import OrderNotWaiting, get_order, waiting_on
-from orion.runtime import manual_event_id, send_event
+from orion.runtime import manual_event_id, resolve_human_tasks, send_event
 
 router = APIRouter(prefix="/team", tags=["team"])
 agent = team_member("agent")
@@ -71,6 +71,16 @@ async def manufacturer_reply(
     except OrderNotWaiting as e:
         raise HTTPException(status.HTTP_409_CONFLICT, str(e)) from None
     return team_order_view(await get_order(c.graph, order_id), await waiting_on(c.graph, order_id))
+
+
+@router.post("/orders/{order_id}/resolve")
+async def resolve(order_id: str, c: ApiContext = Depends(ctx), member: TokenClaims = Depends(agent)) -> dict:
+    """The team handled everything flagged on this order."""
+    try:
+        state = await resolve_human_tasks(c.graph, c.pool, order_id, member.email)
+    except LookupError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "order not found") from None
+    return team_order_view(state, await waiting_on(c.graph, order_id))
 
 
 @router.get("/outbox")

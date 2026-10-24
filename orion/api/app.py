@@ -2,10 +2,12 @@
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from orion.api import auth, orders, team
 from orion.api.context import ApiContext
@@ -16,6 +18,13 @@ from orion.runtime import open_postgres_app
 from orion.tools.email import ConsoleEmailSender
 
 log = logging.getLogger("orion.api")
+
+CONSOLE_DIR = Path(__file__).parent / "console"
+# Only our own script, styles and API calls; no inline script; cannot be framed
+CONSOLE_CSP = (
+    "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; "
+    "frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+)
 
 
 def _check_secrets(settings: Settings) -> None:
@@ -62,6 +71,18 @@ def create_app(context: Optional[ApiContext] = None, settings: Optional[Settings
     app.include_router(auth.router)
     app.include_router(orders.router)
     app.include_router(team.router)
+
+    # Team console: static page using the team API from the same origin
+    app.mount("/console", StaticFiles(directory=CONSOLE_DIR, html=True), name="console")
+
+    @app.middleware("http")
+    async def console_headers(request: Request, call_next):
+        response = await call_next(request)
+        if request.url.path.startswith("/console"):
+            response.headers["Content-Security-Policy"] = CONSOLE_CSP
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            response.headers["Referrer-Policy"] = "no-referrer"
+        return response
 
     @app.get("/health", tags=["meta"])
     async def health() -> dict:

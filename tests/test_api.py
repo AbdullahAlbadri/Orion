@@ -73,7 +73,7 @@ async def api(pg_url):
             kind="quote", summary_en="quote",
             prices=[ExtractedPrice(unit_price=45, currency="元", unit="piece", incoterm="FOB",
                                    tax_included=True, quoted_text="单价45元/件")],
-        )])
+        ), ReplyAnalysis(kind="acknowledgement", summary_en="ok")])
         deps = Deps(
             consultant=DoneConsultant(), manufacturer_agent=agent, directory=Directory(),
             prices=PostgresPriceStore(pool), channel=ManualRelayChannel(pool), scheduler=PostgresScheduler(pool),
@@ -184,6 +184,14 @@ async def test_google_login(api):
 
 # --- team -------------------------------------------------------------------------
 
+async def test_console_is_served_with_strict_headers(api):
+    page = await api.get("/console/")
+    assert page.status_code == 200 and "console.js" in page.text
+    assert "script-src 'self'" in page.headers["content-security-policy"]
+    assert "frame-ancestors 'none'" in page.headers["content-security-policy"]
+    script = await api.get("/console/console.js")
+    assert script.status_code == 200 and "innerHTML" not in script.text.replace("never innerHTML", "")
+
 async def test_team_login_and_roles(api):
     admin_email, agent_email = f"admin-{api.run}@orion-team.com", f"agent-{api.run}@orion-team.com"
     await api.ctx.accounts.add_team_member(admin_email, "Admin", "admin")
@@ -260,3 +268,13 @@ async def test_team_relays_a_manufacturer_quote(api):
     # The customer sees progress, not the price
     view = (await api.get(f"/orders/{order_id}", headers=_auth(customer))).json()
     assert view["status"]["en"] == "Preparing your quote" and "45" not in str(view)
+
+    # The team resolves the flags: off the list, history kept, and the order still waits for replies
+    r = await api.post(f"/team/orders/{order_id}/resolve", headers=_auth(agent))
+    assert r.status_code == 200 and r.json()["needs_human"] is None
+    assert all(t["resolved_by"] == f"relay-{api.run}@orion-team.com" for t in r.json()["human_tasks"])
+    flagged = (await api.get("/team/orders", params={"needs_human": True}, headers=_auth(agent))).json()
+    assert order_id not in [o["id"] for o in flagged]
+    body = {"manufacturer_id": api.manufacturer.id, "text": "收到"}
+    r = await api.post(f"/team/orders/{order_id}/manufacturer-replies", json=body, headers=_auth(agent))
+    assert r.status_code == 200 and r.json()["waiting"]["waiting_on"] == "manufacturer"

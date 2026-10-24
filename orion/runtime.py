@@ -2,6 +2,7 @@
 
 import hashlib
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from typing import Optional
 
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
@@ -19,6 +20,7 @@ from orion.graph.graph import (
     on_event,
     send_reply,
     start_order,
+    update_paused_order,
     waiting_on,
 )
 
@@ -71,6 +73,23 @@ async def send_customer_reply(app, pool: AsyncConnectionPool, order_id: str, rep
             return await send_reply(app, order_id, reply)
         finally:
             await sync_order_row(pool, await get_order(app, order_id))
+
+
+async def resolve_human_tasks(app, pool: AsyncConnectionPool, order_id: str, resolved_by: str) -> dict:
+    """Mark every open human task on the order as handled and clear needs_human. Tasks are kept as history."""
+    async with order_lock(pool, order_id):
+        state = await get_order(app, order_id)
+        if not state:
+            raise LookupError(order_id)
+        now = datetime.now(timezone.utc).isoformat()
+        tasks = [
+            t if t.get("resolved_at") else {**t, "resolved_at": now, "resolved_by": resolved_by}
+            for t in state.get("human_tasks", [])
+        ]
+        await update_paused_order(app, order_id, {"human_tasks": tasks, "needs_human": None})
+        state = await get_order(app, order_id)
+        await sync_order_row(pool, state)
+        return state
 
 
 def manual_event_id(order_id: str, manufacturer_id: str, text: str) -> str:

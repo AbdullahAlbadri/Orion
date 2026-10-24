@@ -1,0 +1,31 @@
+:root { --fg: #1d1d1f; --muted: #6e6e73; --line: #e3e3e8; --bg: #f7f7f9; --accent: #1f4fd8; --warn: #b54708; --warn-bg: #fff4e5; }
+* { box-sizing: border-box; }
+body { margin: 0; font: 14px/1.5 system-ui, -apple-system, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", sans-serif; color: var(--fg); background: var(--bg); }
+header { display: flex; gap: 24px; align-items: center; padding: 12px 24px; background: #fff; border-bottom: 1px solid var(--line); position: sticky; top: 0; flex-wrap: wrap; }
+nav { display: flex; gap: 16px; flex-wrap: wrap; }
+nav a { color: var(--muted); text-decoration: none; }
+nav a.active { color: var(--accent); font-weight: 600; }
+#who { margin-left: auto; color: var(--muted); }
+main { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+h1 { font-size: 20px; margin: 0 0 16px; }
+h2 { font-size: 16px; margin: 24px 0 8px; }
+.card { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; background: #fff; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
+tr.click { cursor: pointer; }
+tr.click:hover td { background: #f2f5ff; }
+pre { white-space: pre-wrap; word-break: break-word; background: var(--bg); padding: 12px; border-radius: 6px; margin: 8px 0; font: 13px/1.6 ui-monospace, Consolas, "Noto Sans SC", monospace; }
+.muted { color: var(--muted); }
+.flag { color: var(--warn); background: var(--warn-bg); border-radius: 4px; padding: 2px 6px; display: inline-block; }
+.done { color: var(--muted); text-decoration: line-through; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+input, select, textarea { font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+textarea { width: 100%; min-height: 120px; }
+button { font: inherit; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
+button.secondary { background: #fff; color: var(--accent); }
+button:disabled { opacity: .5; cursor: default; }
+.error { color: #b42318; margin-top: 8px; }
+.login { max-width: 360px; margin: 64px auto; }
+.login input { width: 100%; margin-bottom: 8px; }
