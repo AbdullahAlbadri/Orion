@@ -65,8 +65,17 @@ def render_context(ctx: ConsultContext, include_chat: bool = True) -> str:
 class OpenRouterModel:
     """Creates the chat model on first use, so processes that never call the LLM run without a key."""
 
-    def __init__(self, api_key: str, base_url: str, model: str, temperature: float):
-        self._args = dict(model=model, api_key=api_key, base_url=base_url, temperature=temperature)
+    def __init__(self, api_key: str, base_url: str, model: str, temperature: float, max_tokens: int):
+        self._args = dict(
+            model=model,
+            api_key=api_key,
+            base_url=base_url,
+            temperature=temperature,
+            # Always cap output: without it OpenRouter reserves the model's maximum against the key's budget
+            max_tokens=max_tokens,
+            timeout=60,
+            max_retries=2,
+        )
         self._llm = None
 
     def structured(self, schema: type[BaseModel]):
@@ -74,13 +83,14 @@ class OpenRouterModel:
             if not self._args["api_key"]:
                 raise RuntimeError("OPENROUTER_API_KEY is empty in .env")
             self._llm = ChatOpenAI(**self._args)
-        # function_calling is the most widely supported structured-output method on OpenRouter
-        return self._llm.with_structured_output(schema, method="function_calling")
+        # json_schema (constrained JSON output). Claude Sonnet 5.5 rejects the forced tool_choice
+        # that method="function_calling" sends.
+        return self._llm.with_structured_output(schema, method="json_schema")
 
 
 class OpenRouterConsultant:
     def __init__(self, api_key: str, base_url: str, model: str):
-        self._model = OpenRouterModel(api_key, base_url, model, temperature=0.3)
+        self._model = OpenRouterModel(api_key, base_url, model, temperature=0.3, max_tokens=1500)
 
     async def deep_dive(self, ctx: ConsultContext) -> DeepDiveTurn:
         return await self._model.structured(DeepDiveTurn).ainvoke(

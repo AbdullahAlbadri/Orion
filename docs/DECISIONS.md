@@ -18,6 +18,9 @@ Search the code for `TODO(decide)` to find every open flag.
 | Manufacturer learning | Feed real Chinese-manufacturer conversations to the manufacturer agent |
 | Repos | New backend repo; old n8n/landing-page repo stays separate as reference |
 | First test market | Fashion & apparel (build the full graph against it, then add other markets as config) |
+| Auth | Own JWT (no third-party auth provider). Customers sign in with email (one-time code or link) or Google / Apple; no passwords |
+| Team console | Simple internal page built with the API (team login only) |
+| Customer ordering screens | Built in this project alongside the API |
 
 ## Default flags (can be changed later)
 
@@ -35,7 +38,6 @@ Search the code for `TODO(decide)` to find every open flag.
 
 - Price dataset shape: per quantity bracket, or one price per product?
 - Weekly price collection: sent by a person, or a fixed agent message that only records answers?
-- Auth provider (Clerk, Supabase Auth, or own JWT)
 - Email approach (Gmail API vs transactional service plus inbox)
 - WeChat route (WeCom vs human relay first); verify current options
 - Payment provider, and licensing/tax/accounting advice

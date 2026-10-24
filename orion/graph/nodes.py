@@ -176,7 +176,8 @@ async def deep_dive(state: OrderState, consultant: Consultant) -> dict:
     # the AI must ask the customer something rather than declaring itself done again.
     ready = turn.ready_for_review and not (reply is None and spec.open_gaps)
     if not ready and (turn.ready_for_review or not message):
-        message = "Could you tell me more about: " + "; ".join(spec.open_gaps or ["any other details?"])
+        gaps = spec.open_gaps or ["Anything else the manufacturer should know?"]
+        message = "Just a few more details the manufacturer will need:\n" + "\n".join(f"- {g}" for g in gaps)
     if message:
         messages.append({"role": "orion", "content": message})
 
