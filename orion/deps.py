@@ -25,7 +25,7 @@ def openrouter_agents(settings: Settings) -> tuple[Consultant, ManufacturerAgent
     key = settings.openrouter_api_key.get_secret_value()
     return (
         OpenRouterConsultant(key, settings.openrouter_base_url, settings.consultant_model),
-        OpenRouterManufacturerAgent(key, settings.openrouter_base_url, settings.consultant_model),
+        OpenRouterManufacturerAgent(key, settings.openrouter_base_url, settings.manufacturer_model),
     )
 
 

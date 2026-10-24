@@ -28,14 +28,10 @@ async def check_openrouter(api_key: str, base_url: str, model: str) -> str:
 
 async def main() -> int:
     settings = get_settings()
-    checks = {
-        "Postgres": check_postgres(settings.database_url),
-        f"OpenRouter ({settings.consultant_model})": check_openrouter(
-            settings.openrouter_api_key.get_secret_value(),
-            settings.openrouter_base_url,
-            settings.consultant_model,
-        ),
-    }
+    key = settings.openrouter_api_key.get_secret_value()
+    checks = {"Postgres": check_postgres(settings.database_url)}
+    for role, model in [("customer", settings.consultant_model), ("manufacturer", settings.manufacturer_model)]:
+        checks[f"OpenRouter {role} ({model})"] = check_openrouter(key, settings.openrouter_base_url, model)
     results = await asyncio.gather(*checks.values(), return_exceptions=True)
 
     failed = False

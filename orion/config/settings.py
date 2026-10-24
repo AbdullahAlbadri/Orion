@@ -11,7 +11,8 @@ class Settings(BaseSettings):
 
     openrouter_api_key: SecretStr
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
-    consultant_model: str
+    consultant_model: str          # customer-facing chat (Arabic / English)
+    manufacturer_model: str        # Chinese manufacturer side: translation, reading replies, answers
     classifier_model: str
 
     database_url: str
