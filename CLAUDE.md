@@ -48,6 +48,8 @@ orion/
   db/          connection, migrations (Alembic)
   config/      markets, policy
 tests/
+evals/         paid real-LLM comparisons (ask before running)
+web/           customer website (Next.js, Arabic-first)
 docs/          DESIGN.md, DECISIONS.md, legacy/
 docker-compose.yml
 pyproject.toml
@@ -67,7 +69,7 @@ pyproject.toml
 
 ## Current task
 
-Steps 1 to 5 are built for **one test market: fashion & apparel** (chosen by the user; needs the size-by-quantity table in the spec). Next is step 6 (API and auth). Customer-abandonment timeouts are not built yet. Add the other markets as config once the loop works. Mock payments, email and the manufacturer channel at first.
+Steps 1 to 6 are built for **one test market: fashion & apparel** (chosen by the user; needs the size-by-quantity table in the spec). Next is step 7 (real email / WeCom, stats, deployment). Customer-abandonment timeouts, the customer quote document, and Arabic question text in the market config are not built yet. Add the other markets as config once the loop works. Mock payments, email and the manufacturer channel at first.
 
 ## Working style
 

@@ -108,6 +108,21 @@ every use, and replaying an old one logs that user out everywhere. Customers and
 accounts; team roles are `admin` and `agent`. Customers only see their own orders, never manufacturer data or
 prices.
 
+### Customer website (`web/`, Next.js)
+
+```bash
+cd web
+copy .env.local.example .env.local     # API url + Google client id (both public)
+npm install
+npm run dev                            # http://localhost:3000 (the API must be running on :8000)
+```
+
+Arabic (right-to-left) by default with an English switch. Login with an email code or Google; then the ordering
+flow (market → product → details form with a size table → chat → summary to confirm) and "My orders". Brand:
+yellow `#FEB72F`, red `#BC3039`, navy `#11101E`, off-white `#F8F8F8`; Work Sans for Latin text. The Arabic brand
+font (Swissra) is licensed, so IBM Plex Sans Arabic stands in until the licence files are added. Production
+address: `app.orionagentic.online`.
+
 ### Manual relay from the terminal (same actions as the console)
 
 ```bash
@@ -176,7 +191,7 @@ Customer interaction contract: the graph pauses with a `pending` prompt (`kind` 
 3. [x] Ordering graph: market → option → mandatory questions → AI gap-closing → pre-receipt → freeze spec (tested with a fake LLM; real-LLM run pending)
 4. [x] Manufacturer node with manual relay, price extraction, price dataset (customer quote document still to design)
 5. [x] Event handler and timers (3-day manufacturer timeout with one reminder, quote expiry; customer abandonment not yet)
-6. [ ] API and auth, then website connection (API, login and team console done; customer website next)
+6. [x] API and auth, then website connection (API, login, team console, customer website; logo mark still to add)
 7. [ ] Real email / WeCom channels, stats page, deployment
 8. [ ] Paperwork graph (separate)
 
