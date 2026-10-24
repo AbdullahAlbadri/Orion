@@ -32,9 +32,10 @@ async def test_happy_path_freezes_spec(make_app):
     assert "Total quantity: 150" in prompt["pre_receipt"]
     assert "Drawstrings: yes, flat black cotton" in prompt["pre_receipt"]
 
-    assert await send_reply(app, "order-1", {"confirm": True}) is None
+    prompt = await send_reply(app, "order-1", {"confirm": True})
+    assert prompt["waiting_on"] == "manufacturer"
     order = await get_order(app, "order-1")
-    assert order["stage"] == "spec_frozen"
+    assert order["stage"] == "sourcing"
     assert order["spec"]["frozen"] and order["spec"]["version"] == 1
     assert order["spec"]["answers"]["fabric_gsm"] == 350
     assert len(order["spec_versions"]) == 1

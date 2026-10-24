@@ -1,7 +1,7 @@
-"""Terminal chat for trying the ordering graph with the real LLM.
+"""Terminal chat for trying the order graph with the real LLM.
 
-    uv run python -m orion.cli                       # in-memory, lost on exit
-    uv run python -m orion.cli --postgres            # saved in Postgres
+    uv run python -m orion.cli                       # in-memory; you also play the manufacturer
+    uv run python -m orion.cli --postgres            # saved in Postgres; manufacturers via orion.relay
     uv run python -m orion.cli --postgres --order ID # resume a saved order
 """
 
@@ -10,14 +10,18 @@ import asyncio
 import json
 import sys
 import uuid
-from contextlib import AsyncExitStack
+from contextlib import asynccontextmanager
 
 from langgraph.checkpoint.memory import InMemorySaver
-from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 from orion.config.settings import get_settings
-from orion.graph.graph import build_graph, get_order, send_reply, start_order
-from orion.tools.llm import OpenRouterConsultant
+from orion.db.stores import InMemoryDirectory, InMemoryOutbox, InMemoryPriceStore, Manufacturer
+from orion.deps import Deps, openrouter_agents
+from orion.graph.graph import build_graph, get_order, on_event, send_reply, start_order, waiting_on
+from orion.relay import print_order, read_pasted_text
+from orion.runtime import manual_event_id, open_postgres_app
+
+DEV_MANUFACTURER = Manufacturer(id="dev-factory", name="Dev Factory (you)")
 
 
 def ask(label: str) -> str:
@@ -25,7 +29,7 @@ def ask(label: str) -> str:
 
 
 def answer_prompt(prompt: dict):
-    """Show a pending prompt and turn what the user types into a reply."""
+    """Show a pending customer prompt and turn what the user types into a reply."""
     print()
     if prompt.get("error"):
         print(f"! {prompt['error']}")
@@ -69,6 +73,40 @@ def answer_prompt(prompt: dict):
     raise ValueError(f"unknown prompt kind {prompt['kind']}")
 
 
+@asynccontextmanager
+async def open_memory_app(settings):
+    consultant, manufacturer_agent = openrouter_agents(settings)
+    deps = Deps(
+        consultant=consultant,
+        manufacturer_agent=manufacturer_agent,
+        directory=InMemoryDirectory({("apparel", None): [DEV_MANUFACTURER]}),
+        prices=InMemoryPriceStore(),
+        channel=InMemoryOutbox(),
+    )
+    yield build_graph(deps, InMemorySaver()), deps
+
+
+async def play_manufacturer(app, deps: Deps, order_id: str) -> bool:
+    """In-memory mode: show queued messages and let the user reply as the manufacturer. False = stop."""
+    for message in deps.channel.pending():
+        print("\n--- Message to the manufacturer " + "-" * 28)
+        print(message["text"])
+        message["status"] = "sent"
+    print("-" * 60)
+    text = read_pasted_text()
+    if not text:
+        return False
+    await on_event(app, order_id, {
+        "type": "manufacturer_reply",
+        "event_id": manual_event_id(order_id, DEV_MANUFACTURER.id, text),
+        "manufacturer_id": DEV_MANUFACTURER.id,
+        "text": text,
+    })
+    print()
+    print_order(await get_order(app, order_id))
+    return True
+
+
 async def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--postgres", action="store_true", help="save the order in Postgres")
@@ -76,33 +114,25 @@ async def main() -> None:
     args = parser.parse_args()
 
     settings = get_settings()
-    consultant = OpenRouterConsultant(
-        settings.openrouter_api_key.get_secret_value(), settings.openrouter_base_url, settings.consultant_model
-    )
-
-    async with AsyncExitStack() as stack:
-        if args.postgres:
-            checkpointer = await stack.enter_async_context(AsyncPostgresSaver.from_conn_string(settings.database_url))
-            await checkpointer.setup()  # creates the checkpoint tables on first run
-        else:
-            checkpointer = InMemorySaver()
-        app = build_graph(consultant, checkpointer)
-
+    opener = open_postgres_app(settings) if args.postgres else open_memory_app(settings)
+    async with opener as (app, deps):
         order_id = args.order or f"order-{uuid.uuid4().hex[:8]}"
-        if args.order:
-            prompt = (await get_order(app, order_id)).get("pending")
-        else:
-            prompt = await start_order(app, order_id)
+        prompt = await waiting_on(app, order_id) if args.order else await start_order(app, order_id)
         print(f"Order {order_id}  (Ctrl+C to stop)")
 
-        while prompt:
+        while prompt and prompt["kind"] != "waiting":
             prompt = await send_reply(app, order_id, answer_prompt(prompt))
 
         order = await get_order(app, order_id)
-        print(f"\nDone. Stage: {order['stage']}")
+        print(f"\nSpec frozen. Stage: {order['stage']}")
         print(json.dumps(order["spec"], ensure_ascii=False, indent=2))
-        if order.get("needs_human"):
-            print(f"Flagged for the team: {order['needs_human']}")
+
+        if args.postgres:
+            print(f"\nThe order now waits on manufacturers. Team: uv run python -m orion.relay outbox")
+            return
+        print("\nYou are now the manufacturer (empty message to stop).")
+        while await play_manufacturer(app, deps, order_id):
+            pass
 
 
 if __name__ == "__main__":

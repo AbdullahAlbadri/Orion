@@ -11,6 +11,8 @@ dependencies = [
     "psycopg[binary,pool]",
     "pydantic",
     "pydantic-settings",
+    "alembic>=1.20.1",
+    "sqlalchemy>=2.1.6",
 ]
 
 [dependency-groups]

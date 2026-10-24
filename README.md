@@ -4,7 +4,7 @@ Orion is a middle-man platform for new business owners in Saudi Arabia. A custom
 
 This repo is the **LangGraph backend** that replaces the earlier n8n prototype (kept in a separate repo as reference only).
 
-> **Status:** early build. The ordering graph works end to end in tests; the manufacturer layer, API and deployment are next. See [Build order](#build-order).
+> **Status:** early build. Ordering and the manufacturer layer (manual relay) work end to end in tests; timers, the API and deployment are next. See [Build order](#build-order).
 
 ## Docs
 
@@ -67,8 +67,9 @@ uv sync
 # 2. Configure secrets
 cp .env.example .env          # then fill in OPENROUTER_API_KEY
 
-# 3. Start local Postgres (pgvector image, host port 5433)
+# 3. Start local Postgres (pgvector image, host port 5433) and create the business tables
 docker compose up -d postgres
+uv run alembic upgrade head
 
 # 4. Check Postgres and OpenRouter are reachable
 uv run python -m orion.checks
@@ -84,11 +85,23 @@ OK    OpenRouter (anthropic/claude-sonnet-4.5): Orion online
 ## Running
 
 ```bash
-uv run pytest                                      # full ordering flow with a scripted fake LLM
-uv run python -m orion.cli                         # chat with the real LLM in the terminal (in-memory)
-uv run python -m orion.cli --postgres              # same, but the order is saved in Postgres
+uv run pytest                                      # all tests (Postgres tests skip if it is not running)
+uv run python -m orion.cli                         # order in the terminal with the real LLM; then you play the manufacturer
+uv run python -m orion.cli --postgres              # same, saved in Postgres; manufacturers handled via orion.relay
 uv run python -m orion.cli --postgres --order ID   # resume a saved order
 ```
+
+### Manual relay (team, while there is no WeChat/email integration)
+
+```bash
+uv run python -m orion.relay add-manufacturer factory-a "Factory A" --contact "WeChat: abc" --market apparel --option hoodie --rank 1
+uv run python -m orion.relay outbox                       # messages to send by hand
+uv run python -m orion.relay sent MESSAGE_ID              # mark one as sent
+uv run python -m orion.relay reply ORDER_ID factory-a     # paste the reply; end with a line containing only .
+uv run python -m orion.relay order ORDER_ID               # status, quotes and what needs a human
+```
+
+Pasting the same reply twice is safe: it gets the same event id and is processed once.
 
 ## Code map
 
@@ -101,6 +114,17 @@ uv run python -m orion.cli --postgres --order ID   # resume a saved order
 | `orion/graph/graph.py` | LangGraph wiring, plus `start_order` / `send_reply` / `get_order` |
 | `orion/graph/pre_receipt.py` | Pre-receipt rendered from the spec (code, not LLM) |
 | `orion/tools/llm.py`, `prompts.py` | `Consultant` interface and the OpenRouter implementation |
+| `orion/graph/manufacturer_nodes.py` | Translate spec, contact manufacturers in rank order, handle replies |
+| `orion/graph/manufacturer_request.py` | Chinese quote request rendered in code from the spec |
+| `orion/tools/price_guard.py` | Blocks prices, amounts and negotiation language in outgoing messages (rule 1) |
+| `orion/tools/prices.py` | Verifies LLM-extracted prices against the message text (rule 2) |
+| `orion/tools/channel.py` | Channel interface; `send_to_manufacturer` is the only send path and always runs the guard |
+| `orion/tools/manufacturer_llm.py` | Translation, reply analysis and spec-only answers (untrusted input) |
+| `orion/db/stores.py`, `postgres.py` | Manufacturer directory, append-only price dataset, message outbox |
+| `orion/db/migrations/` | Alembic migrations |
+| `orion/relay.py` | Manual relay CLI for the team |
+
+Events: `on_event(app, order_id, event)` resumes an order only if it is waiting for that event type, and `handle_manufacturer_event` ignores event ids it has already processed.
 
 Customer interaction contract: the graph pauses with a `pending` prompt (`kind` = `choice`, `form`, `chat` or `confirm`), and the caller resumes it with `{"choice": ...}`, `{"answers": {...}}`, `{"message": ...}` or `{"confirm": bool, "changes": ...}`.
 
@@ -111,7 +135,7 @@ Customer interaction contract: the graph pauses with a `pending` prompt (`kind` 
 1. [ ] Environment checks: local Postgres up, Claude reachable through OpenRouter
 2. [x] Spec schema and the first market config (fashion & apparel)
 3. [x] Ordering graph: market → option → mandatory questions → AI gap-closing → pre-receipt → freeze spec (tested with a fake LLM; real-LLM run pending)
-4. [ ] Manufacturer node with manual relay, price extraction, price dataset
+4. [x] Manufacturer node with manual relay, price extraction, price dataset (customer quote document still to design)
 5. [ ] Event handler and timers (3-day manufacturer timeout, quote expiry)
 6. [ ] API and auth, then website connection
 7. [ ] Real email / WeCom channels, stats page, deployment

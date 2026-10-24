@@ -67,7 +67,7 @@ pyproject.toml
 
 ## Current task
 
-Steps 1 to 3 with **one test market: fashion & apparel** (chosen by the user; needs the size-by-quantity table in the spec). Add the other markets as config once the loop works. Mock payments, email and the manufacturer channel at first.
+Steps 1 to 4 are built for **one test market: fashion & apparel** (chosen by the user; needs the size-by-quantity table in the spec). Next is step 5 (event handler and timers). Add the other markets as config once the loop works. Mock payments, email and the manufacturer channel at first.
 
 ## Working style
 
