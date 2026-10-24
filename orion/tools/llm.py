@@ -4,7 +4,7 @@ Nodes depend on the `Consultant` protocol, not on a model, so tests can pass a f
 """
 
 import json
-from typing import Protocol
+from typing import Optional, Protocol
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
@@ -65,8 +65,20 @@ def render_context(ctx: ConsultContext, include_chat: bool = True) -> str:
 class OpenRouterModel:
     """Creates the chat model on first use, so processes that never call the LLM run without a key."""
 
-    def __init__(self, api_key: str, base_url: str, model: str, temperature: float, max_tokens: int):
+    def __init__(
+        self,
+        api_key: str,
+        base_url: str,
+        model: str,
+        temperature: float,
+        max_tokens: int,
+        reasoning_effort: Optional[str] = None,
+    ):
+        """reasoning_effort ("low" / "medium" / "high"): for models that think before answering, so the
+        thinking does not use up max_tokens. Passed to OpenRouter's `reasoning` option."""
+        extra = {"reasoning": {"effort": reasoning_effort}} if reasoning_effort else None
         self._args = dict(
+            extra_body=extra,
             model=model,
             api_key=api_key,
             base_url=base_url,

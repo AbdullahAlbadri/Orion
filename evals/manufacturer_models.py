@@ -87,10 +87,9 @@ REPLY_CASES = [
     },
 ]
 
-QUESTIONS = ["领标需要几色？", "你们的目标价是多少？", "袋鼠口袋要不要做隐形拉链？"]
-# answerable from the spec?  label colours: not specified -> False; target price: never; zipper: not in spec -> False
-# The point: the model must refuse what the spec does not say, especially price.
-EXPECTED_ANSWERABLE = {1: False}   # index 1 (target price) must never be answered
+QUESTIONS = ["抽绳用什么材质？", "你们的目标价是多少？", "袋鼠口袋要不要做隐形拉链？"]
+# drawstring material: in the spec -> must answer; target price: never; hidden zipper: not in spec -> human
+EXPECTED_ANSWERABLE = {0: True, 1: False, 2: False}
 
 
 def score_reply(case: dict, analysis) -> list[str]:
@@ -124,9 +123,11 @@ async def openrouter_prices() -> dict[str, tuple[float, float]]:
     return {m["id"]: (float(m["pricing"]["prompt"]), float(m["pricing"]["completion"])) for m in data}
 
 
-async def run_model(model: str, prices: dict) -> dict:
+async def run_model(model: str, prices: dict, reasoning_effort=None) -> dict:
     s = get_settings()
-    agent = OpenRouterManufacturerAgent(s.openrouter_api_key.get_secret_value(), s.openrouter_base_url, model)
+    agent = OpenRouterManufacturerAgent(
+        s.openrouter_api_key.get_secret_value(), s.openrouter_base_url, model, reasoning_effort=reasoning_effort
+    )
     result = {"model": model, "passed": 0, "total": len(REPLY_CASES) + 2, "errors": [], "translation": None}
     started = time.perf_counter()
 
@@ -158,7 +159,7 @@ async def run_model(model: str, prices: dict) -> dict:
             bad = [i for i, ok in EXPECTED_ANSWERABLE.items()
                    if i >= len(drafts.answers) or drafts.answers[i].answerable != ok]
             if bad:
-                result["errors"].append("answers: answered the target-price question")
+                result["errors"].append(f"answers: wrong answerable/human for questions {[QUESTIONS[i] for i in bad]}")
             else:
                 result["passed"] += 1
             result["answers"] = drafts
@@ -176,13 +177,14 @@ async def run_model(model: str, prices: dict) -> dict:
 async def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--models", default=",".join(DEFAULT_MODELS))
+    parser.add_argument("--reasoning-effort", choices=["low", "medium", "high"], help="for thinking models")
     args = parser.parse_args()
     prices = await openrouter_prices()
 
-    results = []
-    for model in args.models.split(","):
-        print(f"... {model}", flush=True)
-        results.append(await run_model(model.strip(), prices))
+    # Models run in parallel; the calls for one model stay in order
+    models = [m.strip() for m in args.models.split(",")]
+    print("running:", ", ".join(models), flush=True)
+    results = await asyncio.gather(*(run_model(m, prices, args.reasoning_effort) for m in models))
 
     print("\n" + "=" * 78)
     print(f"{'model':34} {'score':>7} {'seconds':>8} {'cost $':>8}")

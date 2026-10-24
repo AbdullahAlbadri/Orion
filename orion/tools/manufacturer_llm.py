@@ -70,8 +70,10 @@ def _spec_json(spec: ProductSpec) -> str:
 
 
 class OpenRouterManufacturerAgent:
-    def __init__(self, api_key: str, base_url: str, model: str):
-        self._model = OpenRouterModel(api_key, base_url, model, temperature=0, max_tokens=3000)
+    def __init__(self, api_key: str, base_url: str, model: str, reasoning_effort: Optional[str] = None):
+        self._model = OpenRouterModel(
+            api_key, base_url, model, temperature=0, max_tokens=3000, reasoning_effort=reasoning_effort
+        )
 
     async def translate_spec(self, spec: ProductSpec, product_name: str) -> SpecTranslation:
         return await self._model.structured(SpecTranslation).ainvoke([
