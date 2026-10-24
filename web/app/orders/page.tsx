@@ -1,64 +1,113 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { api, type OrderRow, type OrderView } from "@/lib/api";
+import { BoxIcon, ChatIcon, FactoryIcon, PlusIcon, ShirtIcon } from "@/components/Icons";
+import ProgressRing from "@/components/ProgressRing";
+import { api, type OrderRow } from "@/lib/api";
 import { useRequireUser } from "@/lib/auth";
-import { useLang } from "@/lib/i18n";
+import { productName, useLang, type TextKey } from "@/lib/i18n";
+import { bucket, journeyPercent, type Bucket } from "@/lib/journey";
 
-export default function OrdersPage() {
+const PILL: Record<Bucket, TextKey> = { you: "waitingForYou", factories: "withFactories", done: "stepDelivered" };
+
+export default function Dashboard() {
   const user = useRequireUser();
   const { t, lang } = useLang();
-  const router = useRouter();
   const [orders, setOrders] = useState<OrderRow[] | null>(null);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) api<OrderRow[]>("/orders").then(setOrders).catch(() => setError(t("error")));
   }, [user, t]);
 
-  async function newOrder() {
-    setBusy(true);
-    try {
-      const order = await api<OrderView>("/orders", { method: "POST" });
-      router.push(`/orders/${order.order_id}`);
-    } catch {
-      setError(t("error"));
-      setBusy(false);
-    }
-  }
+  if (!user || orders === null) return <p className={error ? "error" : "muted"}>{error ?? t("loading")}</p>;
 
-  if (!user) return <p className="muted">{t("loading")}</p>;
-  const date = (iso: string) => new Date(iso).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-GB");
+  const counts = { active: 0, you: 0, factories: 0 };
+  for (const o of orders) {
+    const b = bucket(o.stage);
+    if (b !== "done") counts.active += 1;
+    if (b === "you") counts.you += 1;
+    if (b === "factories") counts.factories += 1;
+  }
+  const latest = orders[0];
+  const date = (iso: string) =>
+    new Date(iso).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-GB", { day: "numeric", month: "long" });
 
   return (
     <>
-      <div className="row" style={{ justifyContent: "space-between", marginBottom: 16 }}>
-        <h1 style={{ margin: 0 }}>{t("myOrders")}</h1>
-        <button className="btn" onClick={newOrder} disabled={busy}>{t("newOrder")}</button>
-      </div>
-      {error && <p className="error">{error}</p>}
-      <div className="card">
-        {orders === null ? (
-          <p className="muted">{t("loading")}</p>
-        ) : orders.length === 0 ? (
-          <p className="muted">{t("noOrders")}</p>
+      <div className="section-title" style={{ marginTop: 8 }}><h2>{t("overview")}</h2></div>
+
+      <div className="overview">
+        {latest ? (
+          <Link href={`/orders/${latest.id}`} className="product-card">
+            <div className="spread">
+              <span className="label">{t("latestOrder")}</span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img className="mark" src="/brand/mark-gold.png" alt="" />
+            </div>
+            <div>
+              <div className="big">{productName(latest.option, lang)}</div>
+              <div className="label">{latest.quantity ? `${latest.quantity} ${t("pieces")}` : t("stepDescribe")}</div>
+            </div>
+            <div className="spread">
+              <span className={`pill ${bucket(latest.stage)}`}>{t(PILL[bucket(latest.stage)])}</span>
+              <span className="label">{date(latest.updated_at)}</span>
+            </div>
+          </Link>
         ) : (
-          <ul className="orders">
+          <Link href="/orders/new" className="product-card">
+            <span className="label">{t("newOrder")}</span>
+            <div className="big">{t("startHint")}</div>
+            <span className="btn btn-sm" style={{ alignSelf: "flex-start" }}><PlusIcon width={18} height={18} /> {t("newOrder")}</span>
+          </Link>
+        )}
+
+        <div className="card spread" style={{ alignItems: "center", justifyContent: "space-around" }}>
+          <ProgressRing percent={latest ? journeyPercent(latest.stage) : 0} label={t("progress")} />
+          <div className="stack" style={{ gap: 4 }}>
+            <span className="muted small">{t("journey")}</span>
+            <strong style={{ fontSize: 18 }}>{latest ? productName(latest.option, lang) : "—"}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid-stats" style={{ marginTop: 16 }}>
+        <Stat icon={<BoxIcon />} label={t("activeOrders")} value={counts.active} />
+        <Stat icon={<ChatIcon />} label={t("waitingForYou")} value={counts.you} />
+        <Stat icon={<FactoryIcon />} label={t("withFactories")} value={counts.factories} />
+      </div>
+
+      <div className="section-title" id="list"><h2>{t("myOrders")}</h2></div>
+      <div className="card" style={{ padding: 10 }}>
+        {orders.length === 0 ? (
+          <p className="muted" style={{ padding: 14, margin: 0 }}>{t("noOrders")}</p>
+        ) : (
+          <div className="list">
             {orders.map((o) => (
-              <li key={o.id}>
-                <Link href={`/orders/${o.id}`}>
-                  {o.option ?? t("orderTitle")}{o.quantity ? ` · ${o.quantity} ${t("pieces")}` : ""}
-                </Link>
-                <span className="muted">{date(o.updated_at)}</span>
-              </li>
+              <Link key={o.id} href={`/orders/${o.id}`} className="list-row">
+                <span className="avatar"><ShirtIcon /></span>
+                <span className="cell-value">{productName(o.option, lang)}</span>
+                <span className="hide-sm"><div className="cell-label">{t("date")}</div><div className="cell-value">{date(o.created_at)}</div></span>
+                <span className="hide-sm"><div className="cell-label">{t("quantity")}</div><div className="cell-value">{o.quantity ?? "—"}</div></span>
+                <span className="hide-sm"><span className={`pill ${bucket(o.stage)}`}>{t(PILL[bucket(o.stage)])}</span></span>
+                <span className="btn-outline">{t("open")}</span>
+              </Link>
             ))}
-          </ul>
+          </div>
         )}
       </div>
     </>
+  );
+}
+
+function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
+  return (
+    <div className="card stat">
+      <span className="icon">{icon}</span>
+      <span className="muted">{label}</span>
+      <span className="value">{value}</span>
+    </div>
   );
 }

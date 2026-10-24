@@ -56,8 +56,10 @@ export default function GoogleButton({ onSignedIn, onError }: { onSignedIn: (u: 
           },
         });
         box.current.replaceChildren();
+        // Google needs a pixel width; never wider than the space we have (phones)
+        const width = Math.max(200, Math.min(320, Math.floor(box.current.clientWidth)));
         window.google.accounts.id.renderButton(box.current, {
-          theme: "outline", size: "large", shape: "pill", width: 320, locale: lang, text: "continue_with",
+          theme: "outline", size: "large", shape: "pill", width, locale: lang, text: "continue_with",
         });
       })
       .catch((e: Error) => onError(e.message));
@@ -67,5 +69,5 @@ export default function GoogleButton({ onSignedIn, onError }: { onSignedIn: (u: 
   }, [lang, onSignedIn, onError]);
 
   if (!CLIENT_ID) return null;
-  return <div ref={box} style={{ display: "flex", justifyContent: "center" }} />;
+  return <div ref={box} style={{ display: "flex", justifyContent: "center", width: "100%", minWidth: 0, overflow: "hidden" }} />;
 }

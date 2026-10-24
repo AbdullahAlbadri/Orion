@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import type { OrderView, Prompt, Question } from "@/lib/api";
 import { useLang } from "@/lib/i18n";
+import { ShirtIcon } from "./Icons";
 import SizeTable, { initialSizes, sizesToAnswer, type SizeRow } from "./SizeTable";
 
 type Send = (reply: Record<string, unknown>) => Promise<void>;
@@ -15,8 +16,8 @@ export default function PromptView({ order, send, busy }: { order: OrderView; se
   if (order.waiting_on === "manufacturer" || !prompt) {
     return (
       <div className="card">
-        <span className="badge">{order.status[lang]}</span>
-        <h2 style={{ marginTop: 12 }}>{t("waitingTitle")}</h2>
+        <span className="pill factories">{order.status[lang]}</span>
+        <h2 style={{ marginTop: 14 }}>{t("waitingTitle")}</h2>
         <p className="muted">{t("waitingText")}</p>
         {order.pre_receipt && <pre className="receipt">{order.pre_receipt}</pre>}
       </div>
@@ -42,7 +43,10 @@ function Choice({ prompt, send, busy }: { prompt: Extract<Prompt, { kind: "choic
       {prompt.error && <p className="error">{prompt.error}</p>}
       <div className="choices">
         {prompt.options.map((o) => (
-          <button key={o.id} className="choice" disabled={busy} onClick={() => send({ choice: o.id })}>{o.name}</button>
+          <button key={o.id} className="choice" disabled={busy} onClick={() => send({ choice: o.id })}>
+            <span className="avatar"><ShirtIcon width={20} height={20} /></span>
+            {o.name}
+          </button>
         ))}
       </div>
     </div>
@@ -118,9 +122,9 @@ function Chat({ order, send, busy }: { order: OrderView; send: Send; busy: boole
         {order.messages.map((m, i) => <div key={i} className={`bubble ${m.role}`} dir="auto">{m.content}</div>)}
         {busy && <div className="thinking">{t("thinking")}</div>}
       </div>
-      <form className="row" onSubmit={submit}>
+      <form className="composer" onSubmit={submit}>
         <textarea dir="auto" value={text} placeholder={t("typeMessage")} onChange={(e) => setText(e.target.value)}
-          style={{ minHeight: 56, flex: 1 }} disabled={busy}
+          disabled={busy}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); e.currentTarget.form?.requestSubmit(); } }} />
         <button className="btn" disabled={busy || !text.trim()}>{t("send")}</button>
       </form>

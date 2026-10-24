@@ -46,6 +46,27 @@ const en = {
   status: "Status",
   updated: "Updated",
   pieces: "pcs",
+  overview: "Overview",
+  welcome: "Welcome back",
+  activeOrders: "Active orders",
+  waitingForYou: "Waiting for you",
+  withFactories: "With factories",
+  latestOrder: "Latest order",
+  open: "Open",
+  journey: "Journey",
+  progress: "done",
+  product: "Product",
+  date: "Date",
+  quantity: "Quantity",
+  stepDescribe: "Describe",
+  stepReview: "Review summary",
+  stepFactories: "Factories",
+  stepQuote: "Quote",
+  stepProduction: "Production",
+  stepShipping: "Shipping",
+  stepDelivered: "Delivered",
+  startHint: "Tell us what you want to make and we'll find the factory.",
+  menu: "Menu",
 };
 
 const ar: typeof en = {
@@ -89,7 +110,43 @@ const ar: typeof en = {
   status: "الحالة",
   updated: "آخر تحديث",
   pieces: "قطعة",
+  overview: "نظرة عامة",
+  welcome: "أهلًا بعودتك",
+  activeOrders: "الطلبات النشطة",
+  waitingForYou: "بانتظارك",
+  withFactories: "لدى المصانع",
+  latestOrder: "آخر طلب",
+  open: "فتح",
+  journey: "رحلة الطلب",
+  progress: "مكتمل",
+  product: "المنتج",
+  date: "التاريخ",
+  quantity: "الكمية",
+  stepDescribe: "وصف المنتج",
+  stepReview: "مراجعة الملخص",
+  stepFactories: "المصانع",
+  stepQuote: "عرض السعر",
+  stepProduction: "التصنيع",
+  stepShipping: "الشحن",
+  stepDelivered: "التسليم",
+  startHint: "أخبرنا ماذا تريد أن تصنع، ونحن نجد لك المصنع.",
+  menu: "القائمة",
 };
+
+// Product names for order lists (the API returns option ids)
+const PRODUCTS: Record<string, { en: string; ar: string }> = {
+  hoodie: { en: "Hoodie", ar: "هودي" },
+  oversized_tee: { en: "Oversized T-shirt", ar: "تيشيرت واسع" },
+  abaya: { en: "Abaya", ar: "عباية" },
+  tote_bag: { en: "Tote bag", ar: "حقيبة قماشية" },
+  corporate_uniform: { en: "Corporate uniform", ar: "زي موحد للشركات" },
+  custom: { en: "Custom product", ar: "منتج مخصص" },
+};
+
+export function productName(option: string | null | undefined, lang: Lang): string {
+  if (!option) return lang === "ar" ? "طلب جديد" : "New order";
+  return PRODUCTS[option]?.[lang] ?? option.replace(/_/g, " ");
+}
 
 const dictionaries = { en, ar };
 export type TextKey = keyof typeof en;

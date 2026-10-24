@@ -37,12 +37,12 @@ export default function SizeTable({ rows, onChange }: { rows: SizeRow[]; onChang
             <input dir="ltr" value={r.size} onChange={(e) => set(i, { size: e.target.value })} aria-label={t("size")} />
             <input dir="ltr" inputMode="numeric" value={r.qty}
               onChange={(e) => set(i, { qty: e.target.value.replace(/\D/g, "") })} aria-label={t("qty")} />
-            <button type="button" className="btn-ghost" aria-label="remove" onClick={() => onChange(rows.filter((_, j) => j !== i))}>×</button>
+            <button type="button" className="icon-btn" aria-label="remove" onClick={() => onChange(rows.filter((_, j) => j !== i))}>×</button>
           </div>
         ))}
       </div>
-      <div className="row" style={{ marginTop: 8, justifyContent: "space-between" }}>
-        <button type="button" className="btn-ghost" onClick={() => onChange([...rows, { size: "", qty: "" }])}>{t("addSize")}</button>
+      <div className="spread" style={{ marginTop: 10 }}>
+        <button type="button" className="btn-ghost btn-sm" onClick={() => onChange([...rows, { size: "", qty: "" }])}>+ {t("addSize")}</button>
         <strong>{t("total")}: {total}</strong>
       </div>
     </div>

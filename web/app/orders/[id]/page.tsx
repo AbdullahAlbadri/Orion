@@ -4,10 +4,13 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import { CheckIcon } from "@/components/Icons";
+import ProgressRing from "@/components/ProgressRing";
 import PromptView from "@/components/PromptView";
 import { api, ApiError, type OrderView } from "@/lib/api";
 import { useRequireUser } from "@/lib/auth";
-import { useLang } from "@/lib/i18n";
+import { productName, useLang } from "@/lib/i18n";
+import { JOURNEY, journeyIndex, journeyPercent } from "@/lib/journey";
 
 export default function OrderPage() {
   const user = useRequireUser();
@@ -43,17 +46,48 @@ export default function OrderPage() {
     }
   }, [id, load, t]);
 
-  if (!user || !order) return <p className="muted">{error ?? t("loading")}</p>;
+  if (!user || !order) return <p className={error ? "error" : "muted"}>{error ?? t("loading")}</p>;
+
+  const current = journeyIndex(order.stage);
+  const option = order.spec?.option;
 
   return (
     <>
-      <p><Link href="/orders">← {t("myOrders")}</Link></p>
-      <div className="row" style={{ justifyContent: "space-between", marginBottom: 12 }}>
-        <h1 style={{ margin: 0 }}>{t("orderTitle")}</h1>
-        <span className="badge">{order.status[lang]}</span>
-      </div>
+      <p><Link href="/orders" className="muted">← {t("myOrders")}</Link></p>
       {error && <p className="error">{error}</p>}
-      <PromptView order={order} send={send} busy={busy} />
+      <div className="order-grid">
+        <PromptView order={order} send={send} busy={busy} />
+
+        <aside className="side-panel">
+          <div className="product-card" style={{ minHeight: 180 }}>
+            <div className="spread">
+              <span className="label">{t("orderTitle")}</span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img className="mark" src="/brand/mark-gold.png" alt="" />
+            </div>
+            <div>
+              <div className="big">{productName(option, lang)}</div>
+              <div className="label">{order.spec?.quantity ? `${order.spec.quantity} ${t("pieces")}` : order.status[lang]}</div>
+            </div>
+            <span className="label" dir="ltr" style={{ alignSelf: "flex-end" }}>{order.order_id}</span>
+          </div>
+
+          <div className="card">
+            <div className="spread" style={{ marginBottom: 12 }}>
+              <h2 style={{ margin: 0 }}>{t("journey")}</h2>
+              <ProgressRing percent={journeyPercent(order.stage)} label={t("progress")} size={92} />
+            </div>
+            <ol className="steps">
+              {JOURNEY.map((step, i) => (
+                <li key={step.key} className={i < current ? "done" : i === current ? "current" : ""}>
+                  <span className="dot">{i < current ? <CheckIcon width={14} height={14} /> : i + 1}</span>
+                  {t(step.key)}
+                </li>
+              ))}
+            </ol>
+          </div>
+        </aside>
+      </div>
     </>
   );
 }
