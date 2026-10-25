@@ -4,7 +4,7 @@
 // customer's unsaved form stays as it is).
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { InfoIcon } from "@/components/Icons";
 import { PageHead } from "@/components/ui";
@@ -15,12 +15,31 @@ import { useLang } from "@/lib/i18n";
 const MORE = { ar: "أدلة أخرى", en: "More guides" };
 const MISSING = { ar: "لا يوجد دليل بهذا الاسم.", en: "There is no guide with this name." };
 
-/** The option's photo; options without one simply show no picture. */
-function GuidePhoto({ src, alt }: { src: string; alt: string }) {
+type Credit = { creator: string; licence: string; licence_url?: string | null; source?: string | null };
+const PHOTO = { ar: "صورة", en: "Photo" };
+
+/** The option's photo, with its credit when it is an openly licensed photo; options without one show none. */
+function GuidePhoto({ src, alt, credit }: { src: string; alt: string; credit?: Credit }) {
+  const { lang } = useLang();
   const [missing, setMissing] = useState(false);
+  const img = useRef<HTMLImageElement>(null);
+  // A photo that failed before the page became interactive never fires onError: check once on mount
+  useEffect(() => {
+    if (img.current?.complete && img.current.naturalWidth === 0) setMissing(true);
+  }, []);
   if (missing) return null;
-  // eslint-disable-next-line @next/next/no-img-element
-  return <img className="guide-photo" src={src} alt={alt} loading="lazy" onError={() => setMissing(true)} />;
+  return (
+    <figure className="guide-figure">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img ref={img} className="guide-photo" src={src} alt={alt} loading="lazy" onError={() => setMissing(true)} />
+      {credit && (
+        <figcaption className="guide-credit" dir="ltr">
+          {PHOTO[lang]}: {credit.source ? <a href={credit.source} target="_blank" rel="noopener noreferrer">{credit.creator}</a> : credit.creator}
+          {" · "}{credit.licence_url ? <a href={credit.licence_url} target="_blank" rel="noopener noreferrer">{credit.licence}</a> : credit.licence}
+        </figcaption>
+      )}
+    </figure>
+  );
 }
 
 export default function GuidePage() {
@@ -28,6 +47,10 @@ export default function GuidePage() {
   const L = (x: T) => x[lang];
   const topic = String(useParams().topic ?? "");
   const guide = GUIDES[topic];
+  const [credits, setCredits] = useState<Record<string, Credit>>({});
+  useEffect(() => {
+    fetch("/guides/credits.json").then((r) => (r.ok ? r.json() : {})).then(setCredits).catch(() => {});
+  }, []);
   if (!guide) return <p className="muted">{MISSING[lang]}</p>;
 
   return (
@@ -36,7 +59,8 @@ export default function GuidePage() {
       <div className="guide-grid">
         {guide.items.map((item) => (
           <section key={item.name.en} className="board board-glass guide-item">
-            <GuidePhoto src={guideImage(topic, item.name.en)} alt={L(item.name)} />
+            <GuidePhoto src={guideImage(topic, item.name.en)} alt={L(item.name)}
+              credit={credits[guideImage(topic, item.name.en).slice("/guides/".length, -".webp".length)]} />
             <h2>{L(item.name)}</h2>
             <p className="muted">{L(item.text)}</p>
           </section>

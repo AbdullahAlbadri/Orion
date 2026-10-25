@@ -1,0 +1,74 @@
+{
+ "drawstrings/round-cord": {
+  "creator": "kellyhogaboom",
+  "licence": "CC BY-SA 2.0",
+  "licence_url": "https://creativecommons.org/licenses/by-sa/2.0/",
+  "source": "https://www.flickr.com/photos/11597293@N00/8659802774"
+ },
+ "fabric_types/knitted-fleece": {
+  "creator": "Aine D",
+  "licence": "CC BY-SA 2.0",
+  "licence_url": "https://creativecommons.org/licenses/by-sa/2.0/",
+  "source": "https://www.flickr.com/photos/48600087038@N01/1444506"
+ },
+ "fabric_types/woven": {
+  "creator": "shaire productions",
+  "licence": "CC BY 2.0",
+  "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+  "source": "https://www.flickr.com/photos/9822107@N08/5140404256"
+ },
+ "gsm/280-320": {
+  "creator": "Clearly Ambiguous",
+  "licence": "CC BY 2.0",
+  "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+  "source": "https://www.flickr.com/photos/84617037@N00/135139842"
+ },
+ "materials/100-cotton": {
+  "creator": "Horia Varlan",
+  "licence": "CC BY 2.0",
+  "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+  "source": "https://www.flickr.com/photos/10361931@N06/5032206759"
+ },
+ "materials/100-polyester": {
+  "creator": "shaire productions",
+  "licence": "CC BY 2.0",
+  "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+  "source": "https://www.flickr.com/photos/9822107@N08/4863941547"
+ },
+ "materials/cotton-polyester-80-20": {
+  "creator": "Mr Thinktank",
+  "licence": "CC BY 2.0",
+  "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+  "source": "https://www.flickr.com/photos/34621580@N00/4048801662"
+ },
+ "materials/organic-cotton": {
+  "creator": "staralee",
+  "licence": "CC BY 2.0",
+  "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+  "source": "https://www.flickr.com/photos/26781710@N00/566806382"
+ },
+ "patterns/all-over-print": {
+  "creator": "bjornmeansbear",
+  "licence": "CC BY-SA 2.0",
+  "licence_url": "https://creativecommons.org/licenses/by-sa/2.0/",
+  "source": "https://www.flickr.com/photos/64519085@N00/2440757751"
+ },
+ "patterns/camouflage": {
+  "creator": "Creativity103",
+  "licence": "CC BY 2.0",
+  "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+  "source": "https://www.flickr.com/photos/36894712@N04/5540054284"
+ },
+ "patterns/tie-dye": {
+  "creator": "gayledc",
+  "licence": "CC BY 2.0",
+  "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+  "source": "https://www.flickr.com/photos/67823921@N06/6171508264"
+ },
+ "printing/screen-print": {
+  "creator": "NATRI - Shirt Label",
+  "licence": "CC BY-ND 2.0",
+  "licence_url": "https://creativecommons.org/licenses/by-nd/2.0/",
+  "source": "https://www.flickr.com/photos/84209486@N07/7710473042"
+ }
+}
