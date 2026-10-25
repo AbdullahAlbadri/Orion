@@ -125,11 +125,96 @@ export type OrderView = {
   messages: { role: "customer" | "orion"; content: string }[];
   pre_receipt: string | null;
   summary?: Summary | null;
-  spec: { option?: string; quantity?: number; answers?: Record<string, unknown>; frozen?: boolean } | null;
+  spec: { option?: string; quantity?: number; answers?: Record<string, unknown>; frozen?: boolean; version?: number } | null;
+  title?: string | null;
+  versions?: number;
+  checks?: { field_id: string; label: Bilingual; resolved: boolean; at: string }[];
 };
 
+export type Bilingual = { en: string; ar: string };
+export type Owner = "customer" | "factory" | "orion" | "shipping" | null;
+
 export type OrderRow = {
-  id: string; stage: string; option: string | null; quantity: number | null; created_at: string; updated_at: string;
+  id: string; stage: string; market: string | null; option: string | null; quantity: number | null;
+  product_id: string | null; reorder_of: string | null; revisions: number; mismatches_caught: number;
+  created_at: string; updated_at: string;
+  title: string | null;        // custom products: the start of the customer's description
+  status: Bilingual;           // friendly label, the same on every page
+  waiting_on: Owner;
+};
+
+export type NotifyEvent = "quote_ready" | "payment_received" | "sample_update" | "shipped" | "delivered" | "delay" | "problem";
+export type Me = {
+  id: string; email: string; name: string | null; phone: string | null;
+  lang: "ar" | "en"; calendar: "gregorian" | "hijri" | "both"; currency: "SAR" | "USD";
+  notify: Record<NotifyEvent, { email: boolean; in_app: boolean }>;
+  onboarded: boolean; created_at: string;
+};
+
+export type Contact = { name: string; phone?: string | null; role: "sign" | "receive" | "both" };
+export type BusinessProfile = {
+  name: string | null; business_type: string | null; store_platform: string | null; store_url: string | null;
+  description: string | null; contacts: Contact[]; updated_at: string | null;
+};
+export type Address = {
+  id: string; label: string | null; contact_name: string; phone: string; city: string; district: string | null;
+  street: string; building: string | null; postal_code: string | null; notes: string | null; is_default: boolean;
+};
+export type AddressInput = Omit<Address, "id" | "is_default"> & { is_default?: boolean };
+export type CompletenessItem = { id: "business_name" | "description" | "shipping_address" | "receiver"; group: "first_order" | "first_shipment"; done: boolean };
+export type BusinessView = {
+  profile: BusinessProfile; addresses: Address[]; live_orders: number;
+  completeness: { items: CompletenessItem[]; done: number; total: number; customs_fields_ready: boolean };
+};
+
+export type Notification = {
+  id: string; order_id: string | null; kind: "status" | "team"; event: string | null;
+  title_en: string; title_ar: string; body_en: string | null; body_ar: string | null; href: string | null;
+  emailed: boolean; created_at: string; read_at: string | null;
+};
+
+export type SupportTopic = "order" | "change" | "price" | "delivery" | "account" | "other";
+export type SupportStatus = "open" | "waiting_customer" | "resolved";
+export type SupportRequest = {
+  id: string; ref: number; order_id: string | null; topic: SupportTopic; status: SupportStatus;
+  created_at: string; updated_at: string; last_message: string | null; last_author: "customer" | "team" | null;
+  messages?: { author: "customer" | "team"; body: string; created_at: string }[];
+};
+
+export type Product = {
+  id: string; market: string; option: string; notes: string | null; archived_at: string | null; created_at: string;
+  orders: number; last_ordered_at: string; last_quantity: number | null; latest_order_id: string; latest_stage: string;
+  title: string | null; picture: { order_id: string; file_id: string } | null; status: Bilingual;
+};
+export type ProductDetail = Product & {
+  summary: Summary | null;
+  history: { id: string; stage: string; status: Bilingual; quantity: number | null; revisions: number;
+    mismatches_caught: number; created_at: string; updated_at: string; delivered_at: string | null }[];
+  files: { id: string; order_id: string; name: string; content_type: string; size: number; created_at: string }[];
+};
+
+export type DocumentItem =
+  | { kind: "pre_receipt"; order_id: string; option: string | null; title: string | null; version: number | null;
+      status: "confirmed" | "needs_review"; created_at: string | null }
+  | { kind: "upload"; order_id: string; option: string | null; file_id: string; name: string; content_type: string;
+      size: number; created_at: string };
+
+export type Phase = "specification" | "quote" | "payment" | "sample" | "production" | "shipping" | "customs";
+export type FullStats = CustomerStats & {
+  range: "month" | "quarter" | "year" | "all";
+  spend: null;
+  orders: {
+    submitted: number; drafts: number; pieces: number; by_stage: Record<string, number>; by_market: Record<string, number>;
+    reorders: number; reorder_rate: number | null; revisions: number; mismatches_caught: number; orders_with_mismatches: number;
+  };
+  time: {
+    phases: { phase: Phase; avg_hours: number; orders: number }[];
+    waiting_hours: Partial<Record<"customer" | "factory" | "orion" | "shipping", number>>;
+    order_to_delivery_hours: number | null; delivered_orders: number;
+    per_order: Record<string, { phases: Partial<Record<Phase, number>>; to_delivery_hours: number | null }>;
+  };
+  order_list: { id: string; option: string | null; market: string | null; stage: string; status: Bilingual;
+    quantity: number | null; revisions: number; mismatches_caught: number; created_at: string }[];
 };
 
 export class ApiError extends Error {
@@ -212,4 +297,19 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
   const data = await r.json().catch(() => null);
   if (!r.ok) throw new ApiError(r.status, typeof data?.detail === "string" ? data.detail : `HTTP ${r.status}`);
   return data as T;
+}
+
+/** An authenticated download (e.g. "download my data"), saved through a temporary link. */
+export async function downloadFile(path: string, filename: string, retried = false): Promise<void> {
+  const r = await fetch(`${API_URL}${path}`, {
+    credentials: "include", headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+  });
+  if (r.status === 401 && !retried && (await refreshSession())) return downloadFile(path, filename, true);
+  if (!r.ok) throw new ApiError(r.status, `HTTP ${r.status}`);
+  const url = URL.createObjectURL(await r.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }

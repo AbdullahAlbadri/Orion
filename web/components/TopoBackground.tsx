@@ -2,6 +2,7 @@
 
 // Page background: contour lines that drift with the mouse and scroll (parallax), a soft glow that follows
 // the cursor, and a dashed route from China to Saudi Arabia. Still when the user prefers reduced motion.
+import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef } from "react";
 
 import { contours, PAGE_PEAKS } from "@/lib/topo";
@@ -14,6 +15,8 @@ const ROUTE = "M1540 170 C1380 210 1290 120 1150 190 S900 330 760 300 S520 360 4
 export default function TopoBackground() {
   const root = useRef<HTMLDivElement>(null);
   const lines = useMemo(() => contours(W, H, PAGE_PEAKS), []);
+  // The landing page has its own hero background and no route line (docs/website/landing-motion.md §3)
+  const landing = usePathname() === "/";
 
   useEffect(() => {
     const el = root.current;
@@ -35,8 +38,9 @@ export default function TopoBackground() {
       window.removeEventListener("scroll", schedule);
       if (frame) cancelAnimationFrame(frame);
     };
-  }, []);
+  }, [landing]);
 
+  if (landing) return null;
   return (
     <div ref={root} className="topo-bg" aria-hidden>
       <div className="topo-glow" />
