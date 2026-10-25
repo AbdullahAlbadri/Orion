@@ -258,8 +258,9 @@ async def deep_dive(state: OrderState, consultant: Consultant) -> dict:
                     original = by_market_id[q.id]
                     value = validate_answer(original, value if original.type == "choice" else format_answer(value))
                 spec.set_answer(q.id, value)
-                if q.id not in by_market_id:   # the AI's own question: keep its wording for the receipt
+                if q.id not in by_market_id:   # the AI's own question: keep its wording and section for the receipt
                     spec.labels[q.id] = q.prompt.rstrip("?؟:. ")
+                    spec.sections[q.id] = q.section
                 lines.append(f"{q.prompt} → {format_answer(value)}")
             except InvalidAnswer as e:
                 errors[q.id] = str(e)

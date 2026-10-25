@@ -111,3 +111,12 @@ def test_every_product_has_a_quantity_question():
 def test_custom_option_asks_for_a_description_first():
     ids = [q.id for q in get_questions("apparel", "custom")]
     assert ids[:2] == ["description", "reference_images"] and "quantity" in ids
+
+
+def test_details_without_a_section_are_sorted_by_wording():
+    from orion.graph.pre_receipt import guess_section
+
+    assert guess_section("lining_material", "Lining material") == "quality"
+    assert guess_section("delivery_date", "Delivery date") == "quantity"
+    assert guess_section("hood_shape", "Hood shape") == "design"
+    assert guess_section("x", "نوع القماش") == "quality"

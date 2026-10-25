@@ -2,7 +2,21 @@
 
 from typing import Optional
 
+from orion.config.markets import MARKETS, get_questions
 from orion.config.status_labels import status_label
+from orion.graph.pre_receipt import build_summary
+from orion.spec import ProductSpec
+
+
+def _summary(state: dict) -> Optional[dict]:
+    """The structured receipt; built from the spec for orders confirmed before receipts were stored."""
+    if state.get("summary"):
+        return state["summary"]
+    spec, market_id = state.get("spec"), state.get("market")
+    if not spec or not spec.get("option") or market_id not in MARKETS or not state.get("pre_receipt"):
+        return None
+    product = ProductSpec.model_validate(spec)
+    return build_summary(product, MARKETS[market_id], get_questions(market_id, product.option), state.get("lang", "en"))
 
 
 def customer_order_view(state: dict, waiting: Optional[dict]) -> dict:
@@ -19,7 +33,7 @@ def customer_order_view(state: dict, waiting: Optional[dict]) -> dict:
         "prompt": waiting if waiting_on == "customer" else None,
         "messages": state.get("messages", []),
         "pre_receipt": state.get("pre_receipt"),
-        "summary": state.get("summary"),
+        "summary": _summary(state),
         "spec": {k: spec.get(k) for k in ("market", "option", "quantity", "answers", "version", "frozen")} if spec else None,
     }
 

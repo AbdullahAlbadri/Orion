@@ -36,6 +36,22 @@ def label(question_id: str, question: Optional[Question], spec: ProductSpec, lan
     return spec.labels.get(question_id) or _humanize(question_id)
 
 
+_QUALITY_WORDS = ("fabric", "material", "gsm", "weight", "thread", "stitch", "lining", "wash", "finish", "label",
+                  "tag", "packag", "care", "quality", "sample", "certif", "قماش", "خام", "وزن", "ملصق", "تغليف", "عينة")
+_QUANTITY_WORDS = ("quantity", "qty", "pieces", "size", "deadline", "date", "deliver", "timeline", "when",
+                   "كمية", "قطع", "مقاس", "موعد", "تاريخ", "متى")
+
+
+def guess_section(question_id: str, text: str) -> str:
+    """Section for a detail recorded without one (older orders, free-text changes)."""
+    words = f"{question_id} {text}".lower()
+    if any(w in words for w in _QUANTITY_WORDS):
+        return "quantity"
+    if any(w in words for w in _QUALITY_WORDS):
+        return "quality"
+    return "design"
+
+
 def build_summary(spec: ProductSpec, market: Market, questions: list[Question], lang: str) -> dict[str, Any]:
     option = market.options[spec.option]
     by_id = {q.id: q for q in questions}
@@ -51,10 +67,16 @@ def build_summary(spec: ProductSpec, market: Market, questions: list[Question], 
             "value": localize_answer(q, value, lang),
             "raw": value,   # English values / placement data, for swatches and the drawing
         })
-    extras = [
-        {"id": qid, "type": "text", "label": label(qid, None, spec, lang), "value": format_answer(v), "raw": v}
-        for qid, v in spec.answers.items() if qid not in by_id and qid not in SKIP
-    ]
+    # Details the AI asked about go in their own section, after the form's questions
+    for qid, value in spec.answers.items():
+        if qid in by_id or qid in SKIP:
+            continue
+        text = label(qid, None, spec, lang)
+        section = spec.sections.get(qid) or guess_section(qid, text)
+        sections[section if section in sections else "design"].append(
+            {"id": qid, "type": "text", "label": text, "value": format_answer(value), "raw": value}
+        )
+    extras: list[dict] = []   # kept for older clients; every detail now has a section
     return {
         "lang": lang,
         "product": option.name_ar if lang == "ar" else option.name,

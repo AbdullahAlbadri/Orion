@@ -52,6 +52,7 @@ class ProductSpec(BaseModel):
     quantity: Optional[int] = None
     answers: dict[str, Any] = {}   # question id -> answer
     labels: dict[str, str] = {}    # question id -> wording, for questions the AI added (not in the config)
+    sections: dict[str, str] = {}  # question id -> section, for questions the AI added
     files: list[FileRef] = []
     open_gaps: list[str] = []
     version: int = 1

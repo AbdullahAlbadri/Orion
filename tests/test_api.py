@@ -381,7 +381,8 @@ async def test_team_relays_a_manufacturer_quote(api):
     assert row["stage"] == "quote_received" and row["customer_email"] == f"carol-{api.run}@example.com"
     # The customer sees progress, not the price
     view = (await api.get(f"/orders/{order_id}", headers=_auth(customer))).json()
-    assert view["status"]["en"] == "Preparing your quote" and "45" not in str(view)
+    assert view["status"]["en"] == "Preparing your quote"
+    assert "quotes" not in view and "单价" not in str(view) and "unit_price" not in str(view)
 
     # The team resolves the flags: off the list, history kept, and the order still waits for replies
     r = await api.post(f"/team/orders/{order_id}/resolve", headers=_auth(agent))

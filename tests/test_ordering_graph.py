@@ -207,6 +207,11 @@ async def test_custom_product_starts_from_a_description_and_pictures(make_app):
     assert prompt["kind"] == "confirm"
     assert "الكمية الإجمالية: 200" in prompt["pre_receipt"]
     assert "sketch.png" in prompt["pre_receipt"]
+    # Every AI question shows in its own section of the receipt, none in a catch-all
+    summary = prompt["summary"]
+    assert summary["extras"] == []
+    design_ids = [i["id"] for s in summary["sections"] if s["id"] == "design" for i in s["items"]]
+    assert {f"detail_{i}" for i in range(8)} <= set(design_ids)
 
 
 async def test_consultant_sends_pictures_as_images():
