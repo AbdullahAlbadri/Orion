@@ -233,3 +233,23 @@ def test_request_is_grouped_bilingual_with_files_attached_and_placement_in_words
     assert "A. Design" in text and "Decoration placement: logo, front" in text
     assert price_violation(text) is None
     assert request_files(spec) == [{"file_id": "f-1", "name": "logo.png", "content_type": "image/png"}]
+
+
+def test_each_placed_picture_keeps_its_file_and_the_factory_sees_which_attachment_goes_where():
+    from orion.config.markets import get_questions
+    from orion.spec import validate_answer
+
+    placement = next(q for q in get_questions("apparel", "hoodie") if q.id == "decoration_placement")
+    placed = validate_answer(placement, [
+        {"kind": "logo", "view": "front", "x": 0.63, "y": 0.3, "width_cm": 9, "height_cm": 7, "file_id": "f-2"},
+        {"kind": "label", "view": "back", "x": 0.5, "y": 0.12, "width_cm": 5, "height_cm": 2.5},
+    ])
+    assert placed[0]["file_id"] == "f-2" and "file_id" not in placed[1]
+
+    files = [{"file_id": "f-1", "name": "label.png", "content_type": "image/png"},
+             {"file_id": "f-2", "name": "logo.png", "content_type": "image/png"}]
+    spec = ProductSpec(market="apparel", option="hoodie", answers={"artwork": files, "decoration_placement": placed})
+    spec.set_answer("size_breakdown", {"M": 10})
+    text = render_request(spec, {"product_zh": "卫衣", "fields": []}, "ord_0123456789ab")
+    assert "Logo：正面胸部，穿着者左侧，宽 9 × 高 7 厘米 (附件2)" in text
+    assert "logo, front, wearer's left chest, 9 x 7 cm (attachment 2)" in text

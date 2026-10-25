@@ -16,7 +16,7 @@ from orion.config.markets import MARKETS, get_questions
 from orion.config.stats import HOURS_PER_FACTORY, HOURS_PER_MESSAGE, HOURS_PER_SPEC
 from orion.config.status_labels import UNSUBMITTED, stage_owner, status_label
 from orion.db.insights import order_rows, stage_segments, summarize_orders, summarize_time
-from orion.spec import Section
+from orion.spec import Section, is_file_list, is_placement_list
 from orion.tools.assist import safe_answer
 from orion.config.policy import Policy
 from orion.tools.files import ALLOWED, MAX_FILES_PER_ORDER, sniff_type
@@ -93,10 +93,15 @@ def _remap_files(answers: dict, new_ids: dict[str, str]) -> dict:
     """Point a copied order's file answers at the new order's copies; drop files that were not copied."""
     out = {}
     for qid, value in answers.items():
-        if isinstance(value, list) and value and all(isinstance(v, dict) and "file_id" in v for v in value):
+        if is_file_list(value):
             value = [{**v, "file_id": new_ids[str(v["file_id"])]} for v in value if str(v["file_id"]) in new_ids]
             if not value:
                 continue
+        elif is_placement_list(value):
+            # Placements keep their spot; the picture follows the copied file, or is dropped if it wasn't copied
+            value = [{**{k: x for k, x in v.items() if k != "file_id"},
+                      **({"file_id": new_ids[str(v["file_id"])]} if str(v.get("file_id")) in new_ids else {})}
+                     for v in value]
         out[qid] = value
     return out
 
@@ -299,18 +304,24 @@ async def make_mockup(
 
     questions = get_questions(spec["market"], spec["option"])
     answers = {q.id: body.answers[q.id] for q in questions if q.id in body.answers}
-    # The logo: the first uploaded picture in the answers that belongs to this order and an image model can read
+    # Reference pictures: the ones placed on the garment (in order), else the first picture in the form; only
+    # this order's files, and only formats an image model can read
     own_files = await c.accounts.file_ids(order_id)
-    logo = None
-    for file_id in file_ids_in(answers):
+    placed = [p["file_id"] for v in answers.values() if isinstance(v, list)
+              for p in v if isinstance(p, dict) and "view" in p and p.get("file_id")]
+    candidates = list(dict.fromkeys(placed)) or list(file_ids_in(answers))
+    pictures, references = [], []
+    for file_id in candidates:
         row = await c.accounts.order_file(order_id, file_id) if file_id in own_files else None
         if row and row["content_type"] in REFERENCE_TYPES:
-            logo = (c.files.load(row["storage_key"]), row["content_type"])
+            pictures.append(file_id)
+            references.append((c.files.load(row["storage_key"]), row["content_type"]))
+        if len(references) == 4 or (not placed and references):
             break
     product = MARKETS[spec["market"]].options[spec["option"]].name
-    prompt, aspect = mockup_prompt(product, questions, answers, has_logo=logo is not None)
+    prompt, aspect = mockup_prompt(product, questions, answers, pictures)
     try:
-        image = await c.mockups.make(prompt, [logo] if logo else [], aspect)
+        image = await c.mockups.make(prompt, references, aspect)
     except Exception:
         log.exception("mockup for order %s failed", order_id)
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, "the image could not be made, try again") from None
@@ -319,7 +330,7 @@ async def make_mockup(
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, "the image could not be made, try again")
     key = c.files.save(image.data, ALLOWED[content_type])
     row = await c.accounts.add_mockup(order_id, claims.sub, key, content_type, c.mockups.model, image.cost)
-    return {**row, "logo_used": logo is not None, **(await _mockup_list(c, order_id))}
+    return {**row, "logo_used": bool(references), **(await _mockup_list(c, order_id))}
 
 
 @router.get("/{order_id}/mockups/{mockup_id}")

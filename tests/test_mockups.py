@@ -23,16 +23,24 @@ def test_prompt_describes_the_look_and_the_logo_position_not_the_logistics():
     questions = get_questions("apparel", "hoodie")
     answers = {"colors": ["black"], "decoration_method": "embroidery", "fabric": "cotton fleece",
                "decoration_placement": LOGO_AT_LEFT_CHEST, "needed_by": "flexible", "packaging": ["branded box"]}
-    prompt, aspect = mockup_prompt("Hoodie", questions, answers, has_logo=True)
+    prompt, aspect = mockup_prompt("Hoodie", questions, answers, ["f-1"])
     assert "custom Hoodie" in prompt and "black" in prompt and "embroidery" in prompt and "cotton fleece" in prompt
-    assert "logo, front, wearer's left chest, 9 x 7 cm" in prompt and "Use the attached image as the logo" in prompt
+    assert "logo, front, wearer's left chest, 9 x 7 cm - attached image 1" in prompt
+    assert "Use the attached images exactly" in prompt
     assert "flexible" not in prompt and "branded box" not in prompt and aspect == "1:1"
 
     back = LOGO_AT_LEFT_CHEST + [{"kind": "logo", "view": "back", "x": 0.5, "y": 0.45, "width_cm": 30, "height_cm": 36}]
-    prompt, aspect = mockup_prompt("Hoodie", questions, {"decoration_placement": back}, has_logo=True)
+    prompt, aspect = mockup_prompt("Hoodie", questions, {"decoration_placement": back}, ["f-1"])
     assert "front and back views side by side" in prompt and aspect == "16:9"
-    prompt, _ = mockup_prompt("Hoodie", questions, {"colors": ["navy"]}, has_logo=False)
+    prompt, _ = mockup_prompt("Hoodie", questions, {"colors": ["navy"]}, [])
     assert "without any logo" in prompt
+
+    # Each placed picture is tied to its own position
+    two = [{**LOGO_AT_LEFT_CHEST[0], "file_id": "logo"},
+           {"kind": "label", "view": "back", "x": 0.5, "y": 0.12, "width_cm": 5, "height_cm": 2.5, "file_id": "label"}]
+    prompt, _ = mockup_prompt("Hoodie", questions, {"decoration_placement": two}, ["logo", "label"])
+    assert "wearer's left chest, 9 x 7 cm - attached image 1" in prompt
+    assert "label, back, centre neck, 5 x 2.5 cm - attached image 2" in prompt
 
 
 async def test_customer_makes_mockups_from_the_form_with_their_logo(api):
@@ -42,7 +50,7 @@ async def test_customer_makes_mockups_from_the_form_with_their_logo(api):
     logo = (await api.post(f"/orders/{order}/files", files={"file": ("logo.png", PNG, "image/png")},
                            headers=_auth(token))).json()
     answers = {"colors": ["black"], "decoration_method": "embroidery", "artwork": [logo],
-               "decoration_placement": LOGO_AT_LEFT_CHEST}
+               "decoration_placement": [{**LOGO_AT_LEFT_CHEST[0], "file_id": logo["file_id"]}]}
 
     r = await api.post(f"/orders/{order}/mockups", json={"answers": answers}, headers=_auth(token))
     assert r.status_code == 201 and r.json()["logo_used"] and r.json()["remaining"] == 4

@@ -101,7 +101,6 @@ def turn(intro: str = "", ready: bool = False, questions=(), **updates: str) -> 
 
 
 HOODIE_ANSWERS = {
-    "logo_position": ["front"],
     "collar": "hooded",
     "material": "100% cotton",
     "fit_type": "loose",

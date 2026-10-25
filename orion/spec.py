@@ -174,7 +174,9 @@ def _validate_files(raw: Any) -> Any:
 
 
 def is_file_list(value: Any) -> bool:
-    return isinstance(value, list) and bool(value) and all(isinstance(v, dict) and "file_id" in v for v in value)
+    """Uploaded files; placements also name a file_id (the picture they show) but are not files themselves."""
+    return isinstance(value, list) and bool(value) and all(
+        isinstance(v, dict) and "file_id" in v and "view" not in v for v in value)
 
 
 def is_placement_list(value: Any) -> bool:
@@ -185,7 +187,7 @@ MAX_PLACEMENTS = 10
 
 
 def _validate_placements(raw: Any) -> Any:
-    """Logos/labels placed on the garment drawing: [{kind, view, x, y, width_cm, height_cm}].
+    """Logos/labels placed on the garment drawing: [{kind, view, x, y, width_cm, height_cm, file_id?}].
     x/y are the centre as a fraction of the drawing (0-1, as seen from the front of the picture).
     A plain text description is also accepted (terminal, AI updates)."""
     if isinstance(raw, str):
@@ -208,8 +210,11 @@ def _validate_placements(raw: Any) -> Any:
             raise InvalidAnswer("placement is outside the garment")
         if not (0.5 <= w <= 60 and 0.5 <= h <= 60):
             raise InvalidAnswer("logo/label size must be between 0.5 and 60 cm")
-        out.append({"kind": kind, "view": view, "x": round(x, 3), "y": round(y, 3),
-                    "width_cm": round(w, 1), "height_cm": round(h, 1)})
+        placed = {"kind": kind, "view": view, "x": round(x, 3), "y": round(y, 3),
+                  "width_cm": round(w, 1), "height_cm": round(h, 1)}
+        if item.get("file_id"):            # the picture shown here; the API checks it belongs to the order
+            placed["file_id"] = str(item["file_id"])[:64]
+        out.append(placed)
     return out
 
 

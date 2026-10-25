@@ -47,7 +47,10 @@ def render_request(spec: ProductSpec, spec_zh: dict, order_id: str = "") -> str:
             word = "附件" if lang == "zh" else "attachment "
             return ("、" if lang == "zh" else ", ").join(f"{word}{number[f['file_id']]} ({f['name']})" for f in raw)
         if is_placement_list(raw):
-            return ("；" if lang == "zh" else "; ").join(describe_placement(p, lang) for p in raw)
+            word = "附件" if lang == "zh" else "attachment "
+            return ("；" if lang == "zh" else "; ").join(
+                describe_placement(p, lang) + (f" ({word}{number[p['file_id']]})" if p.get("file_id") in number else "")
+                for p in raw)
         if lang == "zh" and item["id"] in zh:
             return zh[item["id"]]["value_zh"]
         if lang == "en" and item["id"] not in form_ids and zh.get(item["id"], {}).get("value_en"):

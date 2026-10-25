@@ -113,9 +113,6 @@ def _fabric(*options: tuple[str, str]) -> Question:
 
 # The product's own attributes, asked before everything else (the customer's checklist for a hoodie)
 _HOODIE_FIRST = [
-    choice("logo_position", "Logo position?", "موضع الشعار؟",
-           [("front", "الأمام"), ("back", "الخلف"), ("left sleeve", "الكم الأيسر"), ("right sleeve", "الكم الأيمن"),
-            ("hood", "القلنسوة"), ("no logo", "بدون شعار")], multiple=True),
     choice("hoodie_style", "Type?", "النوع؟",
            [("pullover", "بدون سحّاب (Pullover)", 1), ("zip-up", "بسحّاب كامل", 2), ("half-zip", "بنصف سحّاب", 2)],
            allow_other=False),
@@ -190,8 +187,8 @@ APPAREL = Market(
         Question(
             id="decoration_placement", prompt="Where do the logo and labels go, and how big?",
             prompt_ar="أين يوضع الشعار والملصقات، وما حجمها؟", type="placement", required=False,
-            hint="Tap a spot or add a logo, then drag it into place and drag the corner to resize.",
-            hint_ar="اختر موضعًا أو أضف شعارًا، ثم اسحبه إلى مكانه واسحب الزاوية لتغيير الحجم.",
+            hint="Add a picture of each logo or label, then drag it into place and drag the corner to resize.",
+            hint_ar="أضف صورة كل شعار أو ملصق، ثم اسحبها إلى مكانها واسحب الزاوية لتغيير الحجم.",
         ),
         _NEEDED_BY,
         choice(

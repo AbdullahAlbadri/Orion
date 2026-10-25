@@ -34,8 +34,11 @@ class MockupMaker(Protocol):
     async def make(self, prompt: str, references: list[tuple[bytes, str]], aspect_ratio: str) -> MockupImage: ...
 
 
-def mockup_prompt(product: str, questions: list[Question], answers: dict[str, Any], has_logo: bool) -> tuple[str, str]:
-    """(prompt, aspect ratio) from the form as it is now."""
+def mockup_prompt(product: str, questions: list[Question], answers: dict[str, Any],
+                  pictures: list[str]) -> tuple[str, str]:
+    """(prompt, aspect ratio) from the form as it is now. `pictures`: the file ids of the reference images sent
+    with the prompt, in order (image 1, image 2...)."""
+    has_logo = bool(pictures)
     details, placements = [], []
     for q in questions:
         value = answers.get(q.id)
@@ -53,11 +56,15 @@ def mockup_prompt(product: str, questions: list[Question], answers: dict[str, An
     lines = [f"Photorealistic e-commerce product photo of a custom {product}, for a brand mockup.", "",
              "Product details:", *details]
     if placements and has_logo:
-        lines += ["", "Logo positions (left and right are the wearer's; the wearer's left is the right side of a "
-                      "front-facing photo):", *[f"- {describe_placement(p)}" for p in placements if p.get("kind") == "logo"],
-                  "", "Use the attached image as the logo. Reproduce it exactly (same shapes, colours and any text) "
-                      "at the stated positions and sizes, applied with the decoration method above. Do not add any "
-                      "other logos, text or watermarks."]
+        def which(p: dict) -> str:
+            if p.get("file_id") in pictures:
+                return f" - attached image {pictures.index(p['file_id']) + 1}"
+            return " - attached image 1" if len(pictures) == 1 and p.get("kind") == "logo" else ""
+        lines += ["", "Logo and label positions (left and right are the wearer's; the wearer's left is the right side "
+                      "of a front-facing photo):", *[f"- {describe_placement(p)}{which(p)}" for p in placements],
+                  "", "Use the attached images exactly as they are (same shapes, colours and any text), each at its "
+                      "stated position and size, applied with the decoration method above. Do not add any other "
+                      "logos, text or watermarks."]
     elif has_logo:
         lines += ["", "Put the attached logo on the left chest, small. Reproduce it exactly; add no other text."]
     else:

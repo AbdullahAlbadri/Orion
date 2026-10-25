@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import {
-  ApiError, api, askAboutSection, fileObjectUrl, type BrandColor, type BusinessView, type Prompt, type Question,
+  ApiError, api, askAboutSection, fileObjectUrl, uploadFile, type BrandColor, type BusinessView, type Prompt, type Question,
   type Section, type UploadedFile,
 } from "@/lib/api";
 import { useLang, type TextKey } from "@/lib/i18n";
@@ -99,20 +99,33 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
     return out;
   }, [values, sizes, choices, placements, files, prompt.questions]);
 
-  // The first uploaded image is drawn on the garment, at its real proportions
-  const logoFile = Object.values(files).flat().find((f) => f.content_type.startsWith("image/"));
-  const [logo, setLogo] = useState<{ url: string; aspect: number | null } | null>(null);
+  // Every uploaded picture can be placed on the garment, each drawn at its real proportions
+  const allFiles = useMemo(() => {
+    const byId = new Map<string, UploadedFile>();
+    for (const f of Object.values(files).flat()) if (!byId.has(f.file_id)) byId.set(f.file_id, f);
+    return [...byId.values()];
+  }, [files]);
+  const [previews, setPreviews] = useState<Record<string, { url: string; aspect: number | null }>>({});
   useEffect(() => {
-    if (!logoFile) { setLogo(null); return; }
-    let alive = true;
-    fileObjectUrl(orderId, logoFile.file_id).then((url) => {
-      const img = new Image();
-      img.onload = () => alive && setLogo({ url, aspect: img.naturalWidth && img.naturalHeight ? img.naturalWidth / img.naturalHeight : null });
-      img.onerror = () => alive && setLogo({ url, aspect: null });
-      img.src = url;
-    }).catch(() => {});
-    return () => { alive = false; };
-  }, [orderId, logoFile?.file_id]);   // eslint-disable-line react-hooks/exhaustive-deps
+    for (const f of allFiles) {
+      if (!f.content_type.startsWith("image/") || previews[f.file_id]) continue;
+      fileObjectUrl(orderId, f.file_id).then((url) => {
+        const img = new Image();
+        const done = (aspect: number | null) => setPreviews((p) => ({ ...p, [f.file_id]: { url, aspect } }));
+        img.onload = () => done(img.naturalWidth && img.naturalHeight ? img.naturalWidth / img.naturalHeight : null);
+        img.onerror = () => done(null);
+        img.src = url;
+      }).catch(() => {});
+    }
+  }, [orderId, allFiles]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const pictures = allFiles.map((file) => ({ file, url: previews[file.file_id]?.url ?? null, aspect: previews[file.file_id]?.aspect ?? null }));
+  // Pictures uploaded in the placement editor join the logo files, so they go to the factory too
+  const pictureQuestion = prompt.questions.find((q) => q.brand === "logo") ?? prompt.questions.find((q) => q.type === "file");
+  async function uploadPicture(file: File): Promise<UploadedFile> {
+    const uploaded = await uploadFile(orderId, file);
+    if (pictureQuestion) setFiles((prev) => ({ ...prev, [pictureQuestion.id]: [...(prev[pictureQuestion.id] ?? []), uploaded] }));
+    return uploaded;
+  }
   const method = typeof answers.decoration_method === "string" ? answers.decoration_method : undefined;
 
   const isAnswered = (q: Question) => {
@@ -176,7 +189,8 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
         <SizeTable rows={sizes[q.id]} onChange={(rows) => setSizes({ ...sizes, [q.id]: rows })} />
       ) : q.type === "placement" ? (
         <>
-          <PlacementEditor mockup={q.mockup} value={placements[q.id]} logoUrl={logo?.url} logoAspect={logo?.aspect}
+          <PlacementEditor mockup={q.mockup} value={placements[q.id]} pictures={pictures}
+            onUpload={pictureQuestion ? uploadPicture : undefined}
             method={method} onChange={(items) => setPlacements((prev) => ({ ...prev, [q.id]: items }))} />
           <MockupPanel orderId={orderId} answers={answers} />
         </>

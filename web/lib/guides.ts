@@ -284,7 +284,7 @@ export const GUIDES: Record<string, Guide> = {
 
 export const QUESTION_GUIDES: Record<string, string> = {
   material: "materials", fabric: "fabric_types", decoration_method: "printing",
-  logo_position: "placement", decoration_placement: "placement", hoodie_style: "hoodie_types",
+  decoration_placement: "placement", hoodie_style: "hoodie_types",
   collar: "collars", neckline: "collars", fit_type: "fit", fit_reference: "fit", design: "design_details",
   length: "length", sleeve_style: "sleeves", pattern_type: "patterns", style: "styles", features: "features",
   gender: "gender", season: "season", supply_type: "supply", colors: "colors", artwork: "artwork",

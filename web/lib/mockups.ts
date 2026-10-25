@@ -15,6 +15,7 @@ export type Placement = {
   y: number;          // centre, fraction of VIEW_H (0-1)
   width_cm: number;
   height_cm: number;
+  file_id?: string;   // the uploaded picture shown here (a logo or a label design)
 };
 
 export type Preset = { key: string; en: string; ar: string; placement: Placement };
