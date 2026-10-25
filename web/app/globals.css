@@ -551,5 +551,3 @@ html[dir="rtl"] .flip-back { transform: none; }
 .guide-item p { margin: 0; }
 .guide-figure { margin: -22px -22px 14px; }
 .guide-photo { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #ecebe8; }
-.guide-credit { padding: 4px 10px; font-size: 11px; color: var(--muted); text-align: left; background: rgba(0, 0, 0, .25); }
-.guide-credit a { color: inherit; text-decoration: underline; }
