@@ -3,8 +3,9 @@
 Nodes depend on the `Consultant` protocol, not on a model, so tests can pass a fake.
 """
 
+import base64
 import json
-from typing import Literal, Optional, Protocol
+from typing import Awaitable, Callable, Literal, Optional, Protocol
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
@@ -22,6 +23,10 @@ class ConsultContext(BaseModel):
     messages: list[dict] = []      # {"role": "customer" | "orion", "content": str}
     compliance_notes: list[str] = []
     lang: Literal["ar", "en"] = "en"
+    order_id: str = ""
+    images: list[dict] = []        # uploaded pictures to look at: {"file_id", "content_type"}
+    custom: bool = False           # a custom product: the customer described it in their own words
+    max_questions: int = 5
 
 
 class AnswerUpdate(BaseModel):
@@ -45,7 +50,9 @@ class DeepDiveTurn(BaseModel):
         description="Concrete details from the customer's latest answers or messages that should be recorded"
     )
     intro: str = Field(description="One short sentence shown above the questions, in the customer's language")
-    questions: list[FollowUpQuestion] = Field(description="At most 5 follow-up questions; empty if nothing is left")
+    questions: list[FollowUpQuestion] = Field(
+        description="Follow-up questions (at most the number allowed in the context); empty if nothing is left"
+    )
     ready_for_review: bool = Field(description="True only if nothing is left to ask")
 
 
@@ -70,6 +77,14 @@ def render_context(ctx: ConsultContext, include_chat: bool = True) -> str:
         f"Known questions:\n{json.dumps(questions, ensure_ascii=False, indent=1)}",
         f"Current spec:\n{ctx.spec.model_dump_json(include={'quantity', 'answers', 'open_gaps'}, indent=1)}",
     ]
+    if ctx.custom:
+        parts.append(
+            "This is a CUSTOM product: the customer described it in their own words"
+            + (" and attached pictures (shown below)" if ctx.images else "")
+            + ". In this round, ask about every detail a factory needs to quote and make it (materials, size or "
+            "dimensions, colours, construction, logo/decoration, labels, packaging), skipping whatever the "
+            f"description or pictures already answer. Up to {ctx.max_questions} questions."
+        )
     if ctx.compliance_notes:
         parts.append("Compliance notes (unverified, do not promise anything):\n- " + "\n- ".join(ctx.compliance_notes))
     if include_chat:
@@ -116,13 +131,36 @@ class OpenRouterModel:
         return self._llm.with_structured_output(schema, method="json_schema")
 
 
+ImageLoader = Callable[[str, str], Awaitable[Optional[tuple[bytes, str]]]]   # (order_id, file_id) -> (bytes, type)
+VISION_TYPES = {"image/png", "image/jpeg", "image/webp"}
+MAX_IMAGES = 4
+MAX_IMAGE_BYTES = 5 * 1024 * 1024
+
+
 class OpenRouterConsultant:
-    def __init__(self, api_key: str, base_url: str, model: str):
-        self._model = OpenRouterModel(api_key, base_url, model, temperature=0.3, max_tokens=1500)
+    def __init__(self, api_key: str, base_url: str, model: str, load_image: Optional[ImageLoader] = None):
+        self._model = OpenRouterModel(api_key, base_url, model, temperature=0.3, max_tokens=2500)
+        self._load_image = load_image
+
+    async def _content(self, ctx: ConsultContext) -> list[dict] | str:
+        """The context as text, plus the customer's pictures when there are any."""
+        text = render_context(ctx)
+        if not ctx.images or self._load_image is None:
+            return text
+        content: list[dict] = [{"type": "text", "text": text}]
+        for img in ctx.images[:MAX_IMAGES]:
+            if img.get("content_type") not in VISION_TYPES:
+                continue
+            loaded = await self._load_image(ctx.order_id, img["file_id"])
+            if loaded and len(loaded[0]) <= MAX_IMAGE_BYTES:
+                data, content_type = loaded
+                url = f"data:{content_type};base64,{base64.b64encode(data).decode()}"
+                content.append({"type": "image_url", "image_url": {"url": url}})
+        return content
 
     async def deep_dive(self, ctx: ConsultContext) -> DeepDiveTurn:
         return await self._model.structured(DeepDiveTurn).ainvoke(
-            [SystemMessage(CONSULTANT_SYSTEM), HumanMessage(render_context(ctx))]
+            [SystemMessage(CONSULTANT_SYSTEM), HumanMessage(content=await self._content(ctx))]
         )
 
     async def check_completeness(self, ctx: ConsultContext) -> CompletenessReport:

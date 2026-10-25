@@ -95,6 +95,16 @@ _FABRIC_GSM = Question(
 )
 
 
+_NEEDED_BY = choice(
+    "needed_by", "When do you need the order?", "متى تحتاج الطلب؟",
+    [("within 1 month", "خلال شهر"), ("in 1-2 months", "خلال شهر إلى شهرين"),
+     ("in 2-3 months", "خلال شهرين إلى ثلاثة"), ("flexible", "مرن")],
+    section="quantity",
+    hint="Production and shipping from China usually take 4-8 weeks in total. Under Other you can give a date.",
+    hint_ar="الإنتاج والشحن من الصين يستغرقان عادةً من 4 إلى 8 أسابيع. في «أخرى» يمكنك كتابة تاريخ.",
+)
+
+
 def _fabric(*options: tuple[str, str]) -> Question:
     return choice("fabric", "Which fabric?", "ما نوع القماش؟", list(options), section="quality")
 
@@ -129,14 +139,7 @@ APPAREL = Market(
             hint="Tap a spot or add a logo, then drag it into place and drag the corner to resize.",
             hint_ar="اختر موضعًا أو أضف شعارًا، ثم اسحبه إلى مكانه واسحب الزاوية لتغيير الحجم.",
         ),
-        choice(
-            "needed_by", "When do you need the order?", "متى تحتاج الطلب؟",
-            [("within 1 month", "خلال شهر"), ("in 1-2 months", "خلال شهر إلى شهرين"),
-             ("in 2-3 months", "خلال شهرين إلى ثلاثة"), ("flexible", "مرن")],
-            section="quantity",
-            hint="Production and shipping from China usually take 4-8 weeks in total. Under Other you can give a date.",
-            hint_ar="الإنتاج والشحن من الصين يستغرقان عادةً من 4 إلى 8 أسابيع. في «أخرى» يمكنك كتابة تاريخ.",
-        ),
+        _NEEDED_BY,
         choice(
             "packaging", "How should each piece be packed?", "كيف تُغلَّف كل قطعة؟",
             [("individual polybag", "كيس بلاستيكي لكل قطعة", 1), ("polybag with size sticker", "كيس مع ملصق المقاس", 1),
@@ -233,8 +236,27 @@ APPAREL = Market(
                 _LABELS,
             ],
         ),
-        CUSTOM_OPTION: Option(id=CUSTOM_OPTION, name="Something else (custom)", name_ar="شيء آخر (مخصص)",
-                              uses_common_questions=False),
+        CUSTOM_OPTION: Option(
+            id=CUSTOM_OPTION, name="Something else (custom)", name_ar="شيء آخر (مخصص)", uses_common_questions=False,
+            # The customer describes it in their own words (and pictures); the AI then asks everything else
+            questions=[
+                Question(
+                    id="description", prompt="Describe what you want to make", prompt_ar="صف ما تريد صنعه",
+                    type="text", multiline=True,
+                    hint="What is it, who is it for, materials, colours, size, logo... write as much as you know.",
+                    hint_ar="ما هو، ولمن، والخامات، والألوان، والمقاس، والشعار... اكتب كل ما تعرفه.",
+                ),
+                Question(
+                    id="reference_images", prompt="Add pictures or sketches", prompt_ar="أضف صورًا أو رسومات",
+                    type="file", required=False,
+                    hint="A photo of a similar product or your own sketch helps a lot.",
+                    hint_ar="صورة لمنتج مشابه أو رسمة منك تساعد كثيرًا.",
+                ),
+                Question(id=QUANTITY_ID, prompt="How many pieces?", prompt_ar="كم قطعة؟", type="number",
+                         section="quantity"),
+                _NEEDED_BY,
+            ],
+        ),
     },
     compliance_notes=[
         "Textile labeling (fiber content, origin, care) may be required for Saudi import. UNVERIFIED, confirm with a customs broker.",

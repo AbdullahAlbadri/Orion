@@ -25,8 +25,9 @@ export function FileThumb({ orderId, file }: { orderId: string; file: UploadedFi
     : <span className="thumb thumb-doc"><ImageIcon /><span>{file.name.split(".").pop()?.toUpperCase()}</span></span>;
 }
 
-export default function FileUpload({ orderId, value, onChange }: {
+export default function FileUpload({ orderId, value, onChange, pictures }: {
   orderId: string; value: UploadedFile[]; onChange: (files: UploadedFile[]) => void;
+  pictures?: boolean;   // reference pictures rather than a logo (only changes the wording)
 }) {
   const { t } = useLang();
   const input = useRef<HTMLInputElement>(null);
@@ -61,7 +62,7 @@ export default function FileUpload({ orderId, value, onChange }: {
         onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
         onDrop={(e) => { e.preventDefault(); setOver(false); add(e.dataTransfer.files); }}>
         <span className="dropzone-icon"><PlusIcon /></span>
-        <strong>{busy ? t("uploading") : t("uploadCta")}</strong>
+        <strong>{busy ? t("uploading") : t(pictures ? "uploadCtaPictures" : "uploadCta")}</strong>
         <span className="muted small">{t("uploadTypes")}</span>
         <input ref={input} type="file" accept={ACCEPT} multiple hidden onChange={(e) => add(e.target.files)} />
       </div>

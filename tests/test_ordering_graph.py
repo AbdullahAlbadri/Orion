@@ -178,24 +178,51 @@ async def test_llm_updates_are_validated(make_app):
     assert spec["quantity"] == 150                # quantity comes from the size table, not the LLM
 
 
-async def test_custom_option_starts_with_ai_questions(make_app):
+async def test_custom_product_starts_from_a_description_and_pictures(make_app):
+    many = [ask(f"detail_{i}") for i in range(10)]
     consultant = ScriptedConsultant(
-        turns=[
-            turn(questions=[ask("garment", "What garment?", ["cap", "bucket hat", "scarf"])]),
-            turn(ready=True, quantity="200"),
-        ],
+        turns=[turn("نحتاج بعض التفاصيل", questions=many), turn(ready=True)],
         reports=[],
     )
     app = make_app(consultant)
     await start_order(app, "order-7")
     await send_reply(app, "order-7", {"choice": "apparel"})
     prompt = await send_reply(app, "order-7", {"choice": "custom", "lang": "ar"})
-    assert prompt["kind"] == "form" and prompt["step"] == "deep_dive"
-    assert consultant.deep_dive_calls[0].lang == "ar"
+    # First the customer describes it, can add pictures, and says how many
+    assert prompt["kind"] == "form" and prompt["step"] == "mandatory_questions"
+    assert [q["id"] for q in prompt["questions"]] == ["description", "reference_images", "quantity", "needed_by"]
+    assert prompt["questions"][0]["multiline"]
 
-    prompt = await send_reply(app, "order-7", {"answers": {"garment": "bucket hat"}})
+    picture = {"file_id": "f-1", "name": "sketch.png", "content_type": "image/png"}
+    prompt = await send_reply(app, "order-7", {"answers": {
+        "description": "Bucket hats in sand colour with a small embroidered logo",
+        "reference_images": [picture], "quantity": "200", "needed_by": "flexible",
+    }})
+    ctx = consultant.deep_dive_calls[0]
+    assert ctx.custom and ctx.lang == "ar" and ctx.images == [{"file_id": "f-1", "content_type": "image/png"}]
+    # A custom product gets a bigger first round of questions
+    assert prompt["step"] == "deep_dive" and len(prompt["questions"]) == 8
+
+    prompt = await send_reply(app, "order-7", {"answers": {q["id"]: "yes" for q in prompt["questions"]}})
     assert prompt["kind"] == "confirm"
     assert "الكمية الإجمالية: 200" in prompt["pre_receipt"]
-    # An AI-added question shows with the AI's own wording
-    assert "What garment: bucket hat" in prompt["pre_receipt"]
-    assert prompt["summary"]["extras"][0]["label"] == "What garment"
+    assert "sketch.png" in prompt["pre_receipt"]
+
+
+async def test_consultant_sends_pictures_as_images():
+    from orion.spec import ProductSpec
+    from orion.tools.llm import ConsultContext, OpenRouterConsultant
+
+    async def load(order_id, file_id):
+        return (b"\x89PNG fake", "image/png") if file_id == "f-1" else None
+
+    consultant = OpenRouterConsultant("unused", "http://unused", "x", load_image=load)
+    ctx = ConsultContext(
+        market_name="m", option_name="o", questions=[], spec=ProductSpec(market="apparel", option="custom"),
+        order_id="o1", custom=True,
+        images=[{"file_id": "f-1", "content_type": "image/png"}, {"file_id": "f-2", "content_type": "application/pdf"}],
+    )
+    content = await consultant._content(ctx)
+    assert content[0]["type"] == "text" and "CUSTOM product" in content[0]["text"]
+    assert [c["type"] for c in content[1:]] == ["image_url"]   # the PDF is not sent as an image
+    assert content[1]["image_url"]["url"].startswith("data:image/png;base64,")

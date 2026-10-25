@@ -29,6 +29,7 @@ class Question(BaseModel):
     allow_other: bool = False      # choice: the customer may type their own answer ("Other")
     multiple: bool = False         # choice: the customer may pick several (answer is a list)
     mockup: Optional[str] = None   # placement: garment drawing to place logos/labels on (set per product)
+    multiline: bool = False        # text: a long answer (a description), shown as a large box
     # Arabic wording for the website. Answers are always stored with the English choice values.
     prompt_ar: Optional[str] = None
     hint_ar: Optional[str] = None

@@ -155,7 +155,7 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
         <PlacementEditor mockup={q.mockup} value={placements[q.id]} logoUrl={logo?.url} logoAspect={logo?.aspect}
           method={method} onChange={(items) => setPlacements((prev) => ({ ...prev, [q.id]: items }))} />
       ) : q.type === "file" ? (
-        <FileUpload orderId={orderId} value={files[q.id]} onChange={(items) => setFiles((prev) => ({ ...prev, [q.id]: items }))} />
+        <FileUpload orderId={orderId} value={files[q.id]} pictures={q.id !== "artwork"} onChange={(items) => setFiles((prev) => ({ ...prev, [q.id]: items }))} />
       ) : q.type === "choice" ? (
         <>
           <div className="chips" role={q.multiple ? "group" : "radiogroup"} aria-label={questionText(q, lang)}>
@@ -182,6 +182,9 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
               onChange={(e) => setChoices({ ...choices, [q.id]: { ...choices[q.id], other: e.target.value } })} />
           )}
         </>
+      ) : q.multiline ? (
+        <textarea id={q.id} className="describe" value={values[q.id] ?? ""} dir="auto" rows={5}
+          onChange={(e) => setValues({ ...values, [q.id]: e.target.value })} />
       ) : (
         <input id={q.id} value={values[q.id] ?? ""} dir={q.type === "number" ? "ltr" : "auto"}
           inputMode={q.type === "number" ? "decimal" : undefined}
@@ -265,7 +268,7 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
 function QuestionCard({ q, error, children }: { q: Question; error?: string; children: ReactNode }) {
   const { t, lang } = useLang();
   const hint = questionHint(q, lang);
-  const wide = q.type === "size_table" || q.type === "choice" || q.type === "placement" || q.type === "file";
+  const wide = q.type === "size_table" || q.type === "choice" || q.type === "placement" || q.type === "file" || q.multiline;
   return (
     <div className={`qcard${wide ? " wide" : ""}${error ? " has-error" : ""}`}>
       <div className="qhead">

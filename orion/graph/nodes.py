@@ -9,7 +9,7 @@ import logging
 import re
 from typing import Any
 
-from orion.config.markets import MARKETS, Market, get_questions
+from orion.config.markets import CUSTOM_OPTION, MARKETS, Market, get_questions
 from orion.config.policy import Policy
 from orion.graph.pre_receipt import build_summary, render_pre_receipt
 from orion.graph.state import OrderState
@@ -21,6 +21,7 @@ from orion.spec import (
     Question,
     format_answer,
     is_blank,
+    is_file_list,
     validate_answer,
 )
 from orion.tools.llm import AnswerUpdate, Consultant, ConsultContext, DeepDiveTurn
@@ -30,6 +31,7 @@ log = logging.getLogger(__name__)
 WAIT = "wait_for_customer"
 _QUANTITY_QUESTION = Question(id=QUANTITY_ID, prompt="Total quantity", type="number")
 MAX_FOLLOW_UPS = 5
+MAX_FOLLOW_UPS_CUSTOM = 8      # a custom product starts from a description, so the first rounds ask more
 FOLLOW_UP_INTRO = {"en": "A few more details to get your product right:", "ar": "بعض التفاصيل الإضافية لنصنع منتجك بدقة:"}
 
 
@@ -54,9 +56,23 @@ def _market(state: OrderState) -> Market:
     return MARKETS[state["market"]]
 
 
+def _images(spec: ProductSpec) -> list[dict]:
+    """Uploaded pictures in the answers, for the AI to look at."""
+    return [
+        {"file_id": f["file_id"], "content_type": f.get("content_type", "")}
+        for value in spec.answers.values() if is_file_list(value)
+        for f in value if str(f.get("content_type", "")).startswith("image/")
+    ]
+
+
 def _context(state: OrderState, spec: ProductSpec, messages: list[dict]) -> ConsultContext:
     market = _market(state)
+    custom = spec.option == CUSTOM_OPTION
     return ConsultContext(
+        order_id=state.get("order_id", ""),
+        images=_images(spec),
+        custom=custom,
+        max_questions=MAX_FOLLOW_UPS_CUSTOM if custom else MAX_FOLLOW_UPS,
         market_name=market.name,
         option_name=market.options[spec.option].name,
         questions=get_questions(market.id, spec.option),
@@ -185,8 +201,8 @@ def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")[:40]
 
 
-def _follow_ups(turn: DeepDiveTurn, market_questions: list[Question]) -> list[Question]:
-    """The AI's questions, checked in code: unique ids, no size/quantity, at most MAX_FOLLOW_UPS."""
+def _follow_ups(turn: DeepDiveTurn, market_questions: list[Question], limit: int = MAX_FOLLOW_UPS) -> list[Question]:
+    """The AI's questions, checked in code: unique ids, no size/quantity, at most `limit`."""
     covered_by_form = {SIZE_TABLE_ID, QUANTITY_ID} | {q.id for q in market_questions if q.type == "size_table"}
     out: list[Question] = []
     for f in turn.questions:
@@ -199,7 +215,7 @@ def _follow_ups(turn: DeepDiveTurn, market_questions: list[Question]) -> list[Qu
             type="choice" if choices else "text", choices=choices,
             allow_other=True, multiple=bool(f.multiple and choices),
         ))
-        if len(out) == MAX_FOLLOW_UPS:
+        if len(out) == limit:
             break
     return out
 
@@ -262,7 +278,7 @@ async def deep_dive(state: OrderState, consultant: Consultant) -> dict:
     ctx = _context(state, spec, messages).model_copy(update={"lang": lang})
     turn = await consultant.deep_dive(ctx)
     apply_updates(spec, ctx.questions, turn.updates)
-    questions = _follow_ups(turn, market_questions)
+    questions = _follow_ups(turn, market_questions, ctx.max_questions)
 
     # Guard against a loop with no customer in it: right after the completeness check found gaps,
     # the AI must ask the customer something rather than declaring itself done again.

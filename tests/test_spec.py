@@ -108,5 +108,6 @@ def test_every_product_has_a_quantity_question():
                 assert "quantity" in sections, f"{market.id}/{option_id} has no quantity question"
 
 
-def test_custom_option_has_no_fixed_questions():
-    assert get_questions("apparel", "custom") == []
+def test_custom_option_asks_for_a_description_first():
+    ids = [q.id for q in get_questions("apparel", "custom")]
+    assert ids[:2] == ["description", "reference_images"] and "quantity" in ids

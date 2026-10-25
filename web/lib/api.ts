@@ -16,6 +16,7 @@ export type Question = {
   allow_other?: boolean;   // "Other" chip with the customer's own text
   multiple?: boolean;      // several options may be picked
   mockup?: string | null;  // placement: which garment drawing
+  multiline?: boolean;     // text: a long description (large box)
   prompt_ar?: string | null;
   hint_ar?: string | null;
   choices_ar?: string[];   // Arabic labels, same order as choices (values stay English)

@@ -427,3 +427,6 @@ html[dir="rtl"] .flip-back { transform: none; }
   .auth-form { padding: 28px 22px; }
   .public { padding: 12px; }
 }
+
+.describe { min-height: 140px; font-size: 15px; line-height: 1.7; }
+
