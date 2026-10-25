@@ -23,10 +23,12 @@ export function journeyPercent(stage: string): number {
   return Math.round(((journeyIndex(stage) + 0.5) / JOURNEY.length) * 100);
 }
 
-export type Bucket = "you" | "factories" | "done";
+// draft: not submitted yet · confirm: summary waiting for the customer's OK · factories: with Orion and factories
+export type Bucket = "draft" | "confirm" | "factories" | "done";
 
 export function bucket(stage: string): Bucket {
-  if (["draft", "pre_receipt_review"].includes(stage)) return "you";
+  if (stage === "draft") return "draft";
+  if (stage === "pre_receipt_review") return "confirm";
   if (["delivered", "completed", "cancelled", "expired", "refunded"].includes(stage)) return "done";
   return "factories";
 }

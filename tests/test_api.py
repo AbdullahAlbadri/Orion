@@ -292,6 +292,19 @@ async def test_customer_order_flow_and_privacy(api):
     assert r.status_code == 409
 
 
+async def test_customer_can_discard_unsubmitted_drafts_only(api):
+    token = await _login(api, f"discard-{api.run}@example.com")
+    draft = (await api.post("/orders", headers=_auth(token))).json()["order_id"]
+    submitted = await _order_to_sourcing(api, token)
+
+    assert (await api.post(f"/orders/{draft}/discard", headers=_auth(token))).status_code == 200
+    assert (await api.post(f"/orders/{submitted}/discard", headers=_auth(token))).status_code == 409
+    assert [o["id"] for o in (await api.get("/orders", headers=_auth(token))).json()] == [submitted]
+    # A discarded draft no longer accepts answers
+    r = await api.post(f"/orders/{draft}/reply", json={"reply": {"choice": "apparel"}}, headers=_auth(token))
+    assert r.status_code == 409
+
+
 async def test_team_relays_a_manufacturer_quote(api):
     customer = await _login(api, f"carol-{api.run}@example.com")
     order_id = await _order_to_sourcing(api, customer)

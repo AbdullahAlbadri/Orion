@@ -13,7 +13,7 @@ from orion.config.markets import MARKETS, get_questions
 from orion.spec import Section
 from orion.tools.assist import safe_answer
 from orion.graph.graph import OrderNotWaiting, get_order, waiting_on
-from orion.runtime import send_customer_reply, start_customer_order
+from orion.runtime import discard_order, send_customer_reply, start_customer_order
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -89,6 +89,15 @@ async def assist(
     question = body.question.strip() or "Help me with this section."
     answer = await c.assistant.help(product, body.section, questions, answers, question, body.lang)
     return {"section": body.section, "answer": safe_answer(answer, body.lang)}
+
+
+@router.post("/{order_id}/discard")
+async def discard(order_id: str, c: ApiContext = Depends(ctx), claims: TokenClaims = Depends(current_customer)) -> dict:
+    """Drop a draft that was never submitted (before the summary is confirmed)."""
+    await _owned(c, order_id, claims)
+    if not await discard_order(c.graph, c.pool, order_id):
+        raise HTTPException(status.HTTP_409_CONFLICT, "this order was already submitted and can't be discarded")
+    return {"order_id": order_id, "stage": "cancelled"}
 
 
 @router.post("/{order_id}/reply")

@@ -11,13 +11,16 @@ import { useRequireUser } from "@/lib/auth";
 import { productName, useLang, type TextKey } from "@/lib/i18n";
 import { bucket, journeyPercent, type Bucket } from "@/lib/journey";
 
-const PILL: Record<Bucket, TextKey> = { you: "waitingForYou", factories: "withFactories", done: "stepDelivered" };
+const PILL: Record<Bucket, TextKey> = {
+  draft: "pillDraft", confirm: "pillConfirm", factories: "withFactories", done: "stepDelivered",
+};
 
 export default function Dashboard() {
   const user = useRequireUser();
   const { t, lang } = useLang();
   const [orders, setOrders] = useState<OrderRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) api<OrderRow[]>("/orders").then(setOrders).catch(() => setError(t("error")));
@@ -25,15 +28,24 @@ export default function Dashboard() {
 
   if (!user || orders === null) return <p className={error ? "error" : "muted"}>{error ?? t("loading")}</p>;
 
-  const counts = { active: 0, you: 0, factories: 0 };
+  const counts = { draft: 0, confirm: 0, factories: 0 };
   for (const o of orders) {
     const b = bucket(o.stage);
-    if (b !== "done") counts.active += 1;
-    if (b === "you") counts.you += 1;
-    if (b === "factories") counts.factories += 1;
+    if (b !== "done") counts[b] += 1;
   }
   const latest = orders[0];
-  const firstWaiting = orders.find((o) => bucket(o.stage) === "you");
+  const firstDraft = orders.find((o) => bucket(o.stage) === "draft");
+  const firstConfirm = orders.find((o) => bucket(o.stage) === "confirm");
+
+  async function discard(id: string) {
+    try {
+      await api(`/orders/${encodeURIComponent(id)}/discard`, { method: "POST" });
+      setOrders((list) => (list ?? []).filter((o) => o.id !== id));
+    } catch {
+      setError(t("error"));
+    }
+    setConfirming(null);
+  }
   const date = (iso: string) =>
     new Date(iso).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-GB", { day: "numeric", month: "long" });
 
@@ -77,9 +89,10 @@ export default function Dashboard() {
       </div>
 
       <div className="grid-stats" style={{ marginTop: 16 }}>
-        <Stat variant="paper" icon={<BoxIcon />} label={t("activeOrders")} value={counts.active} />
-        <Stat variant="signal" icon={<ChatIcon />} label={t("waitingForYou")} value={counts.you}
-          hint={firstWaiting ? { label: t("continueOrder"), href: `/orders/${firstWaiting.id}` } : undefined} />
+        <Stat variant="paper" icon={<BoxIcon />} label={t("statDrafts")} value={counts.draft}
+          hint={firstDraft ? { label: t("continueOrder"), href: `/orders/${firstDraft.id}` } : undefined} />
+        <Stat variant="signal" icon={<ChatIcon />} label={t("statConfirm")} value={counts.confirm}
+          hint={firstConfirm ? { label: t("reviewSummary"), href: `/orders/${firstConfirm.id}` } : undefined} />
         <Stat variant="ink" icon={<FactoryIcon />} label={t("withFactories")} value={counts.factories} />
       </div>
 
@@ -96,6 +109,16 @@ export default function Dashboard() {
                 <span className="hide-sm"><div className="cell-label">{t("date")}</div><div className="cell-value">{date(o.created_at)}</div></span>
                 <span className="hide-sm"><div className="cell-label">{t("quantity")}</div><div className="cell-value">{o.quantity ?? "—"}</div></span>
                 <span className="hide-sm"><span className={`pill ${bucket(o.stage)}`}>{t(PILL[bucket(o.stage)])}</span></span>
+                <span className="discard-cell">{bucket(o.stage) === "draft" && (confirming === o.id ? (
+                  <span className="row" onClick={(e) => e.preventDefault()}>
+                    <span className="muted small">{t("discardConfirm")}</span>
+                    <button type="button" className="btn btn-sm" onClick={() => discard(o.id)}>{t("discard")}</button>
+                    <button type="button" className="btn-ghost btn-sm" onClick={() => setConfirming(null)}>{t("keep")}</button>
+                  </span>
+                ) : (
+                  <button type="button" className="link-btn hide-sm" aria-label={t("discard")}
+                    onClick={(e) => { e.preventDefault(); setConfirming(o.id); }}>{t("discard")}</button>
+                ))}</span>
                 <span className="btn-outline">{t("open")}</span>
               </Link>
             ))}

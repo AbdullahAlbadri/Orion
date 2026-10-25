@@ -31,7 +31,26 @@ export default function PromptView({ order, send, busy }: { order: OrderView; se
       return <SectionedForm key={`${prompt.step}:${prompt.questions.map((q) => q.id).join(",")}:${JSON.stringify(prompt.errors)}`} orderId={order.order_id} prompt={prompt} send={send} busy={busy} />;
     case "confirm":
       return <Confirm prompt={prompt} send={send} busy={busy} />;
+    case "chat":
+      return <LegacyMessage prompt={prompt} send={send} busy={busy} />;
+    default:
+      // Never show a blank page: something unexpected from the API
+      return <div className="card"><p className="error">{t("error")}</p></div>;
   }
+}
+
+/** An order paused by an older version that asked one free-text question. Answering it moves the
+    order on to the new question cards. */
+function LegacyMessage({ prompt, send, busy }: { prompt: Extract<Prompt, { kind: "chat" }>; send: Send; busy: boolean }) {
+  const { t } = useLang();
+  const [text, setText] = useState("");
+  return (
+    <form className="card stack" onSubmit={(e) => { e.preventDefault(); if (text.trim()) send({ message: text.trim() }); }}>
+      <div className="bubble orion" dir="auto">{prompt.message}</div>
+      <textarea dir="auto" value={text} placeholder={t("typeMessage")} onChange={(e) => setText(e.target.value)} disabled={busy} />
+      <button className="btn" disabled={busy || !text.trim()} style={{ alignSelf: "flex-start" }}>{busy ? t("thinking") : t("send")}</button>
+    </form>
+  );
 }
 
 function Choice({ prompt, send, busy }: { prompt: Extract<Prompt, { kind: "choice" }>; send: Send; busy: boolean }) {

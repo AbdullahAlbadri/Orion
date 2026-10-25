@@ -12,6 +12,7 @@ import {
 } from "./Icons";
 import type { Placement } from "@/lib/mockups";
 import PlacementEditor from "./PlacementEditor";
+import TopoTexture from "./TopoTexture";
 import SizeTable, { initialSizes, sizesToAnswer, type SizeRow } from "./SizeTable";
 
 type FormPrompt = Extract<Prompt, { kind: "form" }>;
@@ -170,7 +171,8 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
   );
 
   return (
-    <form className="card stack" onSubmit={(e) => { e.preventDefault(); if (last) send({ answers }); else setActive(active + 1); }}>
+    <form className="stack form-boards" onSubmit={(e) => { e.preventDefault(); if (last) send({ answers }); else setActive(active + 1); }}>
+      <div className="board board-glass stack">
       <div className="spread">
         <h2 style={{ margin: 0 }} dir="auto">{prompt.prompt}</h2>
         <div className="segmented" role="radiogroup" aria-label={t("viewMode")}>
@@ -203,9 +205,11 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
           );
         })}
       </div>
+      </div>
 
       {shown.map((s) => (
-        <section key={s.id} id={`section-${s.id}`} className="form-section">
+        <section key={s.id} id={`section-${s.id}`} className={`form-section board section-board section-${s.id} cross`}>
+          {s.id !== "quantity" && <TopoTexture />}
           <div className="section-head">
             <div className="row">
               <span className="section-icon">{s.icon}</span>
@@ -220,7 +224,7 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
         </section>
       ))}
 
-      <div className="spread">
+      <div className="spread form-nav">
         {mode === "steps" && active > 0 ? (
           <button type="button" className="btn-ghost" onClick={() => setActive(active - 1)}>
             <ArrowIcon className="flip-back" width={18} height={18} /> {t("previous")}

@@ -95,7 +95,7 @@ uv run python -m orion.cli --postgres --order ID   # resume a saved order
 
 ```bash
 uv run python -m orion.admin add-member you@example.com --role admin   # first admin (once)
-uv run python -m orion.api                                             # http://localhost:8000
+uv run python -m orion.api --reload                                    # http://localhost:8000, restarts on code changes
 ```
 
 - API docs (try every endpoint): http://localhost:8000/docs

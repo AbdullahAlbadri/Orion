@@ -212,7 +212,7 @@ class AccountStore:
         async with self.pool.connection() as conn:
             return await (await conn.execute(
                 "SELECT id, stage, market, option, quantity, created_at, updated_at FROM orders "
-                "WHERE customer_id = %s ORDER BY created_at DESC",
+                "WHERE customer_id = %s AND stage <> 'cancelled' ORDER BY updated_at DESC",
                 (customer_id,),
             )).fetchall()
 

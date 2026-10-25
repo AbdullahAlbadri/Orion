@@ -36,7 +36,9 @@ export type Prompt =
       step: string; kind: "form"; prompt: string; questions: Question[];
       values: Record<string, unknown>; errors: Record<string, string>;
     }
-  | { step: string; kind: "confirm"; prompt: string; pre_receipt: string; error?: string | null };
+  | { step: string; kind: "confirm"; prompt: string; pre_receipt: string; error?: string | null }
+  // Orders paused by an older API version: a single message to answer in free text
+  | { step: string; kind: "chat"; message: string };
 
 export type OrderView = {
   order_id: string;

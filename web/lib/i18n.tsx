@@ -107,6 +107,14 @@ const en = {
   posMiddle: "middle",
   posLower: "lower",
   continueOrder: "Continue your order",
+  pillDraft: "Draft · not submitted",
+  pillConfirm: "Confirm your summary",
+  statDrafts: "Drafts (not submitted)",
+  statConfirm: "Waiting for your confirmation",
+  reviewSummary: "Review the summary",
+  discard: "Discard",
+  discardConfirm: "Discard this draft?",
+  keep: "Keep",
 };
 
 const ar: typeof en = {
@@ -211,6 +219,14 @@ const ar: typeof en = {
   posMiddle: "المنتصف",
   posLower: "الأسفل",
   continueOrder: "أكمل طلبك",
+  pillDraft: "مسودة · لم تُرسل",
+  pillConfirm: "أكّد الملخص",
+  statDrafts: "مسودات (لم تُرسل)",
+  statConfirm: "بانتظار تأكيدك",
+  reviewSummary: "راجع الملخص",
+  discard: "حذف",
+  discardConfirm: "حذف هذه المسودة؟",
+  keep: "إبقاء",
 };
 
 // Product names for order lists (the API returns option ids)

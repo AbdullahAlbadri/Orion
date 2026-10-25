@@ -63,16 +63,32 @@ async def start_customer_order(app, pool: AsyncConnectionPool, order_id: str) ->
             await sync_order_row(pool, await get_order(app, order_id))
 
 
+DISCARDABLE_STAGES = ("draft", "pre_receipt_review")
+
+
 async def send_customer_reply(app, pool: AsyncConnectionPool, order_id: str, reply) -> Optional[dict]:
     """The customer's answer to the prompt the order is paused on. Raises OrderNotWaiting otherwise."""
     async with order_lock(pool, order_id):
         waiting = await waiting_on(app, order_id)
         if not waiting or waiting.get("step") not in INTERACTIVE_STEPS:
             raise OrderNotWaiting(f"order {order_id} is not waiting for the customer")
+        if (await get_order(app, order_id)).get("stage") == "cancelled":
+            raise OrderNotWaiting(f"order {order_id} was discarded")
         try:
             return await send_reply(app, order_id, reply)
         finally:
             await sync_order_row(pool, await get_order(app, order_id))
+
+
+async def discard_order(app, pool: AsyncConnectionPool, order_id: str) -> bool:
+    """Customer drops an order they never submitted. Returns False if it is past the summary already."""
+    async with order_lock(pool, order_id):
+        state = await get_order(app, order_id)
+        if state.get("stage") not in DISCARDABLE_STAGES:
+            return False
+        await update_paused_order(app, order_id, {"stage": "cancelled"})
+        await sync_order_row(pool, await get_order(app, order_id))
+        return True
 
 
 async def resolve_human_tasks(app, pool: AsyncConnectionPool, order_id: str, resolved_by: str) -> dict:
