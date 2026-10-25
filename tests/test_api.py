@@ -11,7 +11,7 @@ from conftest import HOODIE_ANSWERS, ScriptedManufacturerAgent
 from orion.api.app import create_app
 from orion.api.context import ApiContext
 from orion.api.oidc import Identity
-from orion.api.security import TokenClaims, issue_access_token
+from orion.api.security import TokenClaims, hash_refresh_token, issue_access_token
 from orion.config.settings import Settings
 from orion.db.accounts import AccountStore
 from orion.db.postgres import ManualRelayChannel, PostgresDirectory, PostgresPriceStore, PostgresScheduler, make_pool
@@ -157,9 +157,20 @@ async def test_refresh_rotates_and_reuse_revokes_everything(api):
         api.cookies.set("orion_refresh_customer", token)
         return (await api.post("/auth/refresh", json={"audience": "customer"})).status_code
 
-    # Replaying the old token = theft signal: it fails AND the newest session is revoked too
+    # Replayed within seconds (two tabs refreshing together): it fails, but the newest session lives on
     assert await refresh_with(first) == 401
-    assert await refresh_with(second) == 401
+    api.cookies.clear()
+    api.cookies.set("orion_refresh_customer", second)
+    r = await api.post("/auth/refresh", json={"audience": "customer"})
+    assert r.status_code == 200
+    third = r.cookies.get("orion_refresh_customer")
+
+    # Replayed later = theft signal: it fails AND the newest session is revoked too
+    async with api.ctx.pool.connection() as conn:
+        await conn.execute("UPDATE refresh_tokens SET revoked_at = now() - interval '1 minute' WHERE token_hash = %s",
+                           (hash_refresh_token(first),))
+    assert await refresh_with(first) == 401
+    assert await refresh_with(third) == 401
 
 
 async def test_forged_and_wrong_audience_tokens_are_rejected(api):

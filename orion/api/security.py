@@ -18,6 +18,8 @@ Audience = Literal["customer", "team"]
 ISSUER = "orion"
 ACCESS_TTL = timedelta(minutes=15)
 REFRESH_TTL = {"customer": timedelta(days=30), "team": timedelta(days=7)}
+# A rotated refresh token used again this soon is two tabs refreshing at once, not theft
+REUSE_GRACE = timedelta(seconds=30)
 CODE_TTL = timedelta(minutes=10)
 CODE_MAX_ATTEMPTS = 5
 CODES_PER_HOUR = 5

@@ -268,16 +268,25 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return data as T;
 }
 
-/** Restore the session from the refresh cookie. Returns the user, or null if logged out. */
-export async function refreshSession(): Promise<User | null> {
-  try {
-    const data = await post<TokenResponse>("/auth/refresh", { audience: "customer" });
-    accessToken = data.access_token;
-    return data.user;
-  } catch {
-    accessToken = null;
-    return null;
-  }
+let refreshing: Promise<User | null> | null = null;
+
+/** Restore the session from the refresh cookie. Returns the user, or null if logged out.
+ *  Calls made at the same time share one request: the refresh token rotates on use, and sending the
+ *  old one twice looks like a stolen token to the API, which then ends every session. */
+export function refreshSession(): Promise<User | null> {
+  refreshing ??= (async () => {
+    try {
+      const data = await post<TokenResponse>("/auth/refresh", { audience: "customer" });
+      accessToken = data.access_token;
+      return data.user;
+    } catch {
+      accessToken = null;
+      return null;
+    } finally {
+      refreshing = null;
+    }
+  })();
+  return refreshing;
 }
 
 export async function startEmailLogin(email: string): Promise<void> {

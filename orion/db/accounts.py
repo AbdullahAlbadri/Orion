@@ -9,6 +9,7 @@ from orion.api.security import (
     CODE_MAX_ATTEMPTS,
     CODE_TTL,
     REFRESH_TTL,
+    REUSE_GRACE,
     Audience,
     codes_match,
     hash_refresh_token,
@@ -170,6 +171,9 @@ class AccountStore:
                 )).fetchone()
                 if row is None or row["expires_at"] <= _now():
                     raise LookupError("unknown or expired refresh token")
+                if row["revoked_at"] is not None and _now() - row["revoked_at"] < REUSE_GRACE:
+                    # Two tabs refreshing at once, not a stolen token: this one just fails
+                    raise LookupError("refresh token was just rotated")
                 if row["revoked_at"] is not None:
                     await conn.execute(
                         "UPDATE refresh_tokens SET revoked_at = now() "
