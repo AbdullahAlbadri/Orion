@@ -87,6 +87,7 @@ def render_request(spec: ProductSpec, spec_zh: dict, order_id: str = "") -> str:
         "2. 最小起订量（MOQ）",
         "3. 打样费用和打样时间",
         "4. 大货生产周期",
+        "5. 运到沙特阿拉伯的运费和运输时间（请注明海运或空运、是否到门、是否包含清关和关税）",
         "如有任何问题，请直接回复本邮件，并保留邮件标题中的订单号。谢谢！",
         "",
         "-" * 40,
@@ -114,6 +115,8 @@ def render_request(spec: ProductSpec, spec_zh: dict, order_id: str = "") -> str:
         "2. Minimum order quantity (MOQ)",
         "3. Sample cost and sample lead time",
         "4. Mass production lead time",
+        "5. Shipping cost and transit time to Saudi Arabia (sea or air, to the door or not, customs and duties "
+        "included or not)",
         "If anything is unclear, just reply to this email and keep the order number in the subject. Thank you!",
     ]
     return "\n".join(lines)

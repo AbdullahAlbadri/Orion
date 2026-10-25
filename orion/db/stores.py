@@ -29,6 +29,7 @@ class PriceRecord(BaseModel):
     option: str
     attributes: dict[str, Any]          # key spec attributes the price depends on
     quantity: Optional[int]
+    charge: str = "product"             # product | sample | shipping | other
     unit_price: float
     currency: Optional[str]
     unit: str

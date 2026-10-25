@@ -98,7 +98,7 @@ async def test_ambiguous_price_is_stored_unverified_and_flagged(make_order):
     [record] = deps.prices.records.values()
     assert record.status == "extracted"
     tasks = [t["reason"] for t in (await get_order(app, "o1"))["human_tasks"]]
-    assert any("Unverified price" in t and "tax" in t for t in tasks)
+    assert any("Unverified product price" in t and "tax" in t for t in tasks)
 
 
 async def test_hallucinated_price_is_not_stored(make_order):

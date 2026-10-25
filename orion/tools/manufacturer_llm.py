@@ -43,7 +43,11 @@ class ReplyAnalysis(BaseModel):
         False, description="Discounts, price increases, budget, or quantity-for-price offers"
     )
     moq: Optional[int] = None
-    lead_time_days: Optional[int] = None
+    lead_time_days: Optional[int] = Field(None, description="Mass production days, upper end of a range")
+    shipping_days: Optional[int] = Field(None, description="Shipping days to Saudi Arabia, upper end of a range")
+    shipping_terms: Optional[str] = Field(
+        None, description="Shipping terms in English: sea or air, to the door or port, customs and duties included or not"
+    )
     sample_terms: Optional[str] = Field(None, description="Sample cost/time terms, in English")
     summary_en: str = Field(description="One or two sentence summary in English")
 

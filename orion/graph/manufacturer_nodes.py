@@ -256,6 +256,7 @@ async def _handle_reply(
             option=spec.option,
             attributes=attributes,
             quantity=price.quantity,
+            charge=price.charge,
             unit_price=price.unit_price,
             currency=check.currency,
             unit=price.unit,
@@ -270,11 +271,12 @@ async def _handle_reply(
             problems=check.problems,
         ))
         recorded.append({
-            "unit_price": price.unit_price, "currency": check.currency, "quantity": price.quantity,
-            "status": check.status,
+            "charge": price.charge, "unit_price": price.unit_price, "currency": check.currency,
+            "unit": price.unit, "quantity": price.quantity, "status": check.status,
         })
         if check.status != "verified":
-            tasks.append(f"Unverified price {price.unit_price} {price.currency or ''}: {', '.join(check.problems)}")
+            tasks.append(f"Unverified {price.charge} price {price.unit_price} {price.currency or ''}: "
+                         f"{', '.join(check.problems)}")
 
     # Verify loop: differences from the frozen spec are never accepted silently
     known_fields = set(spec.answers) | {QUANTITY_ID}
@@ -309,6 +311,8 @@ async def _handle_reply(
                 "prices": recorded,
                 "moq": analysis.moq,
                 "lead_time_days": analysis.lead_time_days,
+                "shipping_days": analysis.shipping_days,
+                "shipping_terms": analysis.shipping_terms,
                 "sample_terms": analysis.sample_terms,
                 "summary": analysis.summary_en,
                 "expires_at": expires_at.isoformat(),

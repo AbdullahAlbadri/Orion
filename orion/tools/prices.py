@@ -9,9 +9,15 @@ PriceStatus = Literal["verified", "extracted"]   # extracted = unverified, needs
 
 
 class ExtractedPrice(BaseModel):
+    charge: Literal["product", "sample", "shipping", "other"] = Field(
+        "product", description="What the price is for: the product itself, a sample, shipping to Saudi Arabia, "
+                               "or something else (mould, setup, plate...)",
+    )
     unit_price: float = Field(description="The price number exactly as written in the message")
     currency: Optional[str] = Field(None, description="Currency as written (¥, 元, RMB, USD...), null if not stated")
-    unit: Literal["piece", "carton", "set", "other", "unknown"] = Field(description="What one price unit buys")
+    unit: Literal["piece", "carton", "set", "kg", "order", "other", "unknown"] = Field(
+        description="What one price unit buys; 'order' = one amount for the whole order or shipment"
+    )
     quantity: Optional[int] = Field(None, description="Order quantity / tier this price applies to, if stated")
     shipping_included: Optional[bool] = Field(None, description="null if the message does not say")
     incoterm: Optional[str] = Field(None, description="EXW, FOB, CIF, DDP... if stated")
@@ -69,12 +75,19 @@ def check_price(price: ExtractedPrice, message: str) -> PriceCheck:
     currency = normalize_currency(price.currency)
     if currency is None:
         problems.append("currency unclear")
-    if price.unit != "piece":
-        problems.append(f"price is per {price.unit}, not per piece")
-    if price.shipping_included is None and not price.incoterm:
-        problems.append("unclear whether shipping is included")
-    if price.tax_included is None:
-        problems.append("unclear whether tax is included")
+    if price.charge == "product":
+        if price.unit != "piece":
+            problems.append(f"price is per {price.unit}, not per piece")
+        if price.shipping_included is None and not price.incoterm:
+            problems.append("unclear whether shipping is included")
+        if price.tax_included is None:
+            problems.append("unclear whether tax is included")
+    elif price.charge == "sample" and price.unit not in ("piece", "set", "order"):
+        problems.append(f"sample price is per {price.unit}")
+    elif price.charge == "shipping" and price.unit not in ("order", "kg", "piece", "carton"):
+        problems.append(f"shipping price is per {price.unit}")
+    elif price.charge == "other":
+        problems.append("extra charge: the team decides how it is quoted")
 
     trusted = in_message and has_number
     return PriceCheck(

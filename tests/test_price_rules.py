@@ -76,3 +76,21 @@ def test_currency_normalization():
     assert normalize_currency("RMB") == "CNY"
     assert normalize_currency("US$") == "USD"
     assert normalize_currency("gold coins") is None
+
+
+def test_sample_and_shipping_prices_are_checked_by_their_own_rules():
+    message = "单价45元/件，含税，FOB深圳。打样费200元。海运到利雅得运费800元，约25-30天到门。开模费500元"
+    sample = ExtractedPrice(charge="sample", unit_price=200, currency="元", unit="order", quoted_text="打样费200元")
+    shipping = ExtractedPrice(charge="shipping", unit_price=800, currency="元", unit="order",
+                              quoted_text="海运到利雅得运费800元")
+    mould = ExtractedPrice(charge="other", unit_price=500, currency="元", unit="order", quoted_text="开模费500元")
+    # No per-piece / tax / shipping questions for a sample or freight amount
+    assert check_price(sample, message).status == "verified"
+    assert check_price(shipping, message).status == "verified"
+    # Other charges are kept but always go to the team
+    other = check_price(mould, message)
+    assert other.trusted_text and other.status == "extracted"
+    # A product price still has to be per piece
+    per_order = ExtractedPrice(unit_price=45, currency="元", unit="order", tax_included=True, incoterm="FOB",
+                               quoted_text="单价45元/件")
+    assert "not per piece" in " ".join(check_price(per_order, message).problems)
