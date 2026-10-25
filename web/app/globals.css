@@ -549,3 +549,4 @@ html[dir="rtl"] .flip-back { transform: none; }
 .guide-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
 .guide-item h2 { margin: 0 0 6px; font-size: 17px; }
 .guide-item p { margin: 0; }
+.guide-photo { display: block; width: calc(100% + 44px); margin: -22px -22px 14px; aspect-ratio: 4 / 3; object-fit: cover; background: #ecebe8; }

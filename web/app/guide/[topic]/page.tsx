@@ -4,15 +4,24 @@
 // customer's unsaved form stays as it is).
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useState } from "react";
 
 import { InfoIcon } from "@/components/Icons";
 import { PageHead } from "@/components/ui";
 import { type T } from "@/lib/copy";
-import { GUIDES } from "@/lib/guides";
+import { GUIDES, guideImage } from "@/lib/guides";
 import { useLang } from "@/lib/i18n";
 
 const MORE = { ar: "أدلة أخرى", en: "More guides" };
 const MISSING = { ar: "لا يوجد دليل بهذا الاسم.", en: "There is no guide with this name." };
+
+/** The option's photo; options without one simply show no picture. */
+function GuidePhoto({ src, alt }: { src: string; alt: string }) {
+  const [missing, setMissing] = useState(false);
+  if (missing) return null;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img className="guide-photo" src={src} alt={alt} loading="lazy" onError={() => setMissing(true)} />;
+}
 
 export default function GuidePage() {
   const { lang } = useLang();
@@ -27,6 +36,7 @@ export default function GuidePage() {
       <div className="guide-grid">
         {guide.items.map((item) => (
           <section key={item.name.en} className="board board-glass guide-item">
+            <GuidePhoto src={guideImage(topic, item.name.en)} alt={L(item.name)} />
             <h2>{L(item.name)}</h2>
             <p className="muted">{L(item.text)}</p>
           </section>

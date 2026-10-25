@@ -5,6 +5,10 @@ import { t, type T } from "./copy";
 
 export type Guide = { title: T; intro: T; items: { name: T; text: T }[]; tip?: T };
 
+/** Where an option's photo lives (made once by scripts/guide_images.py): /guides/<topic>/<slug of the English name>.webp */
+export const guideImage = (topic: string, nameEn: string) =>
+  `/guides/${topic}/${nameEn.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}.webp`;
+
 export const GUIDES: Record<string, Guide> = {
   materials: {
     title: t("أنواع الخامات", "Types of material"),
