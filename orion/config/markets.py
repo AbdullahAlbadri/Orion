@@ -3,6 +3,8 @@
 Add a new market by defining a Market and registering it in MARKETS.
 """
 
+from typing import Optional
+
 from pydantic import BaseModel
 
 from orion.spec import QUANTITY_ID, SIZE_TABLE_ID, Question
@@ -15,6 +17,7 @@ class Option(BaseModel):
     name: str
     questions: list[Question] = []
     uses_common_questions: bool = True
+    mockup: Optional[str] = None     # garment drawing for placement questions (web/components/mockups.ts)
 
 
 class Market(BaseModel):
@@ -94,12 +97,10 @@ APPAREL = Market(
         ),
         Question(
             id="decoration_placement",
-            prompt="Where does the design go?",
-            type="choice",
-            choices=["left chest", "center chest", "full front", "full back", "sleeve", "back neck"],
-            multiple=True,
-            allow_other=True,
-            hint="Under Other you can add sizes, e.g. left chest 8cm.",
+            prompt="Where do the logo and labels go, and how big?",
+            type="placement",
+            required=False,
+            hint="Tap a spot or add a logo, then drag it into place and drag the corner to resize.",
         ),
         Question(
             id="artwork",
@@ -112,6 +113,7 @@ APPAREL = Market(
         "hoodie": Option(
             id="hoodie",
             name="Hoodie",
+            mockup="hoodie",
             questions=[
                 _fabric("cotton fleece", "cotton-poly fleece", "french terry"),
                 _FABRIC_GSM,
@@ -124,6 +126,7 @@ APPAREL = Market(
         "oversized_tee": Option(
             id="oversized_tee",
             name="Oversized T-shirt",
+            mockup="tee",
             questions=[
                 _fabric("100% cotton", "cotton-poly", "heavyweight cotton"),
                 _FABRIC_GSM,
@@ -137,6 +140,7 @@ APPAREL = Market(
         "abaya": Option(
             id="abaya",
             name="Abaya",
+            mockup="abaya",
             questions=[
                 _fabric("crepe", "nida", "linen", "chiffon"),
                 Question(
@@ -168,6 +172,7 @@ APPAREL = Market(
         "tote_bag": Option(
             id="tote_bag",
             name="Tote bag",
+            mockup="tote",
             questions=[
                 _fabric("cotton canvas", "cotton", "non-woven", "jute"),
                 Question(
@@ -185,6 +190,7 @@ APPAREL = Market(
         "corporate_uniform": Option(
             id="corporate_uniform",
             name="Corporate uniform",
+            mockup="polo",
             questions=[
                 Question(
                     id="garment_type",
@@ -195,14 +201,6 @@ APPAREL = Market(
                     allow_other=True,
                 ),
                 _fabric("cotton", "poly-cotton", "polyester", "gabardine"),
-                Question(
-                    id="logo_placement",
-                    prompt="Where does the company logo go?",
-                    type="choice",
-                    choices=["left chest", "right chest", "sleeve", "back", "cap front"],
-                    multiple=True,
-                    allow_other=True,
-                ),
                 Question(
                     id=SIZE_TABLE_ID,
                     prompt="Staff count per size?",
@@ -229,4 +227,8 @@ def get_questions(market_id: str, option_id: str) -> list[Question]:
     market = MARKETS[market_id]
     option = market.options[option_id]
     common = market.common_questions if option.uses_common_questions else []
-    return common + option.questions
+    # Placement questions draw this product's garment
+    return [
+        q.model_copy(update={"mockup": option.mockup}) if q.type == "placement" and option.mockup else q
+        for q in common + option.questions
+    ]

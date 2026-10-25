@@ -8,13 +8,14 @@ export type User = { id: string; email: string; name?: string | null };
 export type Question = {
   id: string;
   prompt: string;
-  type: "choice" | "number" | "text" | "file" | "size_table";
+  type: "choice" | "number" | "text" | "file" | "size_table" | "placement";
   choices: string[];
   required: boolean;
   hint?: string | null;
   section: Section;
   allow_other?: boolean;   // "Other" chip with the customer's own text
   multiple?: boolean;      // several options may be picked
+  mockup?: string | null;  // placement: which garment drawing
 };
 
 export type Section = "design" | "quantity" | "quality";

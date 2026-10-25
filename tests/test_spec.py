@@ -46,6 +46,46 @@ def test_market_config_is_consistent():
                     assert q.choices, f"{q.id} has no choices"
 
 
+PLACEMENT = Question(id="decoration_placement", prompt="", type="placement")
+
+
+def test_placements_are_validated():
+    good = [{"kind": "logo", "view": "front", "x": 0.6234, "y": 0.3, "width_cm": 9.04, "height_cm": 6}]
+    assert validate_answer(PLACEMENT, good) == [
+        {"kind": "logo", "view": "front", "x": 0.623, "y": 0.3, "width_cm": 9.0, "height_cm": 6.0}
+    ]
+    assert validate_answer(PLACEMENT, "left chest 8cm") == "left chest 8cm"   # text still accepted
+    for bad in (
+        [{"kind": "logo", "view": "front", "x": 1.4, "y": 0.3, "width_cm": 9, "height_cm": 6}],    # off the garment
+        [{"kind": "logo", "view": "front", "x": 0.5, "y": 0.3, "width_cm": 90, "height_cm": 6}],   # too big
+        [{"kind": "sticker", "view": "front", "x": 0.5, "y": 0.3, "width_cm": 9, "height_cm": 6}],
+        [{"kind": "logo", "view": "side", "x": 0.5, "y": 0.3, "width_cm": 9, "height_cm": 6}],
+        [{"kind": "logo"}],
+        [],
+    ):
+        with pytest.raises(InvalidAnswer):
+            validate_answer(PLACEMENT, bad)
+
+
+def test_placement_words_use_the_wearers_left():
+    from orion.spec import describe_placement, format_answer
+
+    front_right_of_picture = {"kind": "logo", "view": "front", "x": 0.65, "y": 0.3, "width_cm": 9, "height_cm": 6}
+    back_left_of_picture = {"kind": "logo", "view": "back", "x": 0.3, "y": 0.5, "width_cm": 9, "height_cm": 6}
+    assert describe_placement(front_right_of_picture) == "logo, front, wearer's left chest, 9 x 6 cm"
+    assert describe_placement(back_left_of_picture) == "logo, back, wearer's left middle, 9 x 6 cm"
+    label = {"kind": "label", "view": "back", "x": 0.5, "y": 0.1, "width_cm": 5, "height_cm": 2.5}
+    assert format_answer([front_right_of_picture, label]) == (
+        "logo, front, wearer's left chest, 9 x 6 cm; label, back, centre neck, 5 x 2.5 cm"
+    )
+
+
+def test_placement_questions_get_the_products_drawing():
+    for option in ("hoodie", "oversized_tee", "abaya", "tote_bag", "corporate_uniform"):
+        placements = [q for q in get_questions("apparel", option) if q.type == "placement"]
+        assert len(placements) == 1 and placements[0].mockup
+
+
 def test_every_product_has_a_quantity_question():
     for market in MARKETS.values():
         for option_id, option in market.options.items():

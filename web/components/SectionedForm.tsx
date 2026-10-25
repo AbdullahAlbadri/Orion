@@ -10,6 +10,8 @@ import {
   ArrowIcon, CheckIcon, HashIcon, ImageIcon, LayersIcon, ListIcon, NeedleIcon, PaletteIcon, PlusIcon, RulerIcon, ScaleIcon,
   SendIcon, ShieldIcon, ShirtIcon, SparkleIcon, StepsIcon, TagIcon, TargetIcon,
 } from "./Icons";
+import type { Placement } from "@/lib/mockups";
+import PlacementEditor from "./PlacementEditor";
 import SizeTable, { initialSizes, sizesToAnswer, type SizeRow } from "./SizeTable";
 
 type FormPrompt = Extract<Prompt, { kind: "form" }>;
@@ -61,6 +63,9 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
   const [choices, setChoices] = useState<Record<string, ChoiceState>>(() =>
     Object.fromEntries(prompt.questions.filter((q) => q.type === "choice")
       .map((q) => [q.id, initialChoice(q, prompt.values[q.id])])));
+  const [placements, setPlacements] = useState<Record<string, Placement[]>>(() =>
+    Object.fromEntries(prompt.questions.filter((q) => q.type === "placement")
+      .map((q) => [q.id, Array.isArray(prompt.values[q.id]) ? (prompt.values[q.id] as Placement[]) : []])));
   const [sizes, setSizes] = useState<Record<string, SizeRow[]>>(() =>
     Object.fromEntries(prompt.questions.filter((q) => q.type === "size_table")
       .map((q) => [q.id, initialSizes(prompt.values[q.id])])));
@@ -74,11 +79,13 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
     const out: Record<string, unknown> = { ...values };
     for (const [id, rows] of Object.entries(sizes)) out[id] = sizesToAnswer(rows);
     for (const q of prompt.questions) if (q.type === "choice") out[q.id] = choiceAnswer(q, choices[q.id]);
+    for (const [id, items] of Object.entries(placements)) out[id] = items;
     return out;
-  }, [values, sizes, choices, prompt.questions]);
+  }, [values, sizes, choices, placements, prompt.questions]);
 
   const isAnswered = (q: Question) => {
     if (q.type === "size_table") return Object.keys(sizesToAnswer(sizes[q.id] ?? [])).length > 0;
+    if (q.type === "placement") return (placements[q.id] ?? []).length > 0;
     if (q.type === "choice") return choiceAnswer(q, choices[q.id]).length > 0;
     return Boolean(values[q.id]?.trim());
   };
@@ -125,6 +132,9 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
     <QuestionCard key={q.id} q={q} error={prompt.errors[q.id]}>
       {q.type === "size_table" ? (
         <SizeTable rows={sizes[q.id]} onChange={(rows) => setSizes({ ...sizes, [q.id]: rows })} />
+      ) : q.type === "placement" ? (
+        <PlacementEditor mockup={q.mockup} value={placements[q.id]}
+          onChange={(items) => setPlacements((prev) => ({ ...prev, [q.id]: items }))} />
       ) : q.type === "choice" ? (
         <>
           <div className="chips" role={q.multiple ? "group" : "radiogroup"} aria-label={q.prompt}>
@@ -227,7 +237,7 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
 
 function QuestionCard({ q, error, children }: { q: Question; error?: string; children: ReactNode }) {
   const { t } = useLang();
-  const wide = q.type === "size_table" || q.type === "choice";
+  const wide = q.type === "size_table" || q.type === "choice" || q.type === "placement";
   return (
     <div className={`qcard${wide ? " wide" : ""}${error ? " has-error" : ""}`}>
       <div className="qhead">

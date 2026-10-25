@@ -240,6 +240,26 @@ button { font: inherit; cursor: pointer; border: 0; }
 .segmented button:hover { color: var(--text); }
 .segmented button.on { background: var(--card-2); color: var(--yellow); font-weight: 600; }
 
+/* logo / label placement on a garment drawing */
+.placement { display: flex; flex-direction: column; gap: 12px; }
+.mockup-wrap { display: flex; justify-content: center; background: radial-gradient(circle at 50% 40%, #232138, var(--card)); border-radius: 18px; padding: 12px; }
+.mockup { width: 100%; max-width: 420px; height: auto; touch-action: none; user-select: none; }
+.garment { fill: #2b2940; stroke: rgba(248, 248, 248, .35); stroke-width: 2; stroke-linejoin: round; }
+.garment-detail { fill: none; stroke: rgba(248, 248, 248, .22); stroke-width: 2; stroke-linecap: round; }
+.placed rect:first-of-type { cursor: grab; outline: none; }
+.placed.logo rect:first-of-type { fill: rgba(254, 183, 47, .22); stroke: var(--yellow); stroke-width: 2; stroke-dasharray: 6 4; }
+.placed.label rect:first-of-type { fill: rgba(188, 48, 57, .5); stroke: #ff8a8f; stroke-width: 1.5; }
+.placed.active rect:first-of-type { stroke-dasharray: none; stroke-width: 3; }
+.placed rect:first-of-type:focus-visible { stroke-width: 4; }
+.placed-text { fill: var(--paper); font-size: 12px; font-weight: 600; text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
+.placed-size { fill: var(--yellow); font-size: 11px; text-anchor: middle; pointer-events: none; }
+.handle { fill: var(--yellow); stroke: var(--navy); stroke-width: 2; cursor: nwse-resize; }
+.placed-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.placed-list li { display: grid; grid-template-columns: auto 1fr auto auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 14px; cursor: pointer; }
+.placed-list li.active, .placed-list li:hover { background: var(--card-2); }
+.cm-inputs { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+.cm-inputs input { width: 72px; padding: 6px 8px; text-align: center; }
+
 /* arrows point the reading direction */
 .flip-back { transform: scaleX(-1); }
 html[dir="rtl"] .flip-forward { transform: scaleX(-1); }
