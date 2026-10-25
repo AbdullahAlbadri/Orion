@@ -1,9 +1,63 @@
 {
+ "collars/double-layer-hood": {
+  "creator": "David Ring",
+  "licence": "CC0",
+  "licence_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+  "source": "https://commons.wikimedia.org/wiki/File:Track_suit_top.tif"
+ },
+ "collars/funnel-neck": {
+  "creator": "Arkirkland",
+  "licence": "CC0",
+  "licence_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+  "source": "https://commons.wikimedia.org/wiki/File:Funnel_neck.jpg"
+ },
+ "collars/hooded": {
+  "creator": "YoussefTahoun",
+  "licence": "CC0",
+  "licence_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+  "source": "https://commons.wikimedia.org/wiki/File:Hoodie_m7agar.jpg"
+ },
+ "collars/v-neck": {
+  "creator": "Jamie",
+  "licence": "CC BY-SA 2.0",
+  "licence_url": "https://creativecommons.org/licenses/by-sa/2.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Olive_Green_V-neck_Sweater_over_a_Black_Floral_Button_Down_(23039239882).jpg"
+ },
+ "design_details/colour-block": {
+  "creator": "Menswear Market",
+  "licence": "CC BY 2.0",
+  "licence_url": "https://creativecommons.org/licenses/by/2.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Polo_Ralph_Lauren_color_block_Windbreaker_jacket.jpg"
+ },
+ "design_details/distressed": {
+  "creator": "1Veertje",
+  "licence": "CC BY-SA 4.0",
+  "licence_url": "https://creativecommons.org/licenses/by-sa/4.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Women%27s_Levi%27s_jeans_inside_out.jpg"
+ },
+ "design_details/patchwork": {
+  "creator": "hanfulove",
+  "licence": "CC BY 2.0",
+  "licence_url": "https://creativecommons.org/licenses/by/2.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Childrenhanfu2.jpeg"
+ },
  "drawstrings/round-cord": {
   "creator": "kellyhogaboom",
   "licence": "CC BY-SA 2.0",
   "licence_url": "https://creativecommons.org/licenses/by-sa/2.0/",
   "source": "https://www.flickr.com/photos/11597293@N00/8659802774"
+ },
+ "fabric_types/french-terry": {
+  "creator": "User Mike1024 on en.wikipedia",
+  "licence": "Public domain",
+  "licence_url": null,
+  "source": "https://commons.wikimedia.org/wiki/File:Towel_blue_decorativepattern_closeup.jpg"
+ },
+ "fabric_types/jersey-knit": {
+  "creator": "teslar",
+  "licence": "CC BY-SA 3.0",
+  "licence_url": "https://creativecommons.org/licenses/by-sa/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Singlejersey.jpg"
  },
  "fabric_types/knitted-fleece": {
   "creator": "Aine D",
@@ -11,17 +65,83 @@
   "licence_url": "https://creativecommons.org/licenses/by-sa/2.0/",
   "source": "https://www.flickr.com/photos/48600087038@N01/1444506"
  },
+ "fabric_types/waffle-knit": {
+  "creator": "Alexandra.birenbaum",
+  "licence": "CC BY-SA 4.0",
+  "licence_url": "https://creativecommons.org/licenses/by-sa/4.0",
+  "source": "https://commons.wikimedia.org/wiki/File:An_example_of_waffle_fabric.jpeg"
+ },
  "fabric_types/woven": {
   "creator": "shaire productions",
   "licence": "CC BY 2.0",
   "licence_url": "https://creativecommons.org/licenses/by/2.0/",
   "source": "https://www.flickr.com/photos/9822107@N08/5140404256"
  },
+ "fit/boxy": {
+  "creator": "P1898",
+  "licence": "CC BY 4.0",
+  "licence_url": "https://creativecommons.org/licenses/by/4.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Uniqlo_2026-09-07_shirt_Philippines.jpg"
+ },
+ "fit/slim": {
+  "creator": "Manhattan",
+  "licence": "CC BY 4.0",
+  "licence_url": "https://creativecommons.org/licenses/by/4.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Shirt,_men%27s_(AM_2015.44.1-1).jpg"
+ },
+ "gsm/160-200": {
+  "creator": "P1898",
+  "licence": "CC BY 4.0",
+  "licence_url": "https://creativecommons.org/licenses/by/4.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Pure_Pi%C3%B1a_fiber_October_11_2026_Grand_winner_HABI_cotton_category_01.jpg"
+ },
+ "gsm/200-240": {
+  "creator": "Unknown",
+  "licence": "CC BY 4.0",
+  "licence_url": "https://creativecommons.org/licenses/by/4.0",
+  "source": "https://commons.wikimedia.org/wiki/File:T-shirt_(AM_2002.94.1.1-1).jpg"
+ },
  "gsm/280-320": {
   "creator": "Clearly Ambiguous",
   "licence": "CC BY 2.0",
   "licence_url": "https://creativecommons.org/licenses/by/2.0/",
   "source": "https://www.flickr.com/photos/84617037@N00/135139842"
+ },
+ "gsm/320-400": {
+  "creator": "iPowahFX Studio",
+  "licence": "Public domain",
+  "licence_url": null,
+  "source": "https://commons.wikimedia.org/wiki/File:Antron_Fleece.jpg"
+ },
+ "hoodie_types/half-zip": {
+  "creator": "--Xocolatl 12:45, 30 May 2007 (UTC)",
+  "licence": "Public domain",
+  "licence_url": null,
+  "source": "https://commons.wikimedia.org/wiki/File:Troyer5.jpg"
+ },
+ "hoodie_types/pullover": {
+  "creator": "Goose friend",
+  "licence": "CC0",
+  "licence_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+  "source": "https://commons.wikimedia.org/wiki/File:Poncho_Baja_2.JPG"
+ },
+ "hoodie_types/zip-up": {
+  "creator": "Fanem WOO Huauimgy SAA",
+  "licence": "CC BY-SA 4.0",
+  "licence_url": "https://creativecommons.org/licenses/by-sa/4.0",
+  "source": "https://commons.wikimedia.org/wiki/File:HK_SKD_TKO_%E5%B0%87%E8%BB%8D%E6%BE%B3_Tseung_Kwan_O_%E5%9D%91%E5%8F%A3_Hang_Hau_%E6%9D%B1%E6%B8%AF%E5%9F%8E_East_Point_City_mall_shop_GU_Clothing_Store_%E7%A7%8B%E5%AD%A3%E6%9C%8D%E8%A3%9D_Autumn_fall_fashion_long_sleeve_full_zip_hoodie_September_2022_Px3.jpg"
+ },
+ "labels/size-and-care-labels": {
+  "creator": "Mk2010",
+  "licence": "CC BY-SA 3.0",
+  "licence_url": "https://creativecommons.org/licenses/by-sa/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Laundry_symbols_on_a_care_label_attached_to_a_shirt.JPG"
+ },
+ "labels/woven-neck-label": {
+  "creator": "Fahad Faisal",
+  "licence": "CC BY-SA 3.0",
+  "licence_url": "https://creativecommons.org/licenses/by-sa/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Woven_Label.jpg"
  },
  "materials/100-cotton": {
   "creator": "Horia Varlan",
@@ -35,17 +155,53 @@
   "licence_url": "https://creativecommons.org/licenses/by/2.0/",
   "source": "https://www.flickr.com/photos/9822107@N08/4863941547"
  },
+ "materials/cotton-polyester-60-40": {
+  "creator": "Hasan Mahedi",
+  "licence": "CC BY-SA 4.0",
+  "licence_url": "https://creativecommons.org/licenses/by-sa/4.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Single_Jersey_Fabric.jpg"
+ },
  "materials/cotton-polyester-80-20": {
   "creator": "Mr Thinktank",
   "licence": "CC BY 2.0",
   "licence_url": "https://creativecommons.org/licenses/by/2.0/",
   "source": "https://www.flickr.com/photos/34621580@N00/4048801662"
  },
+ "materials/cotton-spandex": {
+  "creator": "Mary Mark Ockerbloom",
+  "licence": "CC BY-SA 3.0",
+  "licence_url": "https://creativecommons.org/licenses/by-sa/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Stretch_fabric_swatches_different_values_DSCF2204.jpg"
+ },
  "materials/organic-cotton": {
   "creator": "staralee",
   "licence": "CC BY 2.0",
   "licence_url": "https://creativecommons.org/licenses/by/2.0/",
   "source": "https://www.flickr.com/photos/26781710@N00/566806382"
+ },
+ "packaging/branded-box": {
+  "creator": "Shixart1985",
+  "licence": "CC BY 2.0",
+  "licence_url": "https://creativecommons.org/licenses/by/2.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Brown_gift_box_with_red_ribbon_and_bow.jpg"
+ },
+ "packaging/folded-with-tissue-paper": {
+  "creator": "Ser Amantio di Nicolao",
+  "licence": "CC BY-SA 4.0",
+  "licence_url": "https://creativecommons.org/licenses/by-sa/4.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Tissue_paper_for_sale_at_CVS,_Pentagon_City.jpg"
+ },
+ "packaging/individual-polybag": {
+  "creator": "999real",
+  "licence": "CC0",
+  "licence_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+  "source": "https://commons.wikimedia.org/wiki/File:White_plastic_bag_on_brown_wooden_table.jpg"
+ },
+ "packaging/on-a-hanger": {
+  "creator": "Heritage Preservation Department - MNHS",
+  "licence": "CC BY-SA 4.0",
+  "licence_url": "https://creativecommons.org/licenses/by-sa/4.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Damage_to_textile_from_wide_polystyrene_clothes_hanger-01.jpg"
  },
  "patterns/all-over-print": {
   "creator": "bjornmeansbear",
@@ -59,16 +215,94 @@
   "licence_url": "https://creativecommons.org/licenses/by/2.0/",
   "source": "https://www.flickr.com/photos/36894712@N04/5540054284"
  },
+ "patterns/colour-block": {
+  "creator": "Menswear Market",
+  "licence": "CC BY 2.0",
+  "licence_url": "https://creativecommons.org/licenses/by/2.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Polo_Ralph_Lauren_color_block_Windbreaker_jacket.jpg"
+ },
+ "patterns/graphic-or-letters": {
+  "creator": "Moheen Reeyad",
+  "licence": "CC BY-SA 4.0",
+  "licence_url": "https://creativecommons.org/licenses/by-sa/4.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Wiki_Loves_Bangla_T-Shirt_White.jpg"
+ },
+ "patterns/striped": {
+  "creator": "Robert Sheie",
+  "licence": "CC BY 2.0",
+  "licence_url": "https://creativecommons.org/licenses/by/2.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Paul_Smith_striped_shirt.jpg"
+ },
  "patterns/tie-dye": {
   "creator": "gayledc",
   "licence": "CC BY 2.0",
   "licence_url": "https://creativecommons.org/licenses/by/2.0/",
   "source": "https://www.flickr.com/photos/67823921@N06/6171508264"
  },
+ "placement/back": {
+  "creator": "Siarhei Besarab",
+  "licence": "CC BY-SA 4.0",
+  "licence_url": "https://creativecommons.org/licenses/by-sa/4.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Hoodie_with_a_DIP-8_integrated_circuit_design.jpg"
+ },
+ "placement/centre-chest-or-full-front": {
+  "creator": "Peachyeung316",
+  "licence": "CC BY-SA 4.0",
+  "licence_url": "https://creativecommons.org/licenses/by-sa/4.0",
+  "source": "https://commons.wikimedia.org/wiki/File:A_American_student_and_street_style_from_Pull_%26_Bear.jpg"
+ },
+ "placement/front-left-chest": {
+  "creator": "Lektorat1973",
+  "licence": "CC BY-SA 4.0",
+  "licence_url": "https://creativecommons.org/licenses/by-sa/4.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Mikandmia_polo_logo_brust2020.jpg"
+ },
+ "printing/dtg-print": {
+  "creator": "Алекс Лу",
+  "licence": "CC BY-SA 3.0",
+  "licence_url": "https://creativecommons.org/licenses/by-sa/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:I-DOT.jpg"
+ },
+ "printing/embroidery": {
+  "creator": "Ken Mayer",
+  "licence": "CC BY 2.0",
+  "licence_url": "https://creativecommons.org/licenses/by/2.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Shirt-FDJ_Freie_Deutsche_Jugend_-_4058402994_-_Blue_uniform_shirt_for_members_of_youth_organization_in_DDR_1988_Logo_emblem_on_left_sleeve_Photo_by_Ken_Mayer.jpg"
+ },
+ "printing/heat-transfer": {
+  "creator": "Scrud123",
+  "licence": "CC BY-SA 3.0",
+  "licence_url": "https://creativecommons.org/licenses/by-sa/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Heat_press_for_fabirc_screen_printing.jpg"
+ },
  "printing/screen-print": {
   "creator": "NATRI - Shirt Label",
   "licence": "CC BY-ND 2.0",
   "licence_url": "https://creativecommons.org/licenses/by-nd/2.0/",
   "source": "https://www.flickr.com/photos/84209486@N07/7710473042"
+ },
+ "sleeves/batwing": {
+  "creator": "David Ring",
+  "licence": "CC0",
+  "licence_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+  "source": "https://commons.wikimedia.org/wiki/File:Batwing_sleeve.jpg"
+ },
+ "sleeves/drop-shoulder": {
+  "creator": "David Ring",
+  "licence": "CC0",
+  "licence_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+  "source": "https://commons.wikimedia.org/wiki/File:Seam.jpg"
+ },
+ "sleeves/raglan": {
+  "creator": "Kelly Hogaboom",
+  "licence": "CC BY-SA 2.0",
+  "licence_url": "https://creativecommons.org/licenses/by-sa/2.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Raglan_sleeve.jpg"
+ },
+ "sleeves/regular": {
+  "creator": "David Ring",
+  "licence": "CC0",
+  "licence_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+  "source": "https://commons.wikimedia.org/wiki/File:Long_sleeve.jpg"
  }
 }
