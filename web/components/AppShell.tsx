@@ -28,11 +28,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  if (!user) return <div className="public">{children}</div>;
+  // Home is its own full-width page; sign-in is centred; everything else is the signed-in app
+  if (pathname === "/") return <>{children}</>;
+  if (!user || pathname.startsWith("/start") || pathname.startsWith("/login")) return <div className="public">{children}</div>;
 
   const nav = [
-    { href: "/orders", label: t("overview"), icon: <HomeIcon /> },
-    { href: "/orders#list", label: t("myOrders"), icon: <BoxIcon /> },
+    { href: "/dashboard", label: t("overview"), icon: <HomeIcon /> },
+    { href: "/dashboard#list", label: t("myOrders"), icon: <BoxIcon /> },
     { href: "/orders/new", label: t("newOrder"), icon: <PlusIcon /> },
   ];
 
@@ -53,7 +55,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           <button className="side-link" onClick={() => setLang(lang === "ar" ? "en" : "ar")}>
             <GlobeIcon /><span>{t("switchLang")}</span>
           </button>
-          <button className="side-link" onClick={async () => { await signOut(); router.replace("/login"); }}>
+          <button className="side-link" onClick={async () => { await signOut(); router.replace("/"); }}>
             <LogoutIcon /><span>{t("logout")}</span>
           </button>
         </div>

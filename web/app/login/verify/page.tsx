@@ -25,7 +25,7 @@ function Verify() {
     verifyEmailLogin(email, code)
       .then((user) => {
         signedIn(user);
-        router.replace("/orders");
+        router.replace("/dashboard");
       })
       .catch(() => setFailed(true));
   }, [params, router, signedIn]);

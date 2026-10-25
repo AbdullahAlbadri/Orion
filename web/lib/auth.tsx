@@ -39,12 +39,12 @@ export function useAuth(): AuthValue {
   return value;
 }
 
-/** Sends logged-out visitors to /login. Returns the user once known. */
+/** Sends logged-out visitors to /start. Returns the user once known. */
 export function useRequireUser(): User | null {
   const { user, ready } = useAuth();
   const router = useRouter();
   useEffect(() => {
-    if (ready && !user) router.replace("/login");
+    if (ready && !user) router.replace("/start");
   }, [ready, user, router]);
   return user;
 }

@@ -21,7 +21,7 @@ export default function LoginPage() {
 
   const done = useCallback((user: User) => {
     signedIn(user);
-    router.replace("/orders");
+    router.replace("/dashboard");
   }, [signedIn, router]);
 
   async function submit(e: React.FormEvent) {
