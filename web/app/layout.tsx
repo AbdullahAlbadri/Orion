@@ -3,6 +3,7 @@ import { IBM_Plex_Sans_Arabic, Work_Sans } from "next/font/google";
 import type { ReactNode } from "react";
 
 import AppShell from "@/components/AppShell";
+import TopoBackground from "@/components/TopoBackground";
 import Providers from "./providers";
 import "./globals.css";
 
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ar" dir="rtl" className={`${workSans.variable} ${plexArabic.variable}`} suppressHydrationWarning>
       <body>
+        <TopoBackground />
         <Providers>
           <AppShell>{children}</AppShell>
         </Providers>

@@ -106,6 +106,7 @@ const en = {
   posChest: "chest",
   posMiddle: "middle",
   posLower: "lower",
+  continueOrder: "Continue your order",
 };
 
 const ar: typeof en = {
@@ -209,6 +210,7 @@ const ar: typeof en = {
   posChest: "الصدر",
   posMiddle: "المنتصف",
   posLower: "الأسفل",
+  continueOrder: "أكمل طلبك",
 };
 
 // Product names for order lists (the API returns option ids)

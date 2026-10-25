@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CheckIcon } from "@/components/Icons";
 import ProgressRing from "@/components/ProgressRing";
 import PromptView from "@/components/PromptView";
+import TopoTexture from "@/components/TopoTexture";
 import { api, ApiError, type OrderView } from "@/lib/api";
 import { useRequireUser } from "@/lib/auth";
 import { productName, useLang } from "@/lib/i18n";
@@ -75,7 +76,8 @@ export default function OrderPage() {
             <span className="label" dir="ltr" style={{ alignSelf: "flex-end" }}>{order.order_id}</span>
           </div>
 
-          <div className="card">
+          <div className="board board-ink cross">
+            <TopoTexture />
             <div className="spread" style={{ marginBottom: 12 }}>
               <h2 style={{ margin: 0 }}>{t("journey")}</h2>
               <ProgressRing percent={journeyPercent(order.stage)} label={t("progress")} size={92} />

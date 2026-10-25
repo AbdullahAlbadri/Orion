@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { BoxIcon, ChatIcon, FactoryIcon, PlusIcon, ShirtIcon } from "@/components/Icons";
+import { ArrowNEIcon, BoxIcon, ChatIcon, FactoryIcon, LightbulbIcon, PlusIcon, ShirtIcon } from "@/components/Icons";
 import ProgressRing from "@/components/ProgressRing";
+import TopoTexture from "@/components/TopoTexture";
 import { api, type OrderRow } from "@/lib/api";
 import { useRequireUser } from "@/lib/auth";
 import { productName, useLang, type TextKey } from "@/lib/i18n";
@@ -32,6 +33,7 @@ export default function Dashboard() {
     if (b === "factories") counts.factories += 1;
   }
   const latest = orders[0];
+  const firstWaiting = orders.find((o) => bucket(o.stage) === "you");
   const date = (iso: string) =>
     new Date(iso).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-GB", { day: "numeric", month: "long" });
 
@@ -64,7 +66,8 @@ export default function Dashboard() {
           </Link>
         )}
 
-        <div className="card spread" style={{ alignItems: "center", justifyContent: "space-around" }}>
+        <div className="board board-ink cross spread" style={{ alignItems: "center", justifyContent: "space-around" }}>
+          <TopoTexture />
           <ProgressRing percent={latest ? journeyPercent(latest.stage) : 0} label={t("progress")} />
           <div className="stack" style={{ gap: 4 }}>
             <span className="muted small">{t("journey")}</span>
@@ -74,13 +77,14 @@ export default function Dashboard() {
       </div>
 
       <div className="grid-stats" style={{ marginTop: 16 }}>
-        <Stat icon={<BoxIcon />} label={t("activeOrders")} value={counts.active} />
-        <Stat icon={<ChatIcon />} label={t("waitingForYou")} value={counts.you} />
-        <Stat icon={<FactoryIcon />} label={t("withFactories")} value={counts.factories} />
+        <Stat variant="paper" icon={<BoxIcon />} label={t("activeOrders")} value={counts.active} />
+        <Stat variant="signal" icon={<ChatIcon />} label={t("waitingForYou")} value={counts.you}
+          hint={firstWaiting ? { label: t("continueOrder"), href: `/orders/${firstWaiting.id}` } : undefined} />
+        <Stat variant="ink" icon={<FactoryIcon />} label={t("withFactories")} value={counts.factories} />
       </div>
 
       <div className="section-title" id="list"><h2>{t("myOrders")}</h2></div>
-      <div className="card" style={{ padding: 10 }}>
+      <div className="board board-glass" style={{ padding: 10 }}>
         {orders.length === 0 ? (
           <p className="muted" style={{ padding: 14, margin: 0 }}>{t("noOrders")}</p>
         ) : (
@@ -102,12 +106,21 @@ export default function Dashboard() {
   );
 }
 
-function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
+function Stat({ icon, label, value, variant, hint }: {
+  icon: React.ReactNode; label: string; value: number; variant: "paper" | "signal" | "ink";
+  hint?: { label: string; href: string };
+}) {
   return (
-    <div className="card stat">
+    <div className={`board board-${variant} cross stat`}>
+      {variant === "ink" && <TopoTexture />}
       <span className="icon">{icon}</span>
       <span className="muted">{label}</span>
       <span className="value">{value}</span>
+      {hint && (
+        <Link href={hint.href} className="hint-chip" style={{ alignSelf: "flex-start" }}>
+          <LightbulbIcon /> {hint.label} <ArrowNEIcon />
+        </Link>
+      )}
     </div>
   );
 }

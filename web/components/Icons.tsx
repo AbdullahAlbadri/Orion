@@ -32,4 +32,6 @@ export const SparkleIcon = (p: P) => (<svg {...base(p)}><path d="M12 3c.6 3.7 2.
 export const ShieldIcon = (p: P) => (<svg {...base(p)}><path d="M12 3 4 6v6c0 4.5 3.4 8 8 9 4.6-1 8-4.5 8-9V6z" /><path d="m9 12 2 2 4-4" /></svg>);
 export const StepsIcon = (p: P) => (<svg {...base(p)}><rect x="3" y="4" width="18" height="16" rx="3" /><path d="M9 4v16" /></svg>);
 export const ListIcon = (p: P) => (<svg {...base(p)}><path d="M9 6h11M9 12h11M9 18h11" /><circle cx="4.5" cy="6" r="1" /><circle cx="4.5" cy="12" r="1" /><circle cx="4.5" cy="18" r="1" /></svg>);
+export const ArrowNEIcon = (p: P) => (<svg {...base(p)} className={`arrow-ne ${p.className ?? ""}`}><path d="M7 17 17 7M9 7h8v8" /></svg>);
+export const LightbulbIcon = (p: P) => (<svg {...base(p)}><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z" /></svg>);
 export const SendIcon = (p: P) => (<svg {...base(p)}><path d="M21 3 10 14M21 3l-7 18-4-7-7-4z" /></svg>);
