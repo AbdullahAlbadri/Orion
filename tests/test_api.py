@@ -30,7 +30,7 @@ class DoneConsultant:
     """Fake customer LLM: says the spec is complete straight away."""
 
     async def deep_dive(self, ctx):
-        return DeepDiveTurn(updates=[], message="Thanks, preparing your summary.", ready_for_review=True)
+        return DeepDiveTurn(updates=[], intro="", questions=[], ready_for_review=True)
 
     async def check_completeness(self, ctx):
         return CompletenessReport(gaps=[])

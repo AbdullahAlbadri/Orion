@@ -84,6 +84,9 @@ const en = {
   viewMode: "How to show the questions",
   viewSteps: "Step by step",
   viewAll: "All sections",
+  other: "Other",
+  otherPlaceholder: "Type your own answer…",
+  pickSeveral: "You can pick more than one.",
 };
 
 const ar: typeof en = {
@@ -165,6 +168,9 @@ const ar: typeof en = {
   viewMode: "طريقة عرض الأسئلة",
   viewSteps: "خطوة بخطوة",
   viewAll: "كل الأقسام",
+  other: "أخرى",
+  otherPlaceholder: "اكتب إجابتك الخاصة…",
+  pickSeveral: "يمكنك اختيار أكثر من خيار.",
 };
 
 // Product names for order lists (the API returns option ids)

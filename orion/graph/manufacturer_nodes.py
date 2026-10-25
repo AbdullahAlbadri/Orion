@@ -18,7 +18,7 @@ from orion.config.policy import Policy
 from orion.db.stores import ManufacturerDirectory, PriceRecord, PriceStore, Scheduler
 from orion.graph.manufacturer_request import NOT_TRANSLATED, render_reminder, render_request
 from orion.graph.state import OrderState
-from orion.spec import QUANTITY_ID, ProductSpec
+from orion.spec import QUANTITY_ID, ProductSpec, format_answer
 from orion.tools.channel import BlockedMessage, Channel, OutgoingMessage, send_to_manufacturer
 from orion.tools.manufacturer_llm import ManufacturerAgent
 from orion.tools.price_guard import find_negotiation
@@ -74,7 +74,7 @@ async def translate_spec(state: OrderState, agent: ManufacturerAgent) -> dict:
             fields.append({"id": qid, "label_zh": f.label_zh, "value_zh": f.value_zh})
         else:
             # Never drop a spec detail: fall back to the original wording.
-            fields.append({"id": qid, "label_zh": qid, "value_zh": str(value)})
+            fields.append({"id": qid, "label_zh": qid, "value_zh": format_answer(value)})
     return {"spec_zh": {"product_zh": translation.product_zh or option.name, "fields": fields}}
 
 

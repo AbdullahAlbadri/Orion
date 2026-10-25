@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ApiError, askAboutSection, type Prompt, type Question, type Section } from "@/lib/api";
 import { useLang, type TextKey } from "@/lib/i18n";
 import {
-  ArrowIcon, CheckIcon, HashIcon, ImageIcon, LayersIcon, ListIcon, NeedleIcon, PaletteIcon, RulerIcon, ScaleIcon,
+  ArrowIcon, CheckIcon, HashIcon, ImageIcon, LayersIcon, ListIcon, NeedleIcon, PaletteIcon, PlusIcon, RulerIcon, ScaleIcon,
   SendIcon, ShieldIcon, ShirtIcon, SparkleIcon, StepsIcon, TagIcon, TargetIcon,
 } from "./Icons";
 import SizeTable, { initialSizes, sizesToAnswer, type SizeRow } from "./SizeTable";
@@ -29,6 +29,21 @@ const QUESTION_ICONS: Record<string, ReactNode> = {
 };
 const iconFor = (q: Question) => QUESTION_ICONS[q.id] ?? <ShirtIcon />;
 
+// Choice questions: tapped options plus an optional "Other" text
+type ChoiceState = { picked: string[]; other: string; otherOn: boolean };
+
+function initialChoice(q: Question, value: unknown): ChoiceState {
+  const list = Array.isArray(value) ? value.map(String) : value == null || value === "" ? [] : [String(value)];
+  const others = list.filter((v) => !q.choices.includes(v));
+  return { picked: list.filter((v) => q.choices.includes(v)), other: others.join(", "), otherOn: others.length > 0 };
+}
+
+function choiceAnswer(q: Question, s: ChoiceState): string | string[] {
+  const other = s.otherOn ? s.other.trim() : "";
+  if (q.multiple) return [...s.picked, ...(other ? [other] : [])];
+  return other || s.picked[0] || "";
+}
+
 export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
   orderId: string; prompt: FormPrompt; send: Send; busy: boolean;
 }) {
@@ -41,8 +56,11 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
   const sections = SECTIONS.filter((s) => prompt.questions.some((q) => q.section === s.id));
 
   const [values, setValues] = useState<Record<string, string>>(() =>
-    Object.fromEntries(prompt.questions.filter((q) => q.type !== "size_table")
+    Object.fromEntries(prompt.questions.filter((q) => q.type !== "size_table" && q.type !== "choice")
       .map((q) => [q.id, prompt.values[q.id] == null ? "" : String(prompt.values[q.id])])));
+  const [choices, setChoices] = useState<Record<string, ChoiceState>>(() =>
+    Object.fromEntries(prompt.questions.filter((q) => q.type === "choice")
+      .map((q) => [q.id, initialChoice(q, prompt.values[q.id])])));
   const [sizes, setSizes] = useState<Record<string, SizeRow[]>>(() =>
     Object.fromEntries(prompt.questions.filter((q) => q.type === "size_table")
       .map((q) => [q.id, initialSizes(prompt.values[q.id])])));
@@ -55,11 +73,29 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
   const answers = useMemo(() => {
     const out: Record<string, unknown> = { ...values };
     for (const [id, rows] of Object.entries(sizes)) out[id] = sizesToAnswer(rows);
+    for (const q of prompt.questions) if (q.type === "choice") out[q.id] = choiceAnswer(q, choices[q.id]);
     return out;
-  }, [values, sizes]);
+  }, [values, sizes, choices, prompt.questions]);
 
-  const isAnswered = (q: Question) =>
-    q.type === "size_table" ? Object.keys(sizesToAnswer(sizes[q.id] ?? [])).length > 0 : Boolean(values[q.id]?.trim());
+  const isAnswered = (q: Question) => {
+    if (q.type === "size_table") return Object.keys(sizesToAnswer(sizes[q.id] ?? [])).length > 0;
+    if (q.type === "choice") return choiceAnswer(q, choices[q.id]).length > 0;
+    return Boolean(values[q.id]?.trim());
+  };
+
+  function pick(q: Question, option: string) {
+    const s = choices[q.id];
+    const picked = q.multiple
+      ? (s.picked.includes(option) ? s.picked.filter((p) => p !== option) : [...s.picked, option])
+      : (s.picked[0] === option ? [] : [option]);
+    // Single choice: an option replaces "Other"
+    setChoices({ ...choices, [q.id]: { ...s, picked, otherOn: q.multiple ? s.otherOn : false } });
+  }
+
+  function toggleOther(q: Question) {
+    const s = choices[q.id];
+    setChoices({ ...choices, [q.id]: { ...s, otherOn: !s.otherOn, picked: q.multiple ? s.picked : [] } });
+  }
   const progress = (section: Section) => {
     const required = prompt.questions.filter((q) => q.section === section && q.required);
     return { done: required.filter(isAnswered).length, total: required.length };
@@ -90,15 +126,30 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
       {q.type === "size_table" ? (
         <SizeTable rows={sizes[q.id]} onChange={(rows) => setSizes({ ...sizes, [q.id]: rows })} />
       ) : q.type === "choice" ? (
-        <div className="chips" role="radiogroup" aria-label={q.prompt}>
-          {q.choices.map((c) => (
-            <button key={c} type="button" role="radio" aria-checked={values[q.id] === c}
-              className={`chip${values[q.id] === c ? " selected" : ""}`}
-              dir="auto" onClick={() => setValues({ ...values, [q.id]: values[q.id] === c ? "" : c })}>
-              {c}
-            </button>
-          ))}
-        </div>
+        <>
+          <div className="chips" role={q.multiple ? "group" : "radiogroup"} aria-label={q.prompt}>
+            {q.choices.map((c) => {
+              const on = choices[q.id].picked.includes(c);
+              return (
+                <button key={c} type="button" role={q.multiple ? "checkbox" : "radio"} aria-checked={on}
+                  className={`chip${on ? " selected" : ""}`} dir="auto" onClick={() => pick(q, c)}>
+                  {q.multiple && on && <CheckIcon width={14} height={14} />}{c}
+                </button>
+              );
+            })}
+            {q.allow_other && (
+              <button type="button" role={q.multiple ? "checkbox" : "radio"} aria-checked={choices[q.id].otherOn}
+                className={`chip chip-other${choices[q.id].otherOn ? " selected" : ""}`} onClick={() => toggleOther(q)}>
+                <PlusIcon width={14} height={14} /> {t("other")}
+              </button>
+            )}
+          </div>
+          {q.multiple && <div className="hint">{t("pickSeveral")}</div>}
+          {choices[q.id].otherOn && (
+            <input id={q.id} dir="auto" autoFocus value={choices[q.id].other} placeholder={t("otherPlaceholder")}
+              onChange={(e) => setChoices({ ...choices, [q.id]: { ...choices[q.id], other: e.target.value } })} />
+          )}
+        </>
       ) : (
         <input id={q.id} value={values[q.id] ?? ""} dir={q.type === "number" ? "ltr" : "auto"}
           inputMode={q.type === "number" ? "decimal" : undefined}

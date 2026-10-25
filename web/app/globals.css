@@ -219,6 +219,8 @@ button { font: inherit; cursor: pointer; border: 0; }
 }
 .chip:hover { border-color: rgba(254, 183, 47, .6); }
 .chip.selected { background: var(--yellow); color: var(--navy); border-color: var(--yellow); font-weight: 600; }
+.chip-other { border-style: dashed; color: var(--muted); }
+.chip-other.selected { border-style: solid; }
 
 .ask { position: relative; flex: 1 1 280px; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; padding-top: 10px; }
 .ask-btn {

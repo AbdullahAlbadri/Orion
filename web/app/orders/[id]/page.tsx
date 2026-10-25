@@ -37,14 +37,17 @@ export default function OrderPage() {
     setBusy(true);
     setError(null);
     try {
-      setOrder(await api<OrderView>(`/orders/${encodeURIComponent(id)}/reply`, { method: "POST", body: { reply } }));
+      // The language goes with every answer, so Orion's follow-up questions come in it
+      setOrder(await api<OrderView>(`/orders/${encodeURIComponent(id)}/reply`, {
+        method: "POST", body: { reply: { ...reply, lang } },
+      }));
     } catch (e) {
       setError(e instanceof ApiError && e.status === 409 ? null : t("error"));
       await load().catch(() => {});
     } finally {
       setBusy(false);
     }
-  }, [id, load, t]);
+  }, [id, load, t, lang]);
 
   if (!user || !order) return <p className={error ? "error" : "muted"}>{error ?? t("loading")}</p>;
 

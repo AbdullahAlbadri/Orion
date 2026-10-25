@@ -1,7 +1,7 @@
 """Render the pre-receipt from the spec. Code, not LLM: it must show exactly what will be frozen."""
 
 from orion.config.markets import Market
-from orion.spec import QUANTITY_ID, SIZE_TABLE_ID, ProductSpec, Question
+from orion.spec import QUANTITY_ID, SIZE_TABLE_ID, ProductSpec, Question, format_answer
 
 
 def _label(question_id: str) -> str:
@@ -28,9 +28,9 @@ def render_pre_receipt(spec: ProductSpec, market: Market, questions: list[Questi
     extra = [(qid, v) for qid, v in spec.answers.items() if qid not in known_ids and qid not in skip]
 
     if known:
-        lines += ["", "Details:"] + [f"- {_label(qid)}: {value}" for qid, value in known]
+        lines += ["", "Details:"] + [f"- {_label(qid)}: {format_answer(value)}" for qid, value in known]
     if extra:
-        lines += ["", "Additional details:"] + [f"- {_label(qid)}: {value}" for qid, value in extra]
+        lines += ["", "Additional details:"] + [f"- {_label(qid)}: {format_answer(value)}" for qid, value in extra]
     if spec.files:
         lines += ["", "Files:"] + [f"- {f.kind}: {f.url}" for f in spec.files]
     if spec.open_gaps:

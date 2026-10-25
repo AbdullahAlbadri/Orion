@@ -14,7 +14,8 @@ class OrderState(TypedDict, total=False):
     spec: Optional[dict]           # ProductSpec.model_dump()
     pending: Optional[dict]        # prompt waiting on the customer; pending["step"] is the node that asked
     reply: Any                     # the customer's answer to `pending`, consumed by that node
-    messages: list[dict]           # deep-dive chat: {"role": "customer" | "orion", "content": str}
+    messages: list[dict]           # follow-up history: {"role": "customer" | "orion", "content": str}
+    lang: str                      # customer's language ("ar" / "en"), sent by the website with answers
     gap_rounds: int
     pre_receipt: Optional[str]
     confirmed: bool

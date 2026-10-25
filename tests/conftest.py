@@ -7,7 +7,7 @@ from orion.db.stores import InMemoryDirectory, InMemoryOutbox, InMemoryPriceStor
 from orion.deps import Deps
 from orion.graph.graph import build_graph
 from orion.spec import ProductSpec
-from orion.tools.llm import AnswerUpdate, CompletenessReport, ConsultContext, DeepDiveTurn
+from orion.tools.llm import AnswerUpdate, CompletenessReport, ConsultContext, DeepDiveTurn, FollowUpQuestion
 from orion.tools.manufacturer_llm import DraftAnswers, ReplyAnalysis, SpecTranslation, TranslatedField
 
 
@@ -85,10 +85,17 @@ class ScriptedManufacturerAgent:
         return self.drafts.pop(0)
 
 
-def turn(message: str = "", ready: bool = False, **updates: str) -> DeepDiveTurn:
+def ask(qid: str, prompt: str | None = None, choices=("yes", "no", "Not sure, use the factory standard"),
+        section: str = "design", multiple: bool = False) -> FollowUpQuestion:
+    """A follow-up question the fake AI asks."""
+    return FollowUpQuestion(id=qid, prompt=prompt or f"{qid}?", section=section, choices=list(choices), multiple=multiple)
+
+
+def turn(intro: str = "", ready: bool = False, questions=(), **updates: str) -> DeepDiveTurn:
     return DeepDiveTurn(
         updates=[AnswerUpdate(id=k, value=v) for k, v in updates.items()],
-        message=message,
+        intro=intro,
+        questions=list(questions),
         ready_for_review=ready,
     )
 

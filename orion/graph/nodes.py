@@ -6,19 +6,31 @@ Interactive nodes follow one pattern:
 """
 
 import logging
+import re
 from typing import Any
 
 from orion.config.markets import MARKETS, Market, get_questions
 from orion.config.policy import Policy
 from orion.graph.pre_receipt import render_pre_receipt
 from orion.graph.state import OrderState
-from orion.spec import QUANTITY_ID, SIZE_TABLE_ID, InvalidAnswer, ProductSpec, Question, validate_answer
-from orion.tools.llm import AnswerUpdate, Consultant, ConsultContext
+from orion.spec import (
+    QUANTITY_ID,
+    SIZE_TABLE_ID,
+    InvalidAnswer,
+    ProductSpec,
+    Question,
+    format_answer,
+    is_blank,
+    validate_answer,
+)
+from orion.tools.llm import AnswerUpdate, Consultant, ConsultContext, DeepDiveTurn
 
 log = logging.getLogger(__name__)
 
 WAIT = "wait_for_customer"
 _QUANTITY_QUESTION = Question(id=QUANTITY_ID, prompt="Total quantity", type="number")
+MAX_FOLLOW_UPS = 5
+FOLLOW_UP_INTRO = {"en": "A few more details to get your product right:", "ar": "بعض التفاصيل الإضافية لنصنع منتجك بدقة:"}
 
 
 # --- helpers --------------------------------------------------------------------
@@ -26,6 +38,12 @@ _QUANTITY_QUESTION = Question(id=QUANTITY_ID, prompt="Total quantity", type="num
 def _reply_value(reply: Any, key: str) -> Any:
     """Replies are dicts like {"choice": ...}; a bare value is accepted as shorthand."""
     return reply.get(key) if isinstance(reply, dict) else reply
+
+
+def _lang(reply: Any) -> dict:
+    """The website sends the customer's language with each answer; remember it for the AI."""
+    lang = reply.get("lang") if isinstance(reply, dict) else None
+    return {"lang": lang} if lang in ("ar", "en") else {}
 
 
 def _spec(state: OrderState) -> ProductSpec:
@@ -45,6 +63,7 @@ def _context(state: OrderState, spec: ProductSpec, messages: list[dict]) -> Cons
         spec=spec,
         messages=messages,
         compliance_notes=market.compliance_notes,
+        lang=state.get("lang", "en"),
     )
 
 
@@ -107,7 +126,7 @@ def pick_option(state: OrderState) -> dict:
         option_id = _match_choice(_reply_value(reply, "choice"), options)
         if option_id:
             spec = ProductSpec(market=market.id, option=option_id)
-            return {"spec": spec.model_dump(), "reply": None, "pending": None}
+            return {"spec": spec.model_dump(), "reply": None, "pending": None, **_lang(reply)}
     return {
         "reply": None,
         "pending": {
@@ -132,7 +151,7 @@ def mandatory_questions(state: OrderState) -> dict:
         raw_answers = _reply_value(reply, "answers") or {}
         for q in questions:
             raw = raw_answers.get(q.id)
-            if raw is None or (isinstance(raw, str) and not raw.strip()):
+            if is_blank(raw):
                 if q.required and q.id not in spec.answers:
                     errors[q.id] = "This answer is required."
                 continue
@@ -141,7 +160,7 @@ def mandatory_questions(state: OrderState) -> dict:
             except InvalidAnswer as e:
                 errors[q.id] = str(e)
         if not errors:
-            return {"spec": spec.model_dump(), "reply": None, "pending": None}
+            return {"spec": spec.model_dump(), "reply": None, "pending": None, **_lang(reply)}
 
     return {
         "spec": spec.model_dump(),
@@ -157,33 +176,105 @@ def mandatory_questions(state: OrderState) -> dict:
     }
 
 
+def _slug(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")[:40]
+
+
+def _follow_ups(turn: DeepDiveTurn, market_questions: list[Question]) -> list[Question]:
+    """The AI's questions, checked in code: unique ids, no size/quantity, at most MAX_FOLLOW_UPS."""
+    covered_by_form = {SIZE_TABLE_ID, QUANTITY_ID} | {q.id for q in market_questions if q.type == "size_table"}
+    out: list[Question] = []
+    for f in turn.questions:
+        qid = _slug(f.id)
+        if not qid or qid in covered_by_form or any(q.id == qid for q in out) or not f.prompt.strip():
+            continue
+        choices = list(dict.fromkeys(c.strip() for c in f.choices if c.strip()))[:8]
+        out.append(Question(
+            id=qid, prompt=f.prompt.strip(), section=f.section, required=True,
+            type="choice" if choices else "text", choices=choices,
+            allow_other=True, multiple=bool(f.multiple and choices),
+        ))
+        if len(out) == MAX_FOLLOW_UPS:
+            break
+    return out
+
+
+def _gap_questions(spec: ProductSpec) -> list[Question]:
+    """Fallback when the AI should ask but returned nothing usable: ask the open gaps as text questions."""
+    gaps = spec.open_gaps[:MAX_FOLLOW_UPS] or ["Anything else the manufacturer should know?"]
+    return [
+        Question(id=_slug(g) or f"detail_{i}", prompt=g, type="text", required=False, section="design")
+        for i, g in enumerate(gaps, start=1)
+    ]
+
+
 async def deep_dive(state: OrderState, consultant: Consultant) -> dict:
-    """The AI asks follow-up questions and records answers until it has nothing left to ask."""
+    """The AI's follow-up questions, asked as more form questions (same style as the first form)
+    until it has nothing left to ask."""
     spec = _spec(state)
     messages = list(state.get("messages", []))
     reply = state.get("reply")
-    if reply is not None:
+    pending = state.get("pending") or {}
+    lang_update = _lang(reply)
+    lang = lang_update.get("lang") or state.get("lang", "en")
+    market_questions = get_questions(spec.market, spec.option)
+
+    if reply is not None and pending.get("step") == "deep_dive" and pending.get("kind") == "form":
+        # Answers to our last round of questions: validated in code before anything is recorded
+        asked = [Question.model_validate(q) for q in pending["questions"]]
+        by_market_id = {q.id: q for q in market_questions}
+        raw_answers = _reply_value(reply, "answers") or {}
+        errors, lines = {}, []
+        for q in asked:
+            raw = raw_answers.get(q.id)
+            if is_blank(raw):
+                if q.required:
+                    errors[q.id] = "This answer is required."
+                continue
+            try:
+                value = validate_answer(q, raw)
+                if q.id in by_market_id:   # correcting a form answer: keep that question's type (e.g. a number)
+                    original = by_market_id[q.id]
+                    value = validate_answer(original, value if original.type == "choice" else format_answer(value))
+                spec.set_answer(q.id, value)
+                lines.append(f"{q.prompt} → {format_answer(value)}")
+            except InvalidAnswer as e:
+                errors[q.id] = str(e)
+        if errors:
+            return {
+                "spec": spec.model_dump(), "reply": None, **lang_update,
+                "pending": {**pending, "values": raw_answers, "errors": errors},
+            }
+        if lines:
+            messages.append({"role": "customer", "content": "\n".join(lines)})
+    elif reply is not None:
         text = str(_reply_value(reply, "message") or "").strip()
         if text:
             messages.append({"role": "customer", "content": text})
 
-    ctx = _context(state, spec, messages)
+    ctx = _context(state, spec, messages).model_copy(update={"lang": lang})
     turn = await consultant.deep_dive(ctx)
     apply_updates(spec, ctx.questions, turn.updates)
+    questions = _follow_ups(turn, market_questions)
 
-    message = turn.message.strip()
     # Guard against a loop with no customer in it: right after the completeness check found gaps,
     # the AI must ask the customer something rather than declaring itself done again.
     ready = turn.ready_for_review and not (reply is None and spec.open_gaps)
-    if not ready and (turn.ready_for_review or not message):
-        gaps = spec.open_gaps or ["Anything else the manufacturer should know?"]
-        message = "Just a few more details the manufacturer will need:\n" + "\n".join(f"- {g}" for g in gaps)
-    if message:
-        messages.append({"role": "orion", "content": message})
+    if not ready and not questions:
+        questions = _gap_questions(spec)
 
-    update = {"spec": spec.model_dump(), "messages": messages, "reply": None, "pending": None}
+    update = {"spec": spec.model_dump(), "messages": messages, "reply": None, "pending": None, **lang_update}
     if not ready:
-        update["pending"] = {"step": "deep_dive", "kind": "chat", "message": message}
+        intro = turn.intro.strip() or FOLLOW_UP_INTRO[lang]
+        messages.append({"role": "orion", "content": intro + "\n" + "\n".join(f"- {q.prompt}" for q in questions)})
+        update["pending"] = {
+            "step": "deep_dive",
+            "kind": "form",
+            "prompt": intro,
+            "questions": [q.model_dump() for q in questions],
+            "values": {},
+            "errors": {},
+        }
     return update
 
 
@@ -227,6 +318,7 @@ def customer_confirm(state: OrderState) -> dict:
             messages = list(state.get("messages", []))
             messages.append({"role": "customer", "content": f"I'd like to change: {changes}"})
             return {
+                **_lang(reply),
                 "confirmed": False,
                 "messages": messages,
                 "stage": "draft",

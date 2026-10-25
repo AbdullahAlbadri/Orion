@@ -28,6 +28,8 @@ class Market(BaseModel):
 
 
 # --- Fashion, apparel & uniforms -------------------------------------------------
+# Choice questions offer common answers; allow_other lets the customer type their own ("Other"),
+# multiple lets them pick several.
 
 _SIZE_TABLE = Question(
     id=SIZE_TABLE_ID,
@@ -39,27 +41,34 @@ _SIZE_TABLE = Question(
 _LABELS = Question(
     id="labels",
     prompt="Which labels do you need?",
-    type="text",
-    hint="e.g. woven neck label with logo, size label, care label, hang tag",
+    type="choice",
+    choices=["woven neck label with logo", "printed neck label", "size label", "care label", "hang tag", "no labels"],
+    multiple=True,
+    allow_other=True,
     section="quality",
 )
-_FIT_REFERENCE = Question(
+_FIT = Question(
     id="fit_reference",
-    prompt="Do you have a fit reference (a garment or brand whose fit you like)?",
-    type="text",
+    prompt="Which fit do you want?",
+    type="choice",
+    choices=["regular fit", "relaxed fit", "oversized", "slim fit"],
+    allow_other=True,
     required=False,
+    hint="Under Other you can name a garment or brand whose fit you like.",
 )
 _FABRIC_GSM = Question(
     id="fabric_gsm",
     prompt="Fabric weight in GSM (grams per square metre)?",
     type="number",
-    hint="T-shirts are usually 160-240, hoodies 280-400. Say if you are unsure.",
+    hint="T-shirts are usually 160-240, hoodies 280-400. Ask Orion if you are unsure.",
     section="quality",
 )
 
 
 def _fabric(*choices: str) -> Question:
-    return Question(id="fabric", prompt="Which fabric?", type="choice", choices=[*choices, "other"], section="quality")
+    return Question(
+        id="fabric", prompt="Which fabric?", type="choice", choices=list(choices), allow_other=True, section="quality",
+    )
 
 
 APPAREL = Market(
@@ -69,20 +78,28 @@ APPAREL = Market(
     common_questions=[
         Question(
             id="colors",
-            prompt="Garment colors? Include color codes (Pantone/HEX) if you have them.",
-            type="text",
+            prompt="Garment colors?",
+            type="choice",
+            choices=["black", "white", "navy", "grey", "beige", "olive"],
+            multiple=True,
+            allow_other=True,
+            hint="Under Other you can add a Pantone or HEX code.",
         ),
         Question(
             id="decoration_method",
             prompt="How should the logo/design be applied?",
             type="choice",
-            choices=["screen print", "DTG print", "embroidery", "heat transfer", "none", "other"],
+            choices=["screen print", "DTG print", "embroidery", "heat transfer", "no logo"],
+            allow_other=True,
         ),
         Question(
             id="decoration_placement",
-            prompt="Where does the design go, and how big?",
-            type="text",
-            hint="e.g. left chest 8cm, full back 30cm",
+            prompt="Where does the design go?",
+            type="choice",
+            choices=["left chest", "center chest", "full front", "full back", "sleeve", "back neck"],
+            multiple=True,
+            allow_other=True,
+            hint="Under Other you can add sizes, e.g. left chest 8cm.",
         ),
         Question(
             id="artwork",
@@ -101,7 +118,7 @@ APPAREL = Market(
                 Question(id="hoodie_style", prompt="Pullover or zip-up?", type="choice", choices=["pullover", "zip-up"]),
                 _SIZE_TABLE,
                 _LABELS,
-                _FIT_REFERENCE,
+                _FIT,
             ],
         ),
         "oversized_tee": Option(
@@ -110,10 +127,11 @@ APPAREL = Market(
             questions=[
                 _fabric("100% cotton", "cotton-poly", "heavyweight cotton"),
                 _FABRIC_GSM,
-                Question(id="neckline", prompt="Neckline?", type="choice", choices=["crew neck", "mock neck", "v-neck"]),
+                Question(id="neckline", prompt="Neckline?", type="choice", choices=["crew neck", "mock neck", "v-neck"],
+                         allow_other=True),
                 _SIZE_TABLE,
                 _LABELS,
-                _FIT_REFERENCE,
+                _FIT,
             ],
         ),
         "abaya": Option(
@@ -126,14 +144,23 @@ APPAREL = Market(
                     prompt="Abaya length per size (cm)?",
                     type="text",
                     hint="e.g. 52: 132cm, 54: 137cm, 56: 142cm",
+                    section="quantity",
                 ),
                 Question(
                     id="sleeve_style",
                     prompt="Sleeve style?",
                     type="choice",
-                    choices=["straight", "wide/bisht", "cuffed", "other"],
+                    choices=["straight", "wide/bisht", "cuffed"],
+                    allow_other=True,
                 ),
-                Question(id="embellishment", prompt="Any embellishment (embroidery, beading, lace, trims)?", type="text"),
+                Question(
+                    id="embellishment",
+                    prompt="Any embellishment?",
+                    type="choice",
+                    choices=["none", "embroidery", "beading", "lace", "trims"],
+                    multiple=True,
+                    allow_other=True,
+                ),
                 _SIZE_TABLE,
                 _LABELS,
             ],
@@ -143,7 +170,14 @@ APPAREL = Market(
             name="Tote bag",
             questions=[
                 _fabric("cotton canvas", "cotton", "non-woven", "jute"),
-                Question(id="dimensions", prompt="Bag dimensions (width x height x gusset, cm)?", type="text"),
+                Question(
+                    id="dimensions",
+                    prompt="Bag size?",
+                    type="choice",
+                    choices=["small 30x35cm", "standard 38x42cm", "large 40x45x10cm"],
+                    allow_other=True,
+                    hint="Under Other: width x height x gusset in cm.",
+                ),
                 Question(id="handle_length", prompt="Handle length (cm)?", type="number"),
                 Question(id=QUANTITY_ID, prompt="How many bags?", type="number", section="quantity"),
             ],
@@ -152,12 +186,22 @@ APPAREL = Market(
             id="corporate_uniform",
             name="Corporate uniform",
             questions=[
-                Question(id="garment_type", prompt="Which garments (polo, shirt, trousers, jacket...)?", type="text"),
+                Question(
+                    id="garment_type",
+                    prompt="Which garments?",
+                    type="choice",
+                    choices=["polo shirt", "dress shirt", "t-shirt", "trousers", "jacket", "cap"],
+                    multiple=True,
+                    allow_other=True,
+                ),
                 _fabric("cotton", "poly-cotton", "polyester", "gabardine"),
                 Question(
                     id="logo_placement",
-                    prompt="Where does the company logo go on each garment?",
-                    type="text",
+                    prompt="Where does the company logo go?",
+                    type="choice",
+                    choices=["left chest", "right chest", "sleeve", "back", "cap front"],
+                    multiple=True,
+                    allow_other=True,
                 ),
                 Question(
                     id=SIZE_TABLE_ID,

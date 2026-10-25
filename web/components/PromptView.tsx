@@ -28,9 +28,7 @@ export default function PromptView({ order, send, busy }: { order: OrderView; se
     case "choice":
       return <Choice prompt={prompt} send={send} busy={busy} />;
     case "form":
-      return <SectionedForm key={JSON.stringify(prompt.errors)} orderId={order.order_id} prompt={prompt} send={send} busy={busy} />;
-    case "chat":
-      return <Chat order={order} send={send} busy={busy} />;
+      return <SectionedForm key={`${prompt.step}:${prompt.questions.map((q) => q.id).join(",")}:${JSON.stringify(prompt.errors)}`} orderId={order.order_id} prompt={prompt} send={send} busy={busy} />;
     case "confirm":
       return <Confirm prompt={prompt} send={send} busy={busy} />;
   }
@@ -49,34 +47,6 @@ function Choice({ prompt, send, busy }: { prompt: Extract<Prompt, { kind: "choic
           </button>
         ))}
       </div>
-    </div>
-  );
-}
-
-function Chat({ order, send, busy }: { order: OrderView; send: Send; busy: boolean }) {
-  const { t } = useLang();
-  const [text, setText] = useState("");
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!text.trim()) return;
-    const message = text;
-    setText("");
-    await send({ message });
-  }
-
-  return (
-    <div className="card">
-      <div className="chat">
-        {order.messages.map((m, i) => <div key={i} className={`bubble ${m.role}`} dir="auto">{m.content}</div>)}
-        {busy && <div className="thinking">{t("thinking")}</div>}
-      </div>
-      <form className="composer" onSubmit={submit}>
-        <textarea dir="auto" value={text} placeholder={t("typeMessage")} onChange={(e) => setText(e.target.value)}
-          disabled={busy}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); e.currentTarget.form?.requestSubmit(); } }} />
-        <button className="btn" disabled={busy || !text.trim()}>{t("send")}</button>
-      </form>
     </div>
   );
 }

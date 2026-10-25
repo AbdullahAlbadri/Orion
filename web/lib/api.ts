@@ -13,6 +13,8 @@ export type Question = {
   required: boolean;
   hint?: string | null;
   section: Section;
+  allow_other?: boolean;   // "Other" chip with the customer's own text
+  multiple?: boolean;      // several options may be picked
 };
 
 export type Section = "design" | "quantity" | "quality";
@@ -33,7 +35,6 @@ export type Prompt =
       step: string; kind: "form"; prompt: string; questions: Question[];
       values: Record<string, unknown>; errors: Record<string, string>;
     }
-  | { step: string; kind: "chat"; message: string }
   | { step: string; kind: "confirm"; prompt: string; pre_receipt: string; error?: string | null };
 
 export type OrderView = {

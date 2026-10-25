@@ -4,7 +4,7 @@ Nodes depend on the `Consultant` protocol, not on a model, so tests can pass a f
 """
 
 import json
-from typing import Optional, Protocol
+from typing import Literal, Optional, Protocol
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
@@ -21,6 +21,7 @@ class ConsultContext(BaseModel):
     spec: ProductSpec
     messages: list[dict] = []      # {"role": "customer" | "orion", "content": str}
     compliance_notes: list[str] = []
+    lang: Literal["ar", "en"] = "en"
 
 
 class AnswerUpdate(BaseModel):
@@ -28,9 +29,23 @@ class AnswerUpdate(BaseModel):
     value: str = Field(description="The customer's answer as plain text. Size tables as 'S:20, M:30'.")
 
 
+class FollowUpQuestion(BaseModel):
+    id: str = Field(description="Short English snake_case id; reuse a known question id to correct an earlier answer")
+    prompt: str = Field(description="The question, in the customer's language")
+    section: Literal["design", "quantity", "quality"]
+    choices: list[str] = Field(
+        description="3-6 short answer options in the customer's language, including one like "
+                    "'Not sure, use the factory standard'. The customer can also type their own answer."
+    )
+    multiple: bool = Field(False, description="True if several options can apply at once")
+
+
 class DeepDiveTurn(BaseModel):
-    updates: list[AnswerUpdate] = Field(description="Details the customer gave in their latest message(s)")
-    message: str = Field(description="What to say to the customer next, in their language")
+    updates: list[AnswerUpdate] = Field(
+        description="Concrete details from the customer's latest answers or messages that should be recorded"
+    )
+    intro: str = Field(description="One short sentence shown above the questions, in the customer's language")
+    questions: list[FollowUpQuestion] = Field(description="At most 5 follow-up questions; empty if nothing is left")
     ready_for_review: bool = Field(description="True only if nothing is left to ask")
 
 
@@ -50,6 +65,7 @@ def render_context(ctx: ConsultContext, include_chat: bool = True) -> str:
         for q in ctx.questions
     ]
     parts = [
+        f"Customer language: {'Arabic' if ctx.lang == 'ar' else 'English'} (write intro, questions and choices in it)",
         f"Product: {ctx.option_name} ({ctx.market_name})",
         f"Known questions:\n{json.dumps(questions, ensure_ascii=False, indent=1)}",
         f"Current spec:\n{ctx.spec.model_dump_json(include={'quantity', 'answers', 'open_gaps'}, indent=1)}",

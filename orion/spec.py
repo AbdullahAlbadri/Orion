@@ -26,6 +26,8 @@ class Question(BaseModel):
     required: bool = True
     hint: Optional[str] = None
     section: Section = "design"
+    allow_other: bool = False      # choice: the customer may type their own answer ("Other")
+    multiple: bool = False         # choice: the customer may pick several (answer is a list)
 
 
 class FileRef(BaseModel):
@@ -57,17 +59,29 @@ class InvalidAnswer(ValueError):
     pass
 
 
+MAX_OTHER_LENGTH = 300
+
+
+def is_blank(raw: Any) -> bool:
+    return raw is None or (isinstance(raw, str) and not raw.strip()) or (isinstance(raw, (list, dict)) and not raw)
+
+
+def format_answer(value: Any) -> str:
+    """Human-readable answer for receipts and messages."""
+    if isinstance(value, list):
+        return ", ".join(str(v) for v in value)
+    if isinstance(value, dict):
+        return ", ".join(f"{k}: {v}" for k, v in value.items())
+    return str(value)
+
+
 def validate_answer(question: Question, raw: Any) -> Any:
     """Coerce a raw answer (from a form or the LLM) into the question's type, or raise InvalidAnswer."""
-    if raw is None or (isinstance(raw, str) and not raw.strip()):
+    if is_blank(raw):
         raise InvalidAnswer("an answer is required")
 
     if question.type == "choice":
-        value = str(raw).strip()
-        for choice in question.choices:
-            if value.lower() == choice.lower():
-                return choice
-        raise InvalidAnswer(f"must be one of: {', '.join(question.choices)}")
+        return _validate_choice(question, raw)
 
     if question.type == "number":
         try:
@@ -83,6 +97,35 @@ def validate_answer(question: Question, raw: Any) -> Any:
 
     # text and file (file is a reference/URL until object storage exists)
     return str(raw).strip()
+
+
+def _validate_choice(question: Question, raw: Any) -> Any:
+    """A known choice (canonical spelling), or the customer's own text when "Other" is allowed.
+    Multiple-choice answers are lists; a string is split on commas (LLM updates)."""
+    if isinstance(raw, list):
+        items = raw
+    elif question.multiple:
+        items = str(raw).split(",")
+    else:
+        items = [raw]
+
+    picked: list[str] = []
+    for item in items:
+        value = str(item).strip()
+        if not value:
+            continue
+        match = next((c for c in question.choices if c.lower() == value.lower()), None)
+        if match is None:
+            if not question.allow_other:
+                raise InvalidAnswer(f"must be one of: {', '.join(question.choices)}")
+            match = value[:MAX_OTHER_LENGTH]
+        if match not in picked:
+            picked.append(match)
+    if not picked:
+        raise InvalidAnswer("an answer is required")
+    if not question.multiple and len(picked) > 1:
+        raise InvalidAnswer("pick one option")
+    return picked if question.multiple else picked[0]
 
 
 _SIZE_PAIR = re.compile(r"^\s*([A-Za-z0-9/.\- ]+?)\s*[:=x×]\s*(\d+)\s*$")
