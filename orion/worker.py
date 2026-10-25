@@ -1,4 +1,5 @@
-"""Background worker: fires due deadlines as `timeout` events into their orders.
+"""Background worker: fires due deadlines as `timeout` events into their orders, and (when the manufacturer
+mailbox is configured) turns manufacturer emails into `manufacturer_reply` events.
 
     uv run python -m orion.worker              # run forever, checking every 30 seconds
     uv run python -m orion.worker --once       # fire what is due now and exit
@@ -9,15 +10,18 @@ serialized by an advisory lock, and timeout event ids are stable across retries.
 
 import argparse
 import asyncio
+import hashlib
 import logging
 from datetime import timedelta
 
 from psycopg_pool import AsyncConnectionPool
 
 from orion.config.settings import get_settings
-from orion.db.postgres import PostgresScheduler
+from orion.db.postgres import EmailRelayChannel, PostgresScheduler
+from orion.deps import mailbox
 from orion.graph.graph import OrderNotWaiting
 from orion.runtime import open_postgres_app, send_event
+from orion.tools.mail import Inbox, order_tag
 
 log = logging.getLogger("orion.worker")
 
@@ -70,6 +74,44 @@ async def fire_due(app, scheduler: PostgresScheduler, pool: AsyncConnectionPool,
     return counts
 
 
+def mail_event_id(message_id: str) -> str:
+    """The same email always gives the same id, so it is only processed once."""
+    return "mail-" + hashlib.sha256(message_id.encode()).hexdigest()[:16]
+
+
+async def read_inbox(app, inbox: Inbox, channel: EmailRelayChannel, pool: AsyncConnectionPool) -> dict[str, int]:
+    """One pass over unread mail. A reply needs the order tag in its subject, a sender that is an email
+    manufacturer, and a sender the mail server verified. Anything else is starred and left for the team."""
+    counts = {"processed": 0, "for_team": 0}
+    for mail in await inbox.unread():
+        order_id = order_tag(mail.subject)
+        manufacturer_id = await channel.manufacturer_for_email(mail.sender) if mail.sender else None
+        if not (order_id and manufacturer_id and mail.authenticated and mail.text):
+            log.warning("mail from %s (%r) not matched: order=%s manufacturer=%s verified=%s; starred for the team",
+                        mail.sender, mail.subject[:80], order_id, manufacturer_id, mail.authenticated)
+            await inbox.done(mail.uid, flag=True)
+            counts["for_team"] += 1
+            continue
+        event_id = mail_event_id(mail.message_id)
+        await channel.record_incoming(event_id, order_id, manufacturer_id, mail.text)
+        try:
+            await send_event(app, pool, order_id, {
+                "type": "manufacturer_reply", "event_id": event_id, "manufacturer_id": manufacturer_id, "text": mail.text,
+            })
+        except OrderNotWaiting as e:
+            log.warning("mail %s for order %s: %s; starred for the team", event_id, order_id, e)
+            await inbox.done(mail.uid, flag=True)
+            counts["for_team"] += 1
+            continue
+        except Exception:
+            log.exception("mail %s for order %s failed; left unread to retry", event_id, order_id)
+            continue
+        await inbox.done(mail.uid)
+        counts["processed"] += 1
+        log.info("manufacturer %s replied by email to order %s", manufacturer_id, order_id)
+    return counts
+
+
 async def main() -> None:
     parser = argparse.ArgumentParser(prog="orion.worker")
     parser.add_argument("--once", action="store_true", help="one pass, then exit")
@@ -77,13 +119,22 @@ async def main() -> None:
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
-    async with open_postgres_app(get_settings()) as (app, deps, pool):
+    settings = get_settings()
+    inbox = mailbox(settings)
+    async with open_postgres_app(settings) as (app, deps, pool):
         scheduler = deps.scheduler
-        log.info("worker started")
+        log.info("worker started (manufacturer mailbox: %s)", settings.mail_address if inbox else "off")
         while True:
             counts = await fire_due(app, scheduler, pool)
             if any(counts.values()):
                 log.info("pass: %s", counts)
+            if inbox is not None:
+                try:
+                    mail = await read_inbox(app, inbox, deps.channel, pool)
+                    if any(mail.values()):
+                        log.info("mail: %s", mail)
+                except Exception:
+                    log.exception("reading the manufacturer mailbox failed; trying again next pass")
             if args.once:
                 return
             await asyncio.sleep(args.interval)

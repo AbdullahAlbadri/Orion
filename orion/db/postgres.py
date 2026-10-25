@@ -1,5 +1,6 @@
-"""Postgres implementations of the stores and the manual relay channel."""
+"""Postgres implementations of the stores and the manufacturer channels (manual relay, email)."""
 
+import logging
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -9,6 +10,9 @@ from psycopg_pool import AsyncConnectionPool
 
 from orion.db.stores import DeadlineKind, Manufacturer, PriceRecord
 from orion.tools.channel import OutgoingMessage
+from orion.tools.mail import Mailer, is_email, subject_for
+
+log = logging.getLogger("orion.channel")
 
 
 def make_pool(database_url: str) -> AsyncConnectionPool:
@@ -47,7 +51,8 @@ class PostgresDirectory:
             await conn.execute(
                 """
                 INSERT INTO manufacturers (id, name, contact, channel, language) VALUES (%s, %s, %s, %s, %s)
-                ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, contact = EXCLUDED.contact
+                ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, contact = EXCLUDED.contact,
+                    channel = EXCLUDED.channel
                 """,
                 (manufacturer.id, manufacturer.name, manufacturer.contact, manufacturer.channel, manufacturer.language),
             )
@@ -208,3 +213,45 @@ class ManualRelayChannel:
                 (message_id,),
             )
             return cur.rowcount == 1
+
+
+class EmailRelayChannel(ManualRelayChannel):
+    """Every message is recorded in the outbox first. For manufacturers whose channel is "email" it is then
+    emailed and marked sent; if sending fails it simply stays in the outbox for the team to send by hand."""
+
+    def __init__(self, pool: AsyncConnectionPool, mailer: Optional[Mailer]):
+        super().__init__(pool)
+        self.mailer = mailer
+
+    async def deliver(self, message: OutgoingMessage) -> None:
+        await super().deliver(message)
+        if self.mailer is None:
+            return
+        async with self.pool.connection() as conn:
+            row = await (await conn.cursor(row_factory=dict_row).execute(
+                "SELECT m.contact, msg.status FROM manufacturers m "
+                "JOIN manufacturer_messages msg ON msg.manufacturer_id = m.id "
+                "WHERE m.id = %s AND msg.id = %s AND m.channel = 'email'",
+                (message.manufacturer_id, message.id),
+            )).fetchone()
+        if row is None or row["status"] != "pending_send":     # not an email manufacturer, or already sent
+            return
+        if not is_email(row["contact"]):
+            log.warning("manufacturer %s has channel email but no valid address; left in the outbox",
+                        message.manufacturer_id)
+            return
+        try:
+            await self.mailer.send(row["contact"].strip(), subject_for(message.order_id), message.text)
+        except Exception:
+            log.exception("emailing %s failed; left in the outbox for the team", message.id)
+            return
+        await self.mark_sent(message.id)
+
+    async def manufacturer_for_email(self, address: str) -> Optional[str]:
+        async with self.pool.connection() as conn:
+            row = await (await conn.cursor(row_factory=dict_row).execute(
+                "SELECT id FROM manufacturers WHERE channel = 'email' AND active AND lower(trim(contact)) = lower(%s) "
+                "ORDER BY id LIMIT 1",
+                (address.strip(),),
+            )).fetchone()
+        return row["id"] if row else None

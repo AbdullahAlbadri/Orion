@@ -27,6 +27,13 @@ class Settings(BaseSettings):
     cookie_secure: bool = True                        # refresh-token cookie only over HTTPS (localhost is fine)
     email_from: str = "Orion <login@orionagentic.online>"
     upload_dir: str = "data/uploads"                  # customer files (local disk until object storage)
+    # Manufacturer email (a mailbox only Orion uses). Off until both are set; manufacturers whose channel
+    # is "email" then get their messages by email and their replies are read from this inbox.
+    mail_address: Optional[str] = None
+    mail_app_password: SecretStr = SecretStr("")      # Gmail: an app password, not the account password
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 465
+    imap_host: str = "imap.gmail.com"
     google_client_id: Optional[str] = None            # Google sign-in is off until this is set
     apple_client_id: Optional[str] = None             # Apple sign-in is off until this is set
 

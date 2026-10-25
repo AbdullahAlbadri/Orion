@@ -1,6 +1,7 @@
 """Manual relay for the team: send queued messages to manufacturers by hand and paste their replies back.
 
     uv run python -m orion.relay add-manufacturer factory-a "Factory A" --contact "WeChat: xyz" --market apparel --option hoodie --rank 1
+    uv run python -m orion.relay add-manufacturer factory-b "Factory B" --contact sales@factory.example --channel email --market apparel
     uv run python -m orion.relay manufacturers
     uv run python -m orion.relay outbox                     # messages waiting to be sent by hand
     uv run python -m orion.relay sent MESSAGE_ID            # after you sent it
@@ -55,6 +56,8 @@ async def main() -> None:
     add.add_argument("id")
     add.add_argument("name")
     add.add_argument("--contact")
+    add.add_argument("--channel", choices=["manual_relay", "email"], default="manual_relay",
+                     help="email: messages go to --contact by email and replies are read automatically")
     add.add_argument("--market", required=True)
     add.add_argument("--option", help="omit to cover every option in the market")
     add.add_argument("--rank", type=int, default=1, help="1 = contacted first")
@@ -74,7 +77,7 @@ async def main() -> None:
         directory, channel = deps.directory, deps.channel
 
         if args.command == "add-manufacturer":
-            await directory.add(Manufacturer(id=args.id, name=args.name, contact=args.contact))
+            await directory.add(Manufacturer(id=args.id, name=args.name, contact=args.contact, channel=args.channel))
             await directory.assign(args.id, args.market, args.option, args.rank)
             print(f"Saved {args.name} for {args.market}/{args.option or '*'} at rank {args.rank}")
 

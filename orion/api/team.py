@@ -13,6 +13,7 @@ from orion.api.views import team_order_view
 from orion.db.stores import Manufacturer
 from orion.graph.graph import OrderNotWaiting, get_order, waiting_on
 from orion.runtime import manual_event_id, resolve_human_tasks, send_event
+from orion.tools.mail import is_email
 
 router = APIRouter(prefix="/team", tags=["team"])
 agent = team_member("agent")
@@ -28,6 +29,7 @@ class NewManufacturer(BaseModel):
     id: str
     name: str
     contact: Optional[str] = None
+    channel: Literal["manual_relay", "email"] = "manual_relay"   # email: contact must be an email address
     market: str
     option: Optional[str] = None     # None = every option in the market
     rank: int = 1
@@ -110,7 +112,9 @@ async def manufacturers(c: ApiContext = Depends(ctx), _: TokenClaims = Depends(a
 
 @router.post("/manufacturers", status_code=status.HTTP_201_CREATED)
 async def add_manufacturer(body: NewManufacturer, c: ApiContext = Depends(ctx), _: TokenClaims = Depends(admin)) -> dict:
-    await c.deps.directory.add(Manufacturer(id=body.id, name=body.name, contact=body.contact))
+    if body.channel == "email" and not is_email(body.contact):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "an email manufacturer needs an email address")
+    await c.deps.directory.add(Manufacturer(id=body.id, name=body.name, contact=body.contact, channel=body.channel))
     await c.deps.directory.assign(body.id, body.market, body.option, body.rank)
     return body.model_dump()
 

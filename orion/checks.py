@@ -1,6 +1,7 @@
 """Step 1 environment checks: Postgres reachable, Claude reachable through OpenRouter.
 
 Run with:  uv run python -m orion.checks
+           uv run python -m orion.checks --mail    # only the manufacturer mailbox (free: logs in, sends nothing)
 """
 
 import asyncio
@@ -26,12 +27,24 @@ async def check_openrouter(api_key: str, base_url: str, model: str) -> str:
     return reply.content
 
 
+async def check_mail(settings) -> str:
+    from orion.deps import mailbox
+
+    box = mailbox(settings)
+    if box is None:
+        raise ValueError("MAIL_ADDRESS or MAIL_APP_PASSWORD is empty in .env")
+    return await box.check()
+
+
 async def main() -> int:
     settings = get_settings()
-    key = settings.openrouter_api_key.get_secret_value()
-    checks = {"Postgres": check_postgres(settings.database_url)}
-    for role, model in [("customer", settings.consultant_model), ("manufacturer", settings.manufacturer_model)]:
-        checks[f"OpenRouter {role} ({model})"] = check_openrouter(key, settings.openrouter_base_url, model)
+    if "--mail" in sys.argv:
+        checks = {"Manufacturer mailbox": check_mail(settings)}
+    else:
+        checks = {"Postgres": check_postgres(settings.database_url)}
+        key = settings.openrouter_api_key.get_secret_value()
+        for role, model in [("customer", settings.consultant_model), ("manufacturer", settings.manufacturer_model)]:
+            checks[f"OpenRouter {role} ({model})"] = check_openrouter(key, settings.openrouter_base_url, model)
     results = await asyncio.gather(*checks.values(), return_exceptions=True)
 
     failed = False

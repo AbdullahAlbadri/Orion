@@ -9,6 +9,7 @@ from orion.config.settings import Settings
 from orion.db.stores import ManufacturerDirectory, PriceStore, Scheduler
 from orion.tools.channel import Channel
 from orion.tools.llm import Consultant, ImageLoader, OpenRouterConsultant
+from orion.tools.mail import GmailMailbox
 from orion.tools.manufacturer_llm import ManufacturerAgent, OpenRouterManufacturerAgent
 
 
@@ -46,8 +47,16 @@ def image_loader(settings: Settings, pool: AsyncConnectionPool) -> ImageLoader:
     return load
 
 
+def mailbox(settings: Settings) -> Optional[GmailMailbox]:
+    """The manufacturer mailbox, or None while MAIL_ADDRESS / MAIL_APP_PASSWORD are not set."""
+    password = settings.mail_app_password.get_secret_value()
+    if not (settings.mail_address and password):
+        return None
+    return GmailMailbox(settings.mail_address, password, settings.smtp_host, settings.smtp_port, settings.imap_host)
+
+
 def postgres_deps(settings: Settings, pool: AsyncConnectionPool) -> Deps:
-    from orion.db.postgres import ManualRelayChannel, PostgresDirectory, PostgresPriceStore, PostgresScheduler
+    from orion.db.postgres import EmailRelayChannel, PostgresDirectory, PostgresPriceStore, PostgresScheduler
 
     consultant, manufacturer_agent = openrouter_agents(settings, image_loader(settings, pool))
     return Deps(
@@ -55,6 +64,6 @@ def postgres_deps(settings: Settings, pool: AsyncConnectionPool) -> Deps:
         manufacturer_agent=manufacturer_agent,
         directory=PostgresDirectory(pool),
         prices=PostgresPriceStore(pool),
-        channel=ManualRelayChannel(pool),
+        channel=EmailRelayChannel(pool, mailbox(settings)),
         scheduler=PostgresScheduler(pool),
     )
