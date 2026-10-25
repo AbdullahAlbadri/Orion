@@ -31,7 +31,7 @@ class OrderState(TypedDict, total=False):
     prefill: Optional[dict]
 
     # Manufacturer phase
-    spec_zh: Optional[dict]        # {"product_zh", "fields": [{"id", "label_zh", "value_zh"}]}
+    spec_zh: Optional[dict]        # {"product_zh", "fields": [{"id", "label_zh", "value_zh", "value_en"}]}
     # {"manufacturer_id", "name", "contacted_at", "deadline_at", "reminded",
     #  "outcome": waiting | clarifying | quoted | declined | no_reply | blocked}
     manufacturer_attempts: list[dict]

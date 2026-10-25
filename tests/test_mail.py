@@ -55,10 +55,10 @@ class FakeMailbox:
         self.handled: dict[str, bool] = {}     # uid -> starred
         self.fail = False
 
-    async def send(self, to, subject, text):
+    async def send(self, to, subject, text, attachments=()):
         if self.fail:
             raise OSError("smtp down")
-        self.sent.append({"to": to, "subject": subject, "text": text})
+        self.sent.append({"to": to, "subject": subject, "text": text, "attachments": list(attachments)})
 
     async def unread(self, limit=20):
         return [m for m in self.mail if m.uid not in self.handled][:limit]
@@ -126,7 +126,10 @@ async def test_failed_email_stays_in_the_outbox_and_manual_manufacturers_are_nev
     run = uuid.uuid4().hex[:12]
     mailbox = FakeMailbox()
     async with make_pool(pg_url) as pool:
-        directory, channel = PostgresDirectory(pool), EmailRelayChannel(pool, mailbox)
+        async def load_file(order_id, file_id):
+            return (b"PNG-logo", "image/png") if file_id == "f-1" else None
+
+        directory, channel = PostgresDirectory(pool), EmailRelayChannel(pool, mailbox, load_file)
         await directory.add(Manufacturer(id=f"e-{run}", name="E", contact="e@factory.example", channel="email"))
         await directory.add(Manufacturer(id=f"w-{run}", name="W", contact="WeChat: abc"))
         await channel.deliver(OutgoingMessage(id=f"{run}:w", order_id=f"ord_{run}", manufacturer_id=f"w-{run}", text="hi"))
@@ -137,7 +140,11 @@ async def test_failed_email_stays_in_the_outbox_and_manual_manufacturers_are_nev
 
         # A retried step re-delivers the same message id: sent now, and never twice
         mailbox.fail = False
-        await channel.deliver(OutgoingMessage(id=f"{run}:e", order_id=f"ord_{run}", manufacturer_id=f"e-{run}", text="hi"))
-        await channel.deliver(OutgoingMessage(id=f"{run}:e", order_id=f"ord_{run}", manufacturer_id=f"e-{run}", text="hi"))
+        files = [{"file_id": "f-1", "name": "logo.png", "content_type": "image/png"},
+                 {"file_id": "gone", "name": "old.png", "content_type": "image/png"}]       # missing: skipped
+        for _ in range(2):
+            await channel.deliver(OutgoingMessage(id=f"{run}:e", order_id=f"ord_{run}", manufacturer_id=f"e-{run}",
+                                                  text="hi", files=files))
         assert [m["to"] for m in mailbox.sent] == ["e@factory.example"]
+        assert mailbox.sent[0]["attachments"] == [("logo.png", b"PNG-logo", "image/png")]
         assert f"{run}:e" not in {m["id"] for m in await channel.pending()}

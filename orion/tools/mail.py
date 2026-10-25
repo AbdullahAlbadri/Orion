@@ -96,8 +96,11 @@ def parse(uid: str, raw: bytes) -> IncomingMail:
     )
 
 
+Attachment = tuple[str, bytes, str]   # (file name, content, content type)
+
+
 class Mailer(Protocol):
-    async def send(self, to: str, subject: str, text: str) -> None: ...
+    async def send(self, to: str, subject: str, text: str, attachments: list[Attachment] = ()) -> None: ...
 
 
 class Inbox(Protocol):
@@ -113,13 +116,16 @@ class GmailMailbox:
         self.address, self._password = address, app_password
         self.smtp_host, self.smtp_port, self.imap_host = smtp_host, smtp_port, imap_host
 
-    async def send(self, to: str, subject: str, text: str) -> None:
+    async def send(self, to: str, subject: str, text: str, attachments: list[Attachment] = ()) -> None:
         msg = EmailMessage()
         msg["From"] = formataddr(("Orion", self.address))
         msg["To"] = to
         msg["Subject"] = subject
         msg["Message-ID"] = make_msgid(domain=self.address.split("@")[-1])
         msg.set_content(text)
+        for name, data, content_type in attachments:
+            maintype, _, subtype = content_type.partition("/")
+            msg.add_attachment(data, maintype=maintype or "application", subtype=subtype or "octet-stream", filename=name)
         await asyncio.to_thread(self._send, msg)
 
     def _send(self, msg: EmailMessage) -> None:

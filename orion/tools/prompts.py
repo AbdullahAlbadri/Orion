@@ -47,7 +47,7 @@ TRANSLATE_SPEC_SYSTEM = """\
 Translate this product spec into clear, factory-standard Simplified Chinese for a garment/product manufacturer.
 
 - Return one field per spec answer, using the same id. label_zh is a short Chinese label for the field; \
-value_zh is the value in Chinese.
+value_zh is the value in Chinese; value_en is the same value in plain English (copy it if it is already English).
 - Use standard industry terms (e.g. GSM → 克重, embroidery → 刺绣, screen print → 丝印).
 - Keep numbers, units, sizes, color codes and brand names exactly as written.
 - Translate only. Do not add, remove or improve any detail.

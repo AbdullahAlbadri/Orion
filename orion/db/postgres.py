@@ -10,7 +10,9 @@ from psycopg_pool import AsyncConnectionPool
 
 from orion.db.stores import DeadlineKind, Manufacturer, PriceRecord
 from orion.tools.channel import OutgoingMessage
-from orion.tools.mail import Mailer, is_email, subject_for
+from orion.tools.mail import Attachment, Mailer, is_email, subject_for
+
+MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024    # Gmail refuses mail over 25 MB
 
 log = logging.getLogger("orion.channel")
 
@@ -219,9 +221,10 @@ class EmailRelayChannel(ManualRelayChannel):
     """Every message is recorded in the outbox first. For manufacturers whose channel is "email" it is then
     emailed and marked sent; if sending fails it simply stays in the outbox for the team to send by hand."""
 
-    def __init__(self, pool: AsyncConnectionPool, mailer: Optional[Mailer]):
+    def __init__(self, pool: AsyncConnectionPool, mailer: Optional[Mailer], load_file=None):
+        """load_file(order_id, file_id) -> (bytes, content_type) or None: the order's uploaded files."""
         super().__init__(pool)
-        self.mailer = mailer
+        self.mailer, self.load_file = mailer, load_file
 
     async def deliver(self, message: OutgoingMessage) -> None:
         await super().deliver(message)
@@ -241,11 +244,27 @@ class EmailRelayChannel(ManualRelayChannel):
                         message.manufacturer_id)
             return
         try:
-            await self.mailer.send(row["contact"].strip(), subject_for(message.order_id), message.text)
+            await self.mailer.send(row["contact"].strip(), subject_for(message.order_id), message.text,
+                                   await self._attachments(message))
         except Exception:
             log.exception("emailing %s failed; left in the outbox for the team", message.id)
             return
         await self.mark_sent(message.id)
+
+    async def _attachments(self, message: OutgoingMessage) -> list[Attachment]:
+        out, total = [], 0
+        for f in message.files:
+            loaded = await self.load_file(message.order_id, f["file_id"]) if self.load_file else None
+            if loaded is None:
+                log.warning("file %s of order %s not found; not attached", f["file_id"], message.order_id)
+                continue
+            data, content_type = loaded
+            if total + len(data) > MAX_ATTACHMENT_BYTES:
+                log.warning("file %s of order %s left out: the email would be too large", f["file_id"], message.order_id)
+                continue
+            total += len(data)
+            out.append((f["name"], data, content_type))
+        return out
 
     async def manufacturer_for_email(self, address: str) -> Optional[str]:
         async with self.pool.connection() as conn:

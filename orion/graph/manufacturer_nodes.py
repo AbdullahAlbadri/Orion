@@ -16,7 +16,7 @@ from orion.config.china_calendar import KNOWN_YEARS, add_working_days
 from orion.config.markets import MARKETS, get_questions
 from orion.config.policy import Policy
 from orion.db.stores import ManufacturerDirectory, PriceRecord, PriceStore, Scheduler
-from orion.graph.manufacturer_request import NOT_TRANSLATED, render_reminder, render_request
+from orion.graph.manufacturer_request import not_translated, render_reminder, render_request, request_files
 from orion.graph.state import OrderState
 from orion.spec import QUANTITY_ID, ProductSpec, format_answer
 from orion.tools.channel import BlockedMessage, Channel, OutgoingMessage, send_to_manufacturer
@@ -67,13 +67,14 @@ async def translate_spec(state: OrderState, agent: ManufacturerAgent) -> dict:
     translation = await agent.translate_spec(spec, option.name)
 
     by_id = {f.id: f for f in translation.fields}
+    skip = not_translated(spec)
     fields = []
     for qid, value in spec.answers.items():
-        if qid in NOT_TRANSLATED:
+        if qid in skip:
             continue
         f = by_id.get(qid)
         if f and f.value_zh.strip():
-            fields.append({"id": qid, "label_zh": f.label_zh, "value_zh": f.value_zh})
+            fields.append({"id": qid, "label_zh": f.label_zh, "value_zh": f.value_zh, "value_en": f.value_en.strip()})
         else:
             # Never drop a spec detail: fall back to the original wording.
             fields.append({"id": qid, "label_zh": qid, "value_zh": format_answer(value)})
@@ -109,7 +110,8 @@ async def contact_manufacturer(
         id=f"{state['order_id']}:request:{manufacturer.id}",
         order_id=state["order_id"],
         manufacturer_id=manufacturer.id,
-        text=render_request(spec, state["spec_zh"]),
+        text=render_request(spec, state["spec_zh"], state["order_id"]),
+        files=request_files(spec),
     )
     try:
         await send_to_manufacturer(channel, message)

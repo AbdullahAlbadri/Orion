@@ -3,6 +3,9 @@ from datetime import datetime
 from conftest import HOODIE_ANSWERS, ScriptedConsultant, ScriptedManufacturerAgent, turn
 from orion.config.china_calendar import add_working_days
 from orion.graph.graph import get_order, on_event, send_reply, start_order
+from orion.graph.manufacturer_request import render_request, request_files
+from orion.spec import ProductSpec
+from orion.tools.price_guard import price_violation
 from orion.tools.manufacturer_llm import DraftAnswer, DraftAnswers, ReplyAnalysis, SpecMismatch
 from orion.tools.prices import ExtractedPrice
 
@@ -48,7 +51,7 @@ async def test_frozen_spec_sends_request_to_first_manufacturer(make_order):
 
     [request] = _outgoing(deps)
     assert request["manufacturer_id"] == "factory-a" and request["status"] == "pending_send"
-    assert "总数量：150 件" in request["text"] and "M 50" in request["text"]
+    assert "总数量：150 件" in request["text"] and "M × 50" in request["text"]
     assert "中-embroidery" in request["text"]
     assert order["stage"] == "sourcing" and order["current_manufacturer"] == "factory-a"
     attempt = order["manufacturer_attempts"][0]
@@ -202,3 +205,31 @@ async def test_acknowledgement_keeps_waiting(make_order):
     order = await get_order(app, "o1")
     assert order["manufacturer_attempts"][0]["outcome"] == "waiting"
     assert order["stage"] == "sourcing" and not order.get("needs_human")
+
+
+def test_request_is_grouped_bilingual_with_files_attached_and_placement_in_words():
+    spec = ProductSpec(market="apparel", option="hoodie", answers={
+        **{k: v for k, v in HOODIE_ANSWERS.items() if k != "size_breakdown"},
+        "colors": ["black"],
+        "artwork": [{"file_id": "f-1", "name": "logo.png", "content_type": "image/png"}],
+        "decoration_placement": [{"kind": "logo", "view": "front", "x": 0.5, "y": 0.35, "width_cm": 12.5, "height_cm": 11.5}],
+        "zip_colour": "أسود",                                         # an AI question, answered in Arabic
+    }, labels={"zip_colour": "لون السحاب"}, sections={"zip_colour": "design"})
+    spec.set_answer("size_breakdown", {"M": 50, "L": 50})
+    spec_zh = {"product_zh": "卫衣", "fields": [
+        {"id": "colors", "label_zh": "颜色", "value_zh": "黑色"},
+        {"id": "artwork", "label_zh": "图案文件", "value_zh": "logo.png（文件ID：f-1）"},   # older translations
+        {"id": "zip_colour", "label_zh": "拉链颜色", "value_zh": "黑色", "value_en": "black"},
+    ]}
+    text = render_request(spec, spec_zh, "ord_0123456789ab")
+
+    assert "【询价单】卫衣（订单号 ord_0123456789ab）" in text and "尺码分配：M × 50，L × 50" in text
+    assert "一、款式与设计" in text and "三、面料、工艺与包装" in text
+    assert "颜色：黑色" in text and "附件1 (logo.png)" in text and "附件1：logo.png" in text
+    assert "Logo：正面胸部，居中，宽 12.5 × 高 11.5 厘米" in text
+    assert "f-1" not in text and "x：" not in text                                    # no ids or raw coordinates
+    assert "English version" in text and "Attachment 1: logo.png" in text and "logo, front, centre chest" in text
+    assert "拉链颜色：黑色" in text and "Zip colour: black" in text and "أسود" not in text
+    assert "A. Design" in text and "Decoration placement: logo, front" in text
+    assert price_violation(text) is None
+    assert request_files(spec) == [{"file_id": "f-1", "name": "logo.png", "content_type": "image/png"}]

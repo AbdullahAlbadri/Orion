@@ -33,7 +33,7 @@ def openrouter_agents(settings: Settings, load_image: Optional[ImageLoader] = No
 
 
 def image_loader(settings: Settings, pool: AsyncConnectionPool) -> ImageLoader:
-    """Lets the customer-side AI see pictures uploaded to the order."""
+    """The order's uploaded files: pictures for the customer-side AI, attachments for factory emails."""
     from orion.db.accounts import AccountStore
     from orion.tools.files import LocalFileStore
 
@@ -65,6 +65,6 @@ def postgres_deps(settings: Settings, pool: AsyncConnectionPool) -> Deps:
         manufacturer_agent=manufacturer_agent,
         directory=PostgresDirectory(pool),
         prices=PostgresPriceStore(pool),
-        channel=EmailRelayChannel(pool, mailbox(settings)),
+        channel=EmailRelayChannel(pool, mailbox(settings), image_loader(settings, pool)),
         scheduler=PostgresScheduler(pool),
     )

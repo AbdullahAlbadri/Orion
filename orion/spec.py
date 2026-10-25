@@ -82,7 +82,7 @@ def is_blank(raw: Any) -> bool:
 
 def format_answer(value: Any) -> str:
     """Human-readable answer for receipts and messages."""
-    if isinstance(value, list) and value and all(isinstance(v, dict) and "view" in v for v in value):
+    if is_placement_list(value):
         return "; ".join(describe_placement(v) for v in value)
     if is_file_list(value):
         return ", ".join(v["name"] for v in value)
@@ -175,6 +175,10 @@ def is_file_list(value: Any) -> bool:
     return isinstance(value, list) and bool(value) and all(isinstance(v, dict) and "file_id" in v for v in value)
 
 
+def is_placement_list(value: Any) -> bool:
+    return isinstance(value, list) and bool(value) and all(isinstance(v, dict) and "view" in v for v in value)
+
+
 MAX_PLACEMENTS = 10
 
 
@@ -214,6 +218,9 @@ _PLACEMENT_WORDS = {
     "ar": {"logo": "شعار", "label": "ملصق", "front": "الأمام", "back": "الخلف", "left": "يسار اللابس، ",
            "right": "يمين اللابس، ", "centre": "الوسط، ", "neck": "الرقبة", "chest": "الصدر", "middle": "المنتصف",
            "lower": "الأسفل", "cm": "سم"},
+    "zh": {"logo": "Logo", "label": "标签", "front": "正面", "back": "背面", "left": "穿着者左侧",
+           "right": "穿着者右侧", "centre": "居中", "neck": "领口", "chest": "胸部", "middle": "衣身中部",
+           "lower": "下摆", "cm": "厘米"},
 }
 
 
@@ -226,13 +233,15 @@ def describe_placement(p: dict, lang: str = "en") -> str:
     wearer_right = x < 0.44 if p["view"] == "front" else x > 0.56
     side = w["left"] if wearer_left else w["right"] if wearer_right else w["centre"]
     area = w["neck"] if y < 0.2 else w["chest"] if y < 0.42 else w["middle"] if y < 0.65 else w["lower"]
+    if lang == "zh":
+        return f"{w[p['kind']]}：{w[p['view']]}{area}，{side}，宽 {p['width_cm']:g} × 高 {p['height_cm']:g} {w['cm']}"
     return f"{w[p['kind']]}, {w[p['view']]}, {side}{area}, {p['width_cm']:g} x {p['height_cm']:g} {w['cm']}"
 
 
 def localize_answer(question: Optional[Question], value: Any, lang: str) -> str:
     """An answer in the customer's language: English choice values shown with their Arabic labels."""
     if lang == "ar" and question is not None:
-        if isinstance(value, list) and value and all(isinstance(v, dict) and "view" in v for v in value):
+        if is_placement_list(value):
             return "؛ ".join(describe_placement(v, "ar") for v in value)
         if question.choices_ar:
             names = dict(zip(question.choices, question.choices_ar))

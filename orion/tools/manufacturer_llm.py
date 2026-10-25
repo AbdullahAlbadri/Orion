@@ -20,6 +20,7 @@ class TranslatedField(BaseModel):
     id: str
     label_zh: str
     value_zh: str
+    value_en: str = Field("", description="The same value in plain English (copied if it is already English)")
 
 
 class SpecTranslation(BaseModel):
