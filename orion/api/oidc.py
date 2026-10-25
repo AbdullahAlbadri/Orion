@@ -29,6 +29,7 @@ class OidcVerifier:
         claims = jwt.decode(
             id_token, key.key, algorithms=["RS256", "ES256"], audience=self.client_id,
             options={"require": ["exp", "iat", "sub", "aud", "iss"]},
+            leeway=60,   # our clock a little behind Google's must not reject a fresh token
         )
         if claims["iss"] not in self.issuers:
             raise jwt.InvalidIssuerError(f"unexpected issuer {claims['iss']}")

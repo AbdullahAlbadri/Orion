@@ -121,7 +121,8 @@ async def _id_token_login(provider: str, body: IdTokenLogin, response: Response,
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"{provider} sign-in is not configured")
     try:
         identity = await verifier.verify(body.id_token)
-    except Exception:
+    except Exception as e:
+        log.warning("%s sign-in rejected: %s: %s", provider, type(e).__name__, e)   # the reason, never the token
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, f"invalid {provider} token") from None
     if not identity.email or not identity.email_verified:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, f"{provider} account has no verified email")
