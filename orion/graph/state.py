@@ -17,7 +17,8 @@ class OrderState(TypedDict, total=False):
     messages: list[dict]           # follow-up history: {"role": "customer" | "orion", "content": str}
     lang: str                      # customer's language ("ar" / "en"), sent by the website with answers
     gap_rounds: int
-    pre_receipt: Optional[str]
+    pre_receipt: Optional[str]     # plain text (team, terminal, audit)
+    summary: Optional[dict]        # the same, structured, in the customer's language (website receipt)
     confirmed: bool
     needs_human: Optional[str]     # latest reason the team must step in
     human_tasks: list[dict]        # every flag: {"reason", "at", ...context}

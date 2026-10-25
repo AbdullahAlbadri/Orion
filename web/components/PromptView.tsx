@@ -5,6 +5,7 @@ import { useState } from "react";
 import type { OrderView, Prompt } from "@/lib/api";
 import { useLang } from "@/lib/i18n";
 import { ShirtIcon } from "./Icons";
+import Receipt from "./Receipt";
 import SectionedForm from "./SectionedForm";
 
 type Send = (reply: Record<string, unknown>) => Promise<void>;
@@ -19,7 +20,8 @@ export default function PromptView({ order, send, busy }: { order: OrderView; se
         <span className="pill factories">{order.status[lang]}</span>
         <h2 style={{ marginTop: 14 }}>{t("waitingTitle")}</h2>
         <p className="muted">{t("waitingText")}</p>
-        {order.pre_receipt && <pre className="receipt">{order.pre_receipt}</pre>}
+        {order.summary ? <div style={{ marginTop: 16 }}><Receipt summary={order.summary} /></div>
+          : order.pre_receipt && <pre className="receipt">{order.pre_receipt}</pre>}
       </div>
     );
   }
@@ -54,15 +56,16 @@ function LegacyMessage({ prompt, send, busy }: { prompt: Extract<Prompt, { kind:
 }
 
 function Choice({ prompt, send, busy }: { prompt: Extract<Prompt, { kind: "choice" }>; send: Send; busy: boolean }) {
+  const { lang } = useLang();
   return (
     <div className="card">
-      <h2 dir="auto">{prompt.prompt}</h2>
+      <h2 dir="auto">{lang === "ar" && prompt.prompt_ar ? prompt.prompt_ar : prompt.prompt}</h2>
       {prompt.error && <p className="error">{prompt.error}</p>}
       <div className="choices">
         {prompt.options.map((o) => (
           <button key={o.id} className="choice" disabled={busy} onClick={() => send({ choice: o.id })}>
             <span className="avatar"><ShirtIcon width={20} height={20} /></span>
-            {o.name}
+            {lang === "ar" && o.name_ar ? o.name_ar : o.name}
           </button>
         ))}
       </div>
@@ -76,9 +79,8 @@ function Confirm({ prompt, send, busy }: { prompt: Extract<Prompt, { kind: "conf
   const [changes, setChanges] = useState("");
 
   return (
-    <div className="card stack">
-      <h2>{t("summary")}</h2>
-      <pre className="receipt">{prompt.pre_receipt}</pre>
+    <div className="stack">
+      {prompt.summary ? <Receipt summary={prompt.summary} /> : <pre className="receipt">{prompt.pre_receipt}</pre>}
       {prompt.error && <p className="error">{prompt.error}</p>}
       {!changing ? (
         <div className="row">

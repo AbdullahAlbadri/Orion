@@ -16,6 +16,25 @@ export type Question = {
   allow_other?: boolean;   // "Other" chip with the customer's own text
   multiple?: boolean;      // several options may be picked
   mockup?: string | null;  // placement: which garment drawing
+  prompt_ar?: string | null;
+  hint_ar?: string | null;
+  choices_ar?: string[];   // Arabic labels, same order as choices (values stay English)
+  cost_tiers?: number[];   // relative cost per choice: 1 = $, 2 = $$, 3 = $$$ (0 = none)
+};
+
+export type SummaryItem = { id: string; type: string; label: string; value: string; raw: unknown };
+export type Summary = {
+  lang: "ar" | "en";
+  product: string;
+  option: string;
+  market: string;
+  mockup?: string | null;
+  quantity: number | null;
+  sizes: Record<string, number>;
+  sections: { id: Section; items: SummaryItem[] }[];
+  extras: SummaryItem[];
+  files: { url: string; kind: string }[];
+  open_gaps: string[];
 };
 
 export type Section = "design" | "quantity" | "quality";
@@ -31,12 +50,18 @@ export async function askAboutSection(
 }
 
 export type Prompt =
-  | { step: string; kind: "choice"; prompt: string; options: { id: string; name: string }[]; error?: string | null }
   | {
-      step: string; kind: "form"; prompt: string; questions: Question[];
+      step: string; kind: "choice"; prompt: string; prompt_ar?: string | null;
+      options: { id: string; name: string; name_ar?: string | null }[]; error?: string | null;
+    }
+  | {
+      step: string; kind: "form"; prompt: string; prompt_ar?: string | null; questions: Question[];
       values: Record<string, unknown>; errors: Record<string, string>;
     }
-  | { step: string; kind: "confirm"; prompt: string; pre_receipt: string; error?: string | null }
+  | {
+      step: string; kind: "confirm"; prompt: string; prompt_ar?: string | null; pre_receipt: string;
+      summary?: Summary | null; error?: string | null;
+    }
   // Orders paused by an older API version: a single message to answer in free text
   | { step: string; kind: "chat"; message: string };
 
@@ -48,6 +73,7 @@ export type OrderView = {
   prompt: Prompt | null;
   messages: { role: "customer" | "orion"; content: string }[];
   pre_receipt: string | null;
+  summary?: Summary | null;
   spec: { option?: string; quantity?: number; answers?: Record<string, unknown>; frozen?: boolean } | null;
 };
 

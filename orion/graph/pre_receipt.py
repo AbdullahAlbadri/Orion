@@ -1,38 +1,95 @@
-"""Render the pre-receipt from the spec. Code, not LLM: it must show exactly what will be frozen."""
+"""The pre-receipt, built in code from the spec (never by the LLM): it must show exactly what will be frozen.
+
+- `build_summary`: structured, in the customer's language, for the website's visual receipt.
+- `render_pre_receipt`: plain text of the same content, for the team console, terminal and audit trail.
+"""
+
+from typing import Any, Optional
 
 from orion.config.markets import Market
-from orion.spec import QUANTITY_ID, SIZE_TABLE_ID, ProductSpec, Question, format_answer
+from orion.spec import QUANTITY_ID, SIZE_TABLE_ID, ProductSpec, Question, format_answer, localize_answer
+
+TEXT = {
+    "en": {
+        "title": "PRE-RECEIPT (product summary, not a price quote)", "product": "Product", "total": "Total quantity",
+        "not_set": "not set", "sizes": "Sizes", "details": "Details", "extra": "Additional details",
+        "files": "Files", "open": "Still open (the Orion team will follow up)",
+    },
+    "ar": {
+        "title": "ملخص المنتج (ليس عرض سعر)", "product": "المنتج", "total": "الكمية الإجمالية",
+        "not_set": "غير محددة", "sizes": "المقاسات", "details": "التفاصيل", "extra": "تفاصيل إضافية",
+        "files": "الملفات", "open": "نقاط مفتوحة (سيتابعها فريق أوريون)",
+    },
+}
+SKIP = {QUANTITY_ID, SIZE_TABLE_ID}
 
 
-def _label(question_id: str) -> str:
+def _humanize(question_id: str) -> str:
     return question_id.replace("_", " ").capitalize()
 
 
-def render_pre_receipt(spec: ProductSpec, market: Market, questions: list[Question]) -> str:
+def label(question_id: str, question: Optional[Question], spec: ProductSpec, lang: str) -> str:
+    """Short label: the question's own wording without the question mark."""
+    if question is not None:
+        text = question.prompt_ar if lang == "ar" and question.prompt_ar else question.prompt
+        return text.rstrip("?؟:. ").split(",")[0].split("،")[0]
+    return spec.labels.get(question_id) or _humanize(question_id)
+
+
+def build_summary(spec: ProductSpec, market: Market, questions: list[Question], lang: str) -> dict[str, Any]:
     option = market.options[spec.option]
-    known_ids = [q.id for q in questions]
-    lines = [
-        "PRE-RECEIPT (product summary, not a price quote)",
-        f"Product: {option.name} ({market.name})",
-        f"Total quantity: {spec.quantity if spec.quantity is not None else 'not set'}",
+    by_id = {q.id: q for q in questions}
+    sections: dict[str, list[dict]] = {"design": [], "quantity": [], "quality": []}
+    for q in questions:
+        if q.id in SKIP or q.id not in spec.answers:
+            continue
+        value = spec.answers[q.id]
+        sections[q.section].append({
+            "id": q.id,
+            "type": q.type,
+            "label": label(q.id, q, spec, lang),
+            "value": localize_answer(q, value, lang),
+            "raw": value,   # English values / placement data, for swatches and the drawing
+        })
+    extras = [
+        {"id": qid, "type": "text", "label": label(qid, None, spec, lang), "value": format_answer(v), "raw": v}
+        for qid, v in spec.answers.items() if qid not in by_id and qid not in SKIP
     ]
+    return {
+        "lang": lang,
+        "product": option.name_ar if lang == "ar" else option.name,
+        "option": spec.option,
+        "market": market.name_ar if lang == "ar" else market.name,
+        "mockup": option.mockup,
+        "quantity": spec.quantity,
+        "sizes": spec.answers.get(SIZE_TABLE_ID) or {},
+        "sections": [{"id": sid, "items": items} for sid, items in sections.items() if items],
+        "extras": extras,
+        "files": [f.model_dump() for f in spec.files],
+        "open_gaps": spec.open_gaps,
+    }
 
-    sizes = spec.answers.get(SIZE_TABLE_ID)
-    if sizes:
-        lines.append("")
-        lines.append("Sizes:")
-        lines += [f"  {size:<6} {qty}" for size, qty in sizes.items()]
 
-    skip = {QUANTITY_ID, SIZE_TABLE_ID}
-    known = [(qid, spec.answers[qid]) for qid in known_ids if qid in spec.answers and qid not in skip]
-    extra = [(qid, v) for qid, v in spec.answers.items() if qid not in known_ids and qid not in skip]
-
-    if known:
-        lines += ["", "Details:"] + [f"- {_label(qid)}: {format_answer(value)}" for qid, value in known]
-    if extra:
-        lines += ["", "Additional details:"] + [f"- {_label(qid)}: {format_answer(value)}" for qid, value in extra]
-    if spec.files:
-        lines += ["", "Files:"] + [f"- {f.kind}: {f.url}" for f in spec.files]
-    if spec.open_gaps:
-        lines += ["", "Still open (the Orion team will follow up):"] + [f"- {gap}" for gap in spec.open_gaps]
+def render_pre_receipt(spec: ProductSpec, market: Market, questions: list[Question], lang: str = "en") -> str:
+    """Plain-text version of the summary."""
+    s = build_summary(spec, market, questions, lang)
+    w = TEXT["ar" if lang == "ar" else "en"]
+    # English text keeps id-based labels (stable for the team and the factory side)
+    names = {q.id: (label(q.id, q, spec, lang) if lang == "ar" else _humanize(q.id)) for q in questions}
+    lines = [
+        w["title"],
+        f"{w['product']}: {s['product']} ({s['market']})",
+        f"{w['total']}: {s['quantity'] if s['quantity'] is not None else w['not_set']}",
+    ]
+    if s["sizes"]:
+        lines += ["", f"{w['sizes']}:"] + [f"  {size:<6} {qty}" for size, qty in s["sizes"].items()]
+    details = [item for section in s["sections"] for item in section["items"]]
+    if details:
+        lines += ["", f"{w['details']}:"] + [f"- {names.get(i['id'], i['label'])}: {i['value']}" for i in details]
+    if s["extras"]:
+        lines += ["", f"{w['extra']}:"] + [f"- {i['label']}: {i['value']}" for i in s["extras"]]
+    if s["files"]:
+        lines += ["", f"{w['files']}:"] + [f"- {f['kind']}: {f['url']}" for f in s["files"]]
+    if s["open_gaps"]:
+        lines += ["", f"{w['open']}:"] + [f"- {gap}" for gap in s["open_gaps"]]
     return "\n".join(lines)

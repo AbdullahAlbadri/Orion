@@ -211,7 +211,7 @@ async def test_assist_explains_a_section(api):
     assert r.status_code == 200 and r.json()["answer"].startswith("Most hoodies")
     call = api.ctx.assistant.calls[-1]
     assert call["product"] == "Hoodie" and call["section"] == "quality"
-    assert set(call["ids"]) == {"fabric", "fabric_gsm", "labels"} and call["answers"] == {"fabric": "cotton fleece"}
+    assert set(call["ids"]) == {"fabric", "fabric_gsm", "labels", "packaging", "sample"} and call["answers"] == {"fabric": "cotton fleece"}
 
     # Rule 1: an answer that talks money never reaches the customer
     api.ctx.assistant = FakeAssistant("Cotton fleece costs about 45 SAR per piece")

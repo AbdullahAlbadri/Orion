@@ -115,6 +115,16 @@ const en = {
   discard: "Discard",
   discardConfirm: "Discard this draft?",
   keep: "Keep",
+  costHint: "Relative cost compared with the other options",
+  costNote: "$ to $$$ shows the relative cost of each option. Your actual price comes in the quote.",
+  receiptTitle: "Your product summary",
+  receiptNote: "Check everything below. This is not a price quote: prices come after we check with factories.",
+  totalPieces: "pieces in total",
+  sizesTitle: "Sizes",
+  moreDetails: "More details",
+  openPoints: "Still open: the Orion team will follow up",
+  placementTitle: "Logo and label placement",
+  filesTitle: "Files",
 };
 
 const ar: typeof en = {
@@ -227,6 +237,16 @@ const ar: typeof en = {
   discard: "حذف",
   discardConfirm: "حذف هذه المسودة؟",
   keep: "إبقاء",
+  costHint: "التكلفة مقارنةً ببقية الخيارات",
+  costNote: "من $ إلى $$$ توضح التكلفة النسبية لكل خيار. السعر الفعلي يصلك في عرض السعر.",
+  receiptTitle: "ملخص منتجك",
+  receiptNote: "راجع كل التفاصيل أدناه. هذا ليس عرض سعر: الأسعار تأتي بعد تواصلنا مع المصانع.",
+  totalPieces: "قطعة إجمالًا",
+  sizesTitle: "المقاسات",
+  moreDetails: "تفاصيل إضافية",
+  openPoints: "نقاط مفتوحة: سيتابعها فريق أوريون",
+  placementTitle: "موضع الشعار والملصقات",
+  filesTitle: "الملفات",
 };
 
 // Product names for order lists (the API returns option ids)

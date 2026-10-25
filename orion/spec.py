@@ -29,6 +29,13 @@ class Question(BaseModel):
     allow_other: bool = False      # choice: the customer may type their own answer ("Other")
     multiple: bool = False         # choice: the customer may pick several (answer is a list)
     mockup: Optional[str] = None   # placement: garment drawing to place logos/labels on (set per product)
+    # Arabic wording for the website. Answers are always stored with the English choice values.
+    prompt_ar: Optional[str] = None
+    hint_ar: Optional[str] = None
+    choices_ar: list[str] = []     # same order as `choices`
+    # Relative cost of each choice within this question: 0 = none shown, 1 = $, 2 = $$, 3 = $$$.
+    # A hint set by the team in config, never an amount (prices only come from manufacturer quotes).
+    cost_tiers: list[int] = []
 
 
 class FileRef(BaseModel):
@@ -43,6 +50,7 @@ class ProductSpec(BaseModel):
     option: str                    # option id or "custom"
     quantity: Optional[int] = None
     answers: dict[str, Any] = {}   # question id -> answer
+    labels: dict[str, str] = {}    # question id -> wording, for questions the AI added (not in the config)
     files: list[FileRef] = []
     open_gaps: list[str] = []
     version: int = 1
@@ -166,15 +174,38 @@ def _validate_placements(raw: Any) -> Any:
     return out
 
 
-def describe_placement(p: dict) -> str:
+_PLACEMENT_WORDS = {
+    "en": {"logo": "logo", "label": "label", "front": "front", "back": "back", "left": "wearer's left ",
+           "right": "wearer's right ", "centre": "centre ", "neck": "neck", "chest": "chest", "middle": "middle",
+           "lower": "lower", "cm": "cm"},
+    "ar": {"logo": "شعار", "label": "ملصق", "front": "الأمام", "back": "الخلف", "left": "يسار اللابس، ",
+           "right": "يمين اللابس، ", "centre": "الوسط، ", "neck": "الرقبة", "chest": "الصدر", "middle": "المنتصف",
+           "lower": "الأسفل", "cm": "سم"},
+}
+
+
+def describe_placement(p: dict, lang: str = "en") -> str:
     """Words a factory understands. 'Left' means the wearer's left: on the front view that is the right
     side of the picture, on the back view the left side."""
+    w = _PLACEMENT_WORDS.get(lang, _PLACEMENT_WORDS["en"])
     x, y = p["x"], p["y"]
     wearer_left = x > 0.56 if p["view"] == "front" else x < 0.44
     wearer_right = x < 0.44 if p["view"] == "front" else x > 0.56
-    side = "wearer's left " if wearer_left else "wearer's right " if wearer_right else "centre "
-    area = "neck" if y < 0.2 else "chest" if y < 0.42 else "middle" if y < 0.65 else "lower"
-    return f"{p['kind']}, {p['view']}, {side}{area}, {p['width_cm']:g} x {p['height_cm']:g} cm"
+    side = w["left"] if wearer_left else w["right"] if wearer_right else w["centre"]
+    area = w["neck"] if y < 0.2 else w["chest"] if y < 0.42 else w["middle"] if y < 0.65 else w["lower"]
+    return f"{w[p['kind']]}, {w[p['view']]}, {side}{area}, {p['width_cm']:g} x {p['height_cm']:g} {w['cm']}"
+
+
+def localize_answer(question: Optional[Question], value: Any, lang: str) -> str:
+    """An answer in the customer's language: English choice values shown with their Arabic labels."""
+    if lang == "ar" and question is not None:
+        if isinstance(value, list) and value and all(isinstance(v, dict) and "view" in v for v in value):
+            return "؛ ".join(describe_placement(v, "ar") for v in value)
+        if question.choices_ar:
+            names = dict(zip(question.choices, question.choices_ar))
+            items = value if isinstance(value, list) else [value]
+            return "، ".join(names.get(str(v), str(v)) for v in items)
+    return format_answer(value)
 
 
 _SIZE_PAIR = re.compile(r"^\s*([A-Za-z0-9/.\- ]+?)\s*[:=x×]\s*(\d+)\s*$")

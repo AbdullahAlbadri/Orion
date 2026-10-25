@@ -38,9 +38,15 @@ async def test_follow_ups_are_form_questions_and_spec_freezes(make_app):
     # "Other" answer (own text) and a listed choice
     prompt = await send_reply(app, "order-1", {"answers": {"drawstrings": "flat black cotton, metal tips", "pocket": "kangaroo pocket"}})
     assert prompt["kind"] == "confirm"
-    assert "Drawstrings: flat black cotton, metal tips" in prompt["pre_receipt"]
-    assert "Total quantity: 150" in prompt["pre_receipt"]
-    assert "Colors: black, Pantone Black C" in prompt["pre_receipt"]
+    # The customer chose Arabic: the receipt is Arabic, choice values shown with their Arabic labels
+    assert "الكمية الإجمالية: 150" in prompt["pre_receipt"]
+    assert "حبال القلنسوة: flat black cotton, metal tips" in prompt["pre_receipt"]
+    assert "ما ألوان القطعة: أسود، Pantone Black C" in prompt["pre_receipt"]
+    summary = prompt["summary"]
+    assert summary["product"] == "هودي" and summary["quantity"] == 150 and summary["sizes"]["M"] == 50
+    design = next(s for s in summary["sections"] if s["id"] == "design")["items"]
+    colors = next(i for i in design if i["id"] == "colors")
+    assert colors["value"] == "أسود، Pantone Black C" and colors["raw"] == ["black", "Pantone Black C"]
 
     prompt = await send_reply(app, "order-1", {"confirm": True})
     assert prompt["waiting_on"] == "manufacturer"
@@ -189,5 +195,7 @@ async def test_custom_option_starts_with_ai_questions(make_app):
 
     prompt = await send_reply(app, "order-7", {"answers": {"garment": "bucket hat"}})
     assert prompt["kind"] == "confirm"
-    assert "Total quantity: 200" in prompt["pre_receipt"]
-    assert "Garment: bucket hat" in prompt["pre_receipt"]
+    assert "الكمية الإجمالية: 200" in prompt["pre_receipt"]
+    # An AI-added question shows with the AI's own wording
+    assert "What garment: bucket hat" in prompt["pre_receipt"]
+    assert prompt["summary"]["extras"][0]["label"] == "What garment"

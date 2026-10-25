@@ -11,7 +11,7 @@ from typing import Any
 
 from orion.config.markets import MARKETS, Market, get_questions
 from orion.config.policy import Policy
-from orion.graph.pre_receipt import render_pre_receipt
+from orion.graph.pre_receipt import build_summary, render_pre_receipt
 from orion.graph.state import OrderState
 from orion.spec import (
     QUANTITY_ID,
@@ -101,6 +101,7 @@ def apply_updates(spec: ProductSpec, questions: list[Question], updates: list[An
 
 def select_market(state: OrderState) -> dict:
     options = {m.id: m.name for m in MARKETS.values()}
+    names_ar = {m.id: m.name_ar for m in MARKETS.values()}
     reply = state.get("reply")
     if reply is not None:
         market_id = _match_choice(_reply_value(reply, "choice"), options)
@@ -112,7 +113,8 @@ def select_market(state: OrderState) -> dict:
             "step": "select_market",
             "kind": "choice",
             "prompt": "Which market is your product in?",
-            "options": [{"id": k, "name": v} for k, v in options.items()],
+            "prompt_ar": "في أي مجال منتجك؟",
+            "options": [{"id": k, "name": v, "name_ar": names_ar[k]} for k, v in options.items()],
             "error": "Please pick one of the options." if reply is not None else None,
         },
     }
@@ -121,6 +123,7 @@ def select_market(state: OrderState) -> dict:
 def pick_option(state: OrderState) -> dict:
     market = _market(state)
     options = {o.id: o.name for o in market.options.values()}
+    names_ar = {o.id: o.name_ar for o in market.options.values()}
     reply = state.get("reply")
     if reply is not None:
         option_id = _match_choice(_reply_value(reply, "choice"), options)
@@ -133,7 +136,8 @@ def pick_option(state: OrderState) -> dict:
             "step": "pick_option",
             "kind": "choice",
             "prompt": "What would you like to make?",
-            "options": [{"id": k, "name": v} for k, v in options.items()],
+            "prompt_ar": "ماذا تريد أن تصنع؟",
+            "options": [{"id": k, "name": v, "name_ar": names_ar[k]} for k, v in options.items()],
             "error": "Please pick one of the options." if reply is not None else None,
         },
     }
@@ -169,6 +173,7 @@ def mandatory_questions(state: OrderState) -> dict:
             "step": "mandatory_questions",
             "kind": "form",
             "prompt": "A few details every manufacturer needs:",
+            "prompt_ar": "تفاصيل يحتاجها كل مصنع:",
             "questions": [q.model_dump() for q in questions],
             "values": spec.answers,
             "errors": errors,
@@ -237,6 +242,8 @@ async def deep_dive(state: OrderState, consultant: Consultant) -> dict:
                     original = by_market_id[q.id]
                     value = validate_answer(original, value if original.type == "choice" else format_answer(value))
                 spec.set_answer(q.id, value)
+                if q.id not in by_market_id:   # the AI's own question: keep its wording for the receipt
+                    spec.labels[q.id] = q.prompt.rstrip("?؟:. ")
                 lines.append(f"{q.prompt} → {format_answer(value)}")
             except InvalidAnswer as e:
                 errors[q.id] = str(e)
@@ -302,8 +309,13 @@ async def completeness_check(state: OrderState, consultant: Consultant, policy: 
 def build_pre_receipt(state: OrderState) -> dict:
     spec = _spec(state)
     market = _market(state)
-    text = render_pre_receipt(spec, market, get_questions(market.id, spec.option))
-    return {"pre_receipt": text, "stage": "pre_receipt_review"}
+    questions = get_questions(market.id, spec.option)
+    lang = state.get("lang", "en")
+    return {
+        "pre_receipt": render_pre_receipt(spec, market, questions, lang),
+        "summary": build_summary(spec, market, questions, lang),
+        "stage": "pre_receipt_review",
+    }
 
 
 def customer_confirm(state: OrderState) -> dict:
@@ -334,7 +346,9 @@ def customer_confirm(state: OrderState) -> dict:
             "step": "customer_confirm",
             "kind": "confirm",
             "prompt": "Please review your product summary.",
+            "prompt_ar": "راجع ملخص منتجك.",
             "pre_receipt": state["pre_receipt"],
+            "summary": state.get("summary"),
             "error": error,
         },
     }

@@ -19,6 +19,7 @@ def customer_order_view(state: dict, waiting: Optional[dict]) -> dict:
         "prompt": waiting if waiting_on == "customer" else None,
         "messages": state.get("messages", []),
         "pre_receipt": state.get("pre_receipt"),
+        "summary": state.get("summary"),
         "spec": {k: spec.get(k) for k in ("market", "option", "quantity", "answers", "version", "frozen")} if spec else None,
     }
 

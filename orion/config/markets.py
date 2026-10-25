@@ -1,13 +1,14 @@
 """Market registry. Markets and options are config; the graph never hardcodes them.
 
-Add a new market by defining a Market and registering it in MARKETS.
+Add a new market by defining a Market and registering it in MARKETS. Every question has English and Arabic
+wording; answers are stored with the English choice values whatever language the customer uses.
 """
 
 from typing import Optional
 
 from pydantic import BaseModel
 
-from orion.spec import QUANTITY_ID, SIZE_TABLE_ID, Question
+from orion.spec import QUANTITY_ID, SIZE_TABLE_ID, Question, Section
 
 CUSTOM_OPTION = "custom"
 
@@ -15,9 +16,10 @@ CUSTOM_OPTION = "custom"
 class Option(BaseModel):
     id: str
     name: str
+    name_ar: str
     questions: list[Question] = []
     uses_common_questions: bool = True
-    mockup: Optional[str] = None     # garment drawing for placement questions (web/components/mockups.ts)
+    mockup: Optional[str] = None     # garment drawing for placement questions (web/lib/mockups.ts)
 
 
 class Market(BaseModel):
@@ -30,48 +32,71 @@ class Market(BaseModel):
     compliance_notes: list[str] = []
 
 
-# --- Fashion, apparel & uniforms -------------------------------------------------
-# Choice questions offer common answers; allow_other lets the customer type their own ("Other"),
-# multiple lets them pick several.
+def choice(
+    id: str, prompt: str, prompt_ar: str, options: list[tuple], *,
+    section: Section = "design", multiple: bool = False, allow_other: bool = True, required: bool = True,
+    hint: Optional[str] = None, hint_ar: Optional[str] = None,
+) -> Question:
+    """A multiple-choice question. `options` are (English value, Arabic label) or
+    (English value, Arabic label, cost tier 1-3) for a relative $ / $$ / $$$ hint."""
+    tiers = [o[2] if len(o) > 2 else 0 for o in options]
+    return Question(
+        id=id, prompt=prompt, prompt_ar=prompt_ar, type="choice", section=section,
+        choices=[o[0] for o in options], choices_ar=[o[1] for o in options],
+        cost_tiers=tiers if any(tiers) else [],
+        multiple=multiple, allow_other=allow_other, required=required, hint=hint, hint_ar=hint_ar,
+    )
 
-_SIZE_TABLE = Question(
-    id=SIZE_TABLE_ID,
-    prompt="How many pieces per size?",
-    type="size_table",
-    hint="e.g. S:20, M:50, L:50, XL:30",
+
+# Relative cost tiers below are general guidance for China production.
+# TODO(decide): the team confirms or adjusts them per market.
+
+
+# --- Fashion, apparel & uniforms -------------------------------------------------
+# Everything a garment factory always needs is asked here; the AI only asks what is specific to an order.
+
+def _size_table(prompt="How many pieces per size?", prompt_ar="كم قطعة لكل مقاس؟", example="S:20, M:50, L:50, XL:30"):
+    return Question(
+        id=SIZE_TABLE_ID, prompt=prompt, prompt_ar=prompt_ar, type="size_table", section="quantity",
+        hint=f"e.g. {example}", hint_ar=f"مثال: {example}",
+    )
+
+
+_SIZE_STANDARD = choice(
+    "size_standard", "Which size standard?", "ما معيار المقاسات؟",
+    [("US/EU sizing", "مقاسات أمريكية/أوروبية"), ("Asian sizing", "مقاسات آسيوية"),
+     ("factory standard", "معيار المصنع")],
     section="quantity",
+    hint="Chinese factories use Asian sizing unless told otherwise; it runs about one size smaller. "
+         "Under Other you can give your own measurements.",
+    hint_ar="المصانع الصينية تستخدم المقاسات الآسيوية ما لم يُطلب غير ذلك، وهي أصغر بمقاس تقريبًا. "
+            "في «أخرى» يمكنك كتابة مقاساتك الخاصة.",
 )
-_LABELS = Question(
-    id="labels",
-    prompt="Which labels do you need?",
-    type="choice",
-    choices=["woven neck label with logo", "printed neck label", "size label", "care label", "hang tag", "no labels"],
-    multiple=True,
-    allow_other=True,
-    section="quality",
+_LABELS = choice(
+    "labels", "Which labels do you need?", "ما الملصقات التي تحتاجها؟",
+    [("woven neck label with logo", "ملصق رقبة منسوج بالشعار", 2), ("printed neck label", "ملصق رقبة مطبوع", 1),
+     ("size label", "ملصق المقاس", 1), ("care label", "ملصق العناية", 1), ("hang tag", "بطاقة معلّقة", 2),
+     ("no labels", "بدون ملصقات")],
+    section="quality", multiple=True,
 )
-_FIT = Question(
-    id="fit_reference",
-    prompt="Which fit do you want?",
-    type="choice",
-    choices=["regular fit", "relaxed fit", "oversized", "slim fit"],
-    allow_other=True,
+_FIT = choice(
+    "fit_reference", "Which fit do you want?", "ما القَصّة التي تريدها؟",
+    [("regular fit", "قصة عادية"), ("relaxed fit", "قصة مريحة"), ("oversized", "واسعة (أوفر سايز)"),
+     ("slim fit", "ضيقة")],
     required=False,
     hint="Under Other you can name a garment or brand whose fit you like.",
+    hint_ar="في «أخرى» يمكنك ذكر قطعة أو علامة تعجبك قصّتها.",
 )
 _FABRIC_GSM = Question(
-    id="fabric_gsm",
-    prompt="Fabric weight in GSM (grams per square metre)?",
-    type="number",
+    id="fabric_gsm", prompt="Fabric weight in GSM (grams per square metre)?",
+    prompt_ar="وزن القماش بالغرام لكل متر مربع (GSM)؟", type="number", section="quality",
     hint="T-shirts are usually 160-240, hoodies 280-400. Ask Orion if you are unsure.",
-    section="quality",
+    hint_ar="التيشيرتات عادةً 160-240، والهوديز 280-400. اسأل أوريون إن لم تكن متأكدًا.",
 )
 
 
-def _fabric(*choices: str) -> Question:
-    return Question(
-        id="fabric", prompt="Which fabric?", type="choice", choices=list(choices), allow_other=True, section="quality",
-    )
+def _fabric(*options: tuple[str, str]) -> Question:
+    return choice("fabric", "Which fabric?", "ما نوع القماش؟", list(options), section="quality")
 
 
 APPAREL = Market(
@@ -79,139 +104,135 @@ APPAREL = Market(
     name="Fashion, apparel & uniforms",
     name_ar="الأزياء والملابس والزي الموحد",
     common_questions=[
-        Question(
-            id="colors",
-            prompt="Garment colors?",
-            type="choice",
-            choices=["black", "white", "navy", "grey", "beige", "olive"],
+        choice(
+            "colors", "Garment colors?", "ما ألوان القطعة؟",
+            [("black", "أسود"), ("white", "أبيض"), ("navy", "كحلي"), ("grey", "رمادي"), ("beige", "بيج"),
+             ("olive", "زيتي")],
             multiple=True,
-            allow_other=True,
             hint="Under Other you can add a Pantone or HEX code.",
+            hint_ar="في «أخرى» يمكنك إضافة رمز اللون (Pantone أو HEX).",
+        ),
+        choice(
+            "decoration_method", "How should the logo/design be applied?", "كيف يُطبَّق الشعار أو التصميم؟",
+            [("screen print", "طباعة شاشة (سلك سكرين)", 1), ("DTG print", "طباعة رقمية مباشرة (DTG)", 2),
+             ("embroidery", "تطريز", 3), ("heat transfer", "طباعة حرارية", 1), ("no logo", "بدون شعار")],
         ),
         Question(
-            id="decoration_method",
-            prompt="How should the logo/design be applied?",
-            type="choice",
-            choices=["screen print", "DTG print", "embroidery", "heat transfer", "no logo"],
-            allow_other=True,
-        ),
-        Question(
-            id="decoration_placement",
-            prompt="Where do the logo and labels go, and how big?",
-            type="placement",
-            required=False,
+            id="decoration_placement", prompt="Where do the logo and labels go, and how big?",
+            prompt_ar="أين يوضع الشعار والملصقات، وما حجمها؟", type="placement", required=False,
             hint="Tap a spot or add a logo, then drag it into place and drag the corner to resize.",
+            hint_ar="اختر موضعًا أو أضف شعارًا، ثم اسحبه إلى مكانه واسحب الزاوية لتغيير الحجم.",
         ),
         Question(
-            id="artwork",
-            prompt="Upload or link your logo/artwork.",
-            type="file",
-            required=False,
+            id="artwork", prompt="Upload or link your logo/artwork.", prompt_ar="ارفع شعارك أو التصميم، أو ضع رابطه.",
+            type="file", required=False,
+        ),
+        choice(
+            "needed_by", "When do you need the order?", "متى تحتاج الطلب؟",
+            [("within 1 month", "خلال شهر"), ("in 1-2 months", "خلال شهر إلى شهرين"),
+             ("in 2-3 months", "خلال شهرين إلى ثلاثة"), ("flexible", "مرن")],
+            section="quantity",
+            hint="Production and shipping from China usually take 4-8 weeks in total. Under Other you can give a date.",
+            hint_ar="الإنتاج والشحن من الصين يستغرقان عادةً من 4 إلى 8 أسابيع. في «أخرى» يمكنك كتابة تاريخ.",
+        ),
+        choice(
+            "packaging", "How should each piece be packed?", "كيف تُغلَّف كل قطعة؟",
+            [("individual polybag", "كيس بلاستيكي لكل قطعة", 1), ("polybag with size sticker", "كيس مع ملصق المقاس", 1),
+             ("folded with tissue paper", "مطوية بورق مناديل", 2), ("on a hanger", "على علّاقة", 2),
+             ("branded box", "علبة تحمل شعارك", 3), ("bulk, no individual packing", "بالجملة دون تغليف فردي", 1)],
+            section="quality", multiple=True,
+        ),
+        choice(
+            "sample", "Do you want a sample before full production?", "هل تريد عينة قبل الإنتاج الكامل؟",
+            [("yes, sample first", "نعم، عينة أولًا"), ("no, go straight to production", "لا، مباشرة للإنتاج"),
+             ("not sure", "غير متأكد")],
+            section="quality", allow_other=False,
+            hint="A sample takes about 1-2 weeks and lets you check the product before the full order.",
+            hint_ar="العينة تستغرق أسبوعًا إلى أسبوعين تقريبًا، وتتيح لك فحص المنتج قبل الطلب الكامل.",
         ),
     ],
     options={
         "hoodie": Option(
-            id="hoodie",
-            name="Hoodie",
-            mockup="hoodie",
+            id="hoodie", name="Hoodie", name_ar="هودي", mockup="hoodie",
             questions=[
-                _fabric("cotton fleece", "cotton-poly fleece", "french terry"),
+                _fabric(("cotton fleece", "قطن فليس", 2), ("cotton-poly fleece", "فليس قطن وبوليستر", 1),
+                        ("french terry", "فرنش تيري", 2)),
                 _FABRIC_GSM,
-                Question(id="hoodie_style", prompt="Pullover or zip-up?", type="choice", choices=["pullover", "zip-up"]),
-                _SIZE_TABLE,
+                choice("hoodie_style", "Pullover or zip-up?", "بدون سحّاب أم بسحّاب؟",
+                       [("pullover", "بدون سحّاب", 1), ("zip-up", "بسحّاب", 2)], allow_other=False),
+                choice("drawstrings", "Hood drawstrings?", "حبال القلنسوة؟",
+                       [("flat cotton", "حبال قطنية مسطحة"), ("round cord", "حبل دائري"),
+                        ("no drawstrings", "بدون حبال")]),
+                choice("pocket", "Pocket?", "الجيب؟",
+                       [("kangaroo pocket", "جيب كنغر"), ("side pockets", "جيوب جانبية"), ("no pocket", "بدون جيب")]),
+                _size_table(),
+                _SIZE_STANDARD,
                 _LABELS,
                 _FIT,
             ],
         ),
         "oversized_tee": Option(
-            id="oversized_tee",
-            name="Oversized T-shirt",
-            mockup="tee",
+            id="oversized_tee", name="Oversized T-shirt", name_ar="تيشيرت واسع", mockup="tee",
             questions=[
-                _fabric("100% cotton", "cotton-poly", "heavyweight cotton"),
+                _fabric(("100% cotton", "قطن 100%", 2), ("cotton-poly", "قطن وبوليستر", 1),
+                        ("heavyweight cotton", "قطن ثقيل", 3)),
                 _FABRIC_GSM,
-                Question(id="neckline", prompt="Neckline?", type="choice", choices=["crew neck", "mock neck", "v-neck"],
-                         allow_other=True),
-                _SIZE_TABLE,
+                choice("neckline", "Neckline?", "شكل الياقة؟",
+                       [("crew neck", "ياقة دائرية"), ("mock neck", "ياقة مرتفعة"), ("v-neck", "ياقة V")]),
+                _size_table(),
+                _SIZE_STANDARD,
                 _LABELS,
                 _FIT,
             ],
         ),
         "abaya": Option(
-            id="abaya",
-            name="Abaya",
-            mockup="abaya",
+            id="abaya", name="Abaya", name_ar="عباية", mockup="abaya",
             questions=[
-                _fabric("crepe", "nida", "linen", "chiffon"),
+                _fabric(("crepe", "كريب", 2), ("nida", "ندى", 3), ("linen", "كتان", 2), ("chiffon", "شيفون", 2)),
                 Question(
-                    id="abaya_length",
-                    prompt="Abaya length per size (cm)?",
-                    type="text",
-                    hint="e.g. 52: 132cm, 54: 137cm, 56: 142cm",
-                    section="quantity",
+                    id="abaya_length", prompt="Abaya length per size (cm)?", prompt_ar="طول العباية لكل مقاس (سم)؟",
+                    type="text", section="quantity",
+                    hint="e.g. 52: 132cm, 54: 137cm, 56: 142cm", hint_ar="مثال: 52: 132 سم، 54: 137 سم، 56: 142 سم",
                 ),
-                Question(
-                    id="sleeve_style",
-                    prompt="Sleeve style?",
-                    type="choice",
-                    choices=["straight", "wide/bisht", "cuffed"],
-                    allow_other=True,
-                ),
-                Question(
-                    id="embellishment",
-                    prompt="Any embellishment?",
-                    type="choice",
-                    choices=["none", "embroidery", "beading", "lace", "trims"],
-                    multiple=True,
-                    allow_other=True,
-                ),
-                _SIZE_TABLE,
+                choice("sleeve_style", "Sleeve style?", "شكل الأكمام؟",
+                       [("straight", "مستقيمة"), ("wide/bisht", "واسعة (بشت)"), ("cuffed", "بأساور")]),
+                choice("embellishment", "Any embellishment?", "هل تريد زخرفة؟",
+                       [("none", "بدون"), ("embroidery", "تطريز", 2), ("beading", "خرز", 3), ("lace", "دانتيل", 2),
+                        ("trims", "شرائط وزينة", 1)], multiple=True),
+                _size_table(),
                 _LABELS,
             ],
         ),
         "tote_bag": Option(
-            id="tote_bag",
-            name="Tote bag",
-            mockup="tote",
+            id="tote_bag", name="Tote bag", name_ar="حقيبة قماشية", mockup="tote",
             questions=[
-                _fabric("cotton canvas", "cotton", "non-woven", "jute"),
-                Question(
-                    id="dimensions",
-                    prompt="Bag size?",
-                    type="choice",
-                    choices=["small 30x35cm", "standard 38x42cm", "large 40x45x10cm"],
-                    allow_other=True,
-                    hint="Under Other: width x height x gusset in cm.",
-                ),
-                Question(id="handle_length", prompt="Handle length (cm)?", type="number"),
-                Question(id=QUANTITY_ID, prompt="How many bags?", type="number", section="quantity"),
+                _fabric(("cotton canvas", "كانفاس قطني", 2), ("cotton", "قطن", 1), ("non-woven", "قماش غير منسوج", 1),
+                        ("jute", "جوت", 2)),
+                choice("dimensions", "Bag size?", "مقاس الحقيبة؟",
+                       [("small 30x35cm", "صغيرة 30×35 سم"), ("standard 38x42cm", "عادية 38×42 سم"),
+                        ("large 40x45x10cm", "كبيرة 40×45×10 سم")],
+                       hint="Under Other: width x height x gusset in cm.",
+                       hint_ar="في «أخرى»: العرض × الارتفاع × العمق بالسنتيمتر."),
+                Question(id="handle_length", prompt="Handle length (cm)?", prompt_ar="طول المقبض (سم)؟", type="number"),
+                Question(id=QUANTITY_ID, prompt="How many bags?", prompt_ar="كم حقيبة؟", type="number",
+                         section="quantity"),
             ],
         ),
         "corporate_uniform": Option(
-            id="corporate_uniform",
-            name="Corporate uniform",
-            mockup="polo",
+            id="corporate_uniform", name="Corporate uniform", name_ar="زي موحد للشركات", mockup="polo",
             questions=[
-                Question(
-                    id="garment_type",
-                    prompt="Which garments?",
-                    type="choice",
-                    choices=["polo shirt", "dress shirt", "t-shirt", "trousers", "jacket", "cap"],
-                    multiple=True,
-                    allow_other=True,
-                ),
-                _fabric("cotton", "poly-cotton", "polyester", "gabardine"),
-                Question(
-                    id=SIZE_TABLE_ID,
-                    prompt="Staff count per size?",
-                    type="size_table",
-                    hint="e.g. S:5, M:12, L:10, XL:4",
-                    section="quantity",
-                ),
+                choice("garment_type", "Which garments?", "ما القطع المطلوبة؟",
+                       [("polo shirt", "قميص بولو"), ("dress shirt", "قميص رسمي"), ("t-shirt", "تيشيرت"),
+                        ("trousers", "بنطال"), ("jacket", "جاكيت"), ("cap", "قبعة")], multiple=True),
+                _fabric(("cotton", "قطن", 2), ("poly-cotton", "بولي قطن", 1), ("polyester", "بوليستر", 1),
+                        ("gabardine", "جبردين", 3)),
+                _size_table("Staff count per size?", "عدد الموظفين لكل مقاس؟", "S:5, M:12, L:10, XL:4"),
+                _SIZE_STANDARD,
                 _LABELS,
             ],
         ),
-        CUSTOM_OPTION: Option(id=CUSTOM_OPTION, name="Something else (custom)", uses_common_questions=False),
+        CUSTOM_OPTION: Option(id=CUSTOM_OPTION, name="Something else (custom)", name_ar="شيء آخر (مخصص)",
+                              uses_common_questions=False),
     },
     compliance_notes=[
         "Textile labeling (fiber content, origin, care) may be required for Saudi import. UNVERIFIED, confirm with a customs broker.",

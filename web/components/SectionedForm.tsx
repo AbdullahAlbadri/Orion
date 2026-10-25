@@ -11,6 +11,7 @@ import {
   SendIcon, ShieldIcon, ShirtIcon, SparkleIcon, StepsIcon, TagIcon, TargetIcon,
 } from "./Icons";
 import type { Placement } from "@/lib/mockups";
+import { choiceLabel, costTier, errorText, iconFor, questionHint, questionText } from "@/lib/questions";
 import PlacementEditor from "./PlacementEditor";
 import TopoTexture from "./TopoTexture";
 import SizeTable, { initialSizes, sizesToAnswer, type SizeRow } from "./SizeTable";
@@ -24,13 +25,6 @@ const SECTIONS: { id: Section; title: TextKey; hint: TextKey; icon: ReactNode }[
   { id: "quality", title: "sectionQuality", hint: "sectionQualityHint", icon: <ShieldIcon /> },
 ];
 
-const QUESTION_ICONS: Record<string, ReactNode> = {
-  colors: <PaletteIcon />, decoration_method: <NeedleIcon />, decoration_placement: <TargetIcon />,
-  logo_placement: <TargetIcon />, artwork: <ImageIcon />, fabric: <LayersIcon />, fabric_gsm: <ScaleIcon />,
-  size_breakdown: <RulerIcon />, quantity: <HashIcon />, labels: <TagIcon />, embellishment: <SparkleIcon />,
-  dimensions: <RulerIcon />, handle_length: <RulerIcon />, abaya_length: <RulerIcon />,
-};
-const iconFor = (q: Question) => QUESTION_ICONS[q.id] ?? <ShirtIcon />;
 
 // Choice questions: tapped options plus an optional "Other" text
 type ChoiceState = { picked: string[]; other: string; otherOn: boolean };
@@ -50,7 +44,7 @@ function choiceAnswer(q: Question, s: ChoiceState): string | string[] {
 export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
   orderId: string; prompt: FormPrompt; send: Send; busy: boolean;
 }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   // An older API sends questions without a section: treat those as design
   const prompt = useMemo(
     () => ({ ...raw, questions: raw.questions.map((q) => ({ ...q, section: q.section ?? "design" })) }),
@@ -138,13 +132,14 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
           onChange={(items) => setPlacements((prev) => ({ ...prev, [q.id]: items }))} />
       ) : q.type === "choice" ? (
         <>
-          <div className="chips" role={q.multiple ? "group" : "radiogroup"} aria-label={q.prompt}>
+          <div className="chips" role={q.multiple ? "group" : "radiogroup"} aria-label={questionText(q, lang)}>
             {q.choices.map((c) => {
               const on = choices[q.id].picked.includes(c);
               return (
                 <button key={c} type="button" role={q.multiple ? "checkbox" : "radio"} aria-checked={on}
                   className={`chip${on ? " selected" : ""}`} dir="auto" onClick={() => pick(q, c)}>
-                  {q.multiple && on && <CheckIcon width={14} height={14} />}{c}
+                  {q.multiple && on && <CheckIcon width={14} height={14} />}{choiceLabel(q, c, lang)}
+                  {costTier(q, c) > 0 && <span className="cost" title={t("costHint")}>{"$".repeat(costTier(q, c))}</span>}
                 </button>
               );
             })}
@@ -174,7 +169,7 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
     <form className="stack form-boards" onSubmit={(e) => { e.preventDefault(); if (last) send({ answers }); else setActive(active + 1); }}>
       <div className="board board-glass stack">
       <div className="spread">
-        <h2 style={{ margin: 0 }} dir="auto">{prompt.prompt}</h2>
+        <h2 style={{ margin: 0 }} dir="auto">{lang === "ar" && prompt.prompt_ar ? prompt.prompt_ar : prompt.prompt}</h2>
         <div className="segmented" role="radiogroup" aria-label={t("viewMode")}>
           <button type="button" role="radio" aria-checked={mode === "steps"} className={mode === "steps" ? "on" : ""}
             onClick={() => setMode("steps")}>
@@ -220,6 +215,9 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
             </div>
             <AskOrion key={s.id} orderId={orderId} section={s.id} answers={answers} />
           </div>
+          {prompt.questions.some((q) => q.section === s.id && q.cost_tiers?.some((tier) => tier > 0)) && (
+            <div className="hint cost-note">{t("costNote")}</div>
+          )}
           <div className="qgrid">{prompt.questions.filter((q) => q.section === s.id).map(renderQuestion)}</div>
         </section>
       ))}
@@ -240,20 +238,21 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
 }
 
 function QuestionCard({ q, error, children }: { q: Question; error?: string; children: ReactNode }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
+  const hint = questionHint(q, lang);
   const wide = q.type === "size_table" || q.type === "choice" || q.type === "placement";
   return (
     <div className={`qcard${wide ? " wide" : ""}${error ? " has-error" : ""}`}>
       <div className="qhead">
-        <span className="qicon">{iconFor(q)}</span>
+        <span className="qicon">{iconFor(q.id)}</span>
         <label htmlFor={q.id} dir="auto">
-          {q.prompt}
+          {questionText(q, lang)}
           {!q.required && <span className="muted small"> ({t("optional")})</span>}
         </label>
       </div>
       {children}
-      {q.hint && <div className="hint" dir="auto">{q.hint}</div>}
-      {error && <div className="field-error" dir="auto">{error}</div>}
+      {hint && <div className="hint" dir="auto">{hint}</div>}
+      {error && <div className="field-error" dir="auto">{errorText(error, lang)}</div>}
     </div>
   );
 }

@@ -109,6 +109,12 @@ HOODIE_ANSWERS = {
     "hoodie_style": "pullover",
     "size_breakdown": "S:20, M:50, L:50, XL:30",
     "labels": "woven neck label",
+    "drawstrings": "flat cotton",
+    "pocket": "kangaroo pocket",
+    "size_standard": "US/EU sizing",
+    "needed_by": "in 1-2 months",
+    "packaging": ["individual polybag"],
+    "sample": "yes, sample first",
 }
 
 FACTORY_A = Manufacturer(id="factory-a", name="Factory A")

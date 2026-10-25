@@ -86,6 +86,20 @@ def test_placement_questions_get_the_products_drawing():
         assert len(placements) == 1 and placements[0].mockup
 
 
+def test_every_question_has_arabic_and_aligned_choices():
+    for market in MARKETS.values():
+        assert market.name_ar
+        for option_id, option in market.options.items():
+            assert option.name_ar, option_id
+            for q in get_questions(market.id, option_id):
+                assert q.prompt_ar, f"{option_id}/{q.id} has no Arabic prompt"
+                assert not q.hint or q.hint_ar, f"{option_id}/{q.id} has no Arabic hint"
+                if q.type == "choice":
+                    assert len(q.choices_ar) == len(q.choices), f"{option_id}/{q.id} Arabic choices misaligned"
+                    assert not q.cost_tiers or len(q.cost_tiers) == len(q.choices)
+                    assert all(0 <= tier <= 3 for tier in q.cost_tiers)
+
+
 def test_every_product_has_a_quantity_question():
     for market in MARKETS.values():
         for option_id, option in market.options.items():
