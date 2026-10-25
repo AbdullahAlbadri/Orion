@@ -361,6 +361,25 @@ button { font: inherit; cursor: pointer; border: 0; }
 .thumb-doc svg { width: 20px; height: 20px; }
 .placed-logo { pointer-events: none; }
 
+/* Brand kit: saved logos and colours (business profile), suggested on order questions */
+.brand-kit { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+@media (max-width: 760px) { .brand-kit { grid-template-columns: 1fr; } }
+.swatch { width: 18px; height: 18px; border-radius: 50%; flex: none; border: 1px solid rgba(248, 248, 248, .35); }
+.color-chip { display: inline-flex; align-items: center; gap: 8px; }
+.color-chip .hex { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.color-chip.selected .hex { color: var(--navy); }
+.color-chip.selected .swatch { border: 2px solid var(--navy); }
+.color-chip .icon-btn { width: 24px; height: 24px; font-size: 14px; margin-inline-start: 2px; }
+.color-add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.color-add input[type="color"] { width: 44px; height: 44px; padding: 3px; border-radius: 12px; cursor: pointer; flex: none; }
+.color-add .hex-input { width: 110px; flex: none; }
+.color-add input:not([type="color"]):not(.hex-input) { flex: 1; min-width: 140px; width: auto; }
+.brand-suggest { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 14px;
+  border: 1px dashed rgba(254, 183, 47, .45); background: rgba(254, 183, 47, .06); }
+.brand-suggest-title { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--yellow); }
+.brand-nudge { margin: 0; }
+.brand-nudge a { color: var(--yellow); }
+
 /* "Orion suggests" a producible size */
 .size-hint { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border-radius: 12px;
   background: rgba(254, 183, 47, .08); border: 1px solid rgba(254, 183, 47, .25); color: var(--yellow); font-size: 13px; }

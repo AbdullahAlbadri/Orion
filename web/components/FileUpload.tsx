@@ -1,11 +1,13 @@
 "use client";
 
 // Drag-and-drop / tap-to-upload for logos and artwork. Shows a thumbnail for images, a file chip otherwise.
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
-import { ApiError, fileObjectUrl, uploadFile, type UploadedFile } from "@/lib/api";
+import { ApiError, addSavedLogo, fileObjectUrl, uploadFile, type BrandLogo, type UploadedFile } from "@/lib/api";
 import { useLang } from "@/lib/i18n";
-import { ImageIcon, PlusIcon } from "./Icons";
+import { BRAND, LogoThumb } from "./BrandKit";
+import { CheckIcon, ImageIcon, PlusIcon, SparkleIcon } from "./Icons";
 
 const ACCEPT = ".png,.jpg,.jpeg,.webp,.svg,.pdf,.ai,.eps,image/png,image/jpeg,image/webp,image/svg+xml,application/pdf";
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -25,11 +27,28 @@ export function FileThumb({ orderId, file }: { orderId: string; file: UploadedFi
     : <span className="thumb thumb-doc"><ImageIcon /><span>{file.name.split(".").pop()?.toUpperCase()}</span></span>;
 }
 
-export default function FileUpload({ orderId, value, onChange, pictures }: {
+export default function FileUpload({ orderId, value, onChange, pictures, saved }: {
   orderId: string; value: UploadedFile[]; onChange: (files: UploadedFile[]) => void;
   pictures?: boolean;   // reference pictures rather than a logo (only changes the wording)
+  saved?: BrandLogo[];  // logos saved on the business profile, offered here (undefined: not a logo question)
 }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
+  const [used, setUsed] = useState<Record<string, string>>({});   // saved logo id -> this order's file id
+  const isUsed = (l: BrandLogo) => value.some((f) => f.file_id === used[l.file_id] || f.name === l.name);
+
+  async function addSaved(l: BrandLogo) {
+    setBusy(true);
+    setError(null);
+    try {
+      const file = await addSavedLogo(orderId, l.file_id);
+      setUsed((u) => ({ ...u, [l.file_id]: file.file_id }));
+      onChange([...value, file]);
+    } catch {
+      setError(t("error"));
+    } finally {
+      setBusy(false);
+    }
+  }
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,6 +75,25 @@ export default function FileUpload({ orderId, value, onChange, pictures }: {
 
   return (
     <div className="upload">
+      {saved && saved.length > 0 && (
+        <div className="brand-suggest">
+          <span className="brand-suggest-title"><SparkleIcon width={14} height={14} /> {BRAND.savedLogos[lang]}</span>
+          <ul className="file-list">
+            {saved.map((l) => (
+              <li key={l.file_id}>
+                <LogoThumb logo={l} />
+                <span className="file-name" dir="auto">{l.name}</span>
+                {isUsed(l)
+                  ? <span className="saved-note"><CheckIcon width={14} height={14} /> {BRAND.added[lang]}</span>
+                  : <button type="button" className="btn-outline" disabled={busy} onClick={() => addSaved(l)}>{BRAND.use[lang]}</button>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {saved && saved.length === 0 && (
+        <p className="hint brand-nudge">{BRAND.saveHint[lang]} <Link href="/business#brand">{BRAND.openProfile[lang]}</Link></p>
+      )}
       <div className={`dropzone${over ? " over" : ""}`} role="button" tabIndex={0}
         onClick={() => input.current?.click()}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.current?.click(); } }}

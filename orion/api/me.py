@@ -8,15 +8,17 @@ import logging
 from datetime import datetime, timezone
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, status
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field, field_validator
 
 from orion.api.auth import cookie_name
 from orion.api.context import ApiContext, ctx, current_customer
+from orion.api.files import read_upload, serve_file
 from orion.api.security import TokenClaims
 from orion.config.status_labels import CLOSED, UNSUBMITTED
 from orion.graph.graph import get_order
+from orion.tools.files import ALLOWED
 from orion.tools.suggest import catalogue, clean, fingerprint
 
 log = logging.getLogger("orion.api.me")
@@ -27,6 +29,7 @@ NOTIFY_EVENTS = ("quote_ready", "payment_received", "sample_update", "shipped", 
 NOTIFY_CHANNELS = ("email", "in_app")
 BUSINESS_TYPES = ("online_store", "shop", "food", "brand", "company", "other")
 STORE_PLATFORMS = ("salla", "zid", "shopify", "instagram", "other", "none")
+MAX_BRAND_LOGOS = 5
 
 
 # --- account settings --------------------------------------------------------------
@@ -117,6 +120,16 @@ class Contact(BaseModel):
     role: Literal["sign", "receive", "both"] = "both"
 
 
+class BrandColor(BaseModel):
+    hex: str = Field(pattern=r"^#[0-9A-Fa-f]{6}$")
+    name: Optional[str] = Field(None, max_length=40)   # e.g. "Gold", "main colour"
+
+    @field_validator("hex")
+    @classmethod
+    def upper(cls, v: str) -> str:
+        return v.upper()
+
+
 class BusinessUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=120)
     business_type: Optional[Literal[BUSINESS_TYPES]] = None
@@ -124,6 +137,7 @@ class BusinessUpdate(BaseModel):
     store_url: Optional[str] = Field(None, max_length=300, pattern=r"^(https?://\S+)?$")
     description: Optional[str] = Field(None, max_length=600)
     contacts: Optional[list[Contact]] = Field(None, max_length=10)
+    brand_colors: Optional[list[BrandColor]] = Field(None, max_length=8)
 
 
 class AddressIn(BaseModel):
@@ -165,6 +179,7 @@ async def _business_view(c: ApiContext, customer_id: str) -> dict:
     return {
         "profile": business,
         "addresses": addresses,
+        "logos": await c.profile.brand_logos(customer_id),
         "completeness": completeness(business, addresses),
         # Orders with factories now: address changes for these go through the team, never the AI
         "live_orders": await _live_orders(c, customer_id),
@@ -184,6 +199,13 @@ async def update_business(
     for key in ("name", "description", "store_url"):
         if isinstance(fields.get(key), str):
             fields[key] = fields[key].strip() or None
+    if fields.get("brand_colors") is not None:
+        seen, colors = set(), []
+        for color in fields["brand_colors"]:
+            if color["hex"] not in seen:
+                seen.add(color["hex"])
+                colors.append({"hex": color["hex"], "name": (color.get("name") or "").strip() or None})
+        fields["brand_colors"] = colors
     await c.profile.save_business(claims.sub, fields)
     return await _business_view(c, claims.sub)
 
@@ -224,6 +246,31 @@ async def default_address(
 ) -> dict:
     if not await c.profile.set_default_address(claims.sub, address_id):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "address not found")
+    return await _business_view(c, claims.sub)
+
+
+# --- brand logos (offered on the logo question of every new order) -------------------------
+
+@router.post("/business/logos", status_code=status.HTTP_201_CREATED)
+async def add_logo(file: UploadFile, c: ApiContext = Depends(ctx), claims: TokenClaims = Depends(current_customer)) -> dict:
+    if len(await c.profile.brand_logos(claims.sub)) >= MAX_BRAND_LOGOS:
+        raise HTTPException(status.HTTP_409_CONFLICT, f"at most {MAX_BRAND_LOGOS} logos")
+    name, content_type, data = await read_upload(c, file)
+    await c.profile.add_brand_logo(claims.sub, name, content_type, len(data), c.files.save(data, ALLOWED[content_type]))
+    return await _business_view(c, claims.sub)
+
+
+@router.get("/business/logos/{file_id}")
+async def get_logo(file_id: str, c: ApiContext = Depends(ctx), claims: TokenClaims = Depends(current_customer)) -> Response:
+    return serve_file(c, await c.profile.brand_logo(claims.sub, file_id))
+
+
+@router.delete("/business/logos/{file_id}")
+async def delete_logo(
+    file_id: str, c: ApiContext = Depends(ctx), claims: TokenClaims = Depends(current_customer)
+) -> dict:
+    if not await c.profile.delete_brand_logo(claims.sub, file_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "logo not found")
     return await _business_view(c, claims.sub)
 
 

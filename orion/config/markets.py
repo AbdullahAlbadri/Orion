@@ -35,7 +35,7 @@ class Market(BaseModel):
 def choice(
     id: str, prompt: str, prompt_ar: str, options: list[tuple], *,
     section: Section = "design", multiple: bool = False, allow_other: bool = True, required: bool = True,
-    hint: Optional[str] = None, hint_ar: Optional[str] = None,
+    hint: Optional[str] = None, hint_ar: Optional[str] = None, brand: Optional[str] = None,
 ) -> Question:
     """A multiple-choice question. `options` are (English value, Arabic label) or
     (English value, Arabic label, cost tier 1-3) for a relative $ / $$ / $$$ hint."""
@@ -44,7 +44,7 @@ def choice(
         id=id, prompt=prompt, prompt_ar=prompt_ar, type="choice", section=section,
         choices=[o[0] for o in options], choices_ar=[o[1] for o in options],
         cost_tiers=tiers if any(tiers) else [],
-        multiple=multiple, allow_other=allow_other, required=required, hint=hint, hint_ar=hint_ar,
+        multiple=multiple, allow_other=allow_other, required=required, hint=hint, hint_ar=hint_ar, brand=brand,
     )
 
 
@@ -118,7 +118,7 @@ APPAREL = Market(
             "colors", "Garment colors?", "ما ألوان القطعة؟",
             [("black", "أسود"), ("white", "أبيض"), ("navy", "كحلي"), ("grey", "رمادي"), ("beige", "بيج"),
              ("olive", "زيتي")],
-            multiple=True,
+            multiple=True, brand="colors",
             hint="Under Other you can add a Pantone or HEX code.",
             hint_ar="في «أخرى» يمكنك إضافة رمز اللون (Pantone أو HEX).",
         ),
@@ -129,7 +129,7 @@ APPAREL = Market(
         ),
         Question(
             id="artwork", prompt="Upload your logo or artwork.", prompt_ar="ارفع شعارك أو التصميم.",
-            type="file", required=False,
+            type="file", required=False, brand="logo",
             hint="PNG, JPG, SVG, PDF, AI or EPS, up to 10 MB. Vector files (SVG, AI, EPS, PDF) print and embroider best.",
             hint_ar="PNG أو JPG أو SVG أو PDF أو AI أو EPS، حتى 10 ميغابايت. الملفات المتجهة (SVG وAI وEPS وPDF) أفضل للطباعة والتطريز.",
         ),

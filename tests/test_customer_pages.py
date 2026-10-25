@@ -299,3 +299,41 @@ async def test_new_order_can_start_with_a_product_chosen(api):
     # Unknown products fall back to the normal start
     r = await api.post("/orders", json={"option": "spaceship"}, headers=_auth(token))
     assert r.json()["prompt"]["step"] == "select_market"
+
+# --- brand kit (logos and colours on the business profile) --------------------------------
+
+async def test_brand_kit_is_saved_and_offered_in_new_orders(api):
+    token, other = await _login(api, f"brand-{api.run}@example.com"), await _login(api, f"brand2-{api.run}@example.com")
+    r = await api.put("/business", json={"brand_colors": [{"hex": "#feb72f", "name": " Gold "}, {"hex": "#FEB72F"},
+                                                          {"hex": "#11101E"}]}, headers=_auth(token))
+    assert r.json()["profile"]["brand_colors"] == [{"hex": "#FEB72F", "name": "Gold"}, {"hex": "#11101E", "name": None}]
+    assert (await api.put("/business", json={"brand_colors": [{"hex": "gold"}]}, headers=_auth(token))).status_code == 422
+
+    view = (await api.post("/business/logos", files={"file": ("logo.png", PNG, "image/png")}, headers=_auth(token))).json()
+    [logo] = view["logos"]
+    assert logo["name"] == "logo.png" and "storage_key" not in logo
+    fake = await api.post("/business/logos", files={"file": ("logo.png", b"hello", "image/png")}, headers=_auth(token))
+    assert fake.status_code == 415
+    got = await api.get(f"/business/logos/{logo['file_id']}", headers=_auth(token))
+    assert got.content == PNG and "sandbox" in got.headers["content-security-policy"]
+    assert (await api.get(f"/business/logos/{logo['file_id']}", headers=_auth(other))).status_code == 404
+
+    # A new order: the colour and logo questions say they take the brand kit, and the AI knows the colours
+    r = await api.post("/orders", json={"option": "hoodie"}, headers=_auth(token))
+    order = r.json()["order_id"]
+    brand = {q["id"]: q["brand"] for q in r.json()["prompt"]["questions"] if q["brand"]}
+    assert brand == {"colors": "colors", "artwork": "logo"}
+    assert (await get_order(api.ctx.graph, order))["business"]["brand_colors"] == ["#FEB72F Gold", "#11101E"]
+
+    # Using the saved logo gives the order its own file, which the answers may then reference
+    assert (await api.post(f"/orders/{order}/files/from-profile/{logo['file_id']}", headers=_auth(other))).status_code == 404
+    used = await api.post(f"/orders/{order}/files/from-profile/{logo['file_id']}", headers=_auth(token))
+    assert used.status_code == 201 and used.json()["file_id"] != logo["file_id"]
+    r = await api.post(f"/orders/{order}/reply", json={"reply": {"answers": {**HOODIE_ANSWERS, "artwork": [used.json()]}}},
+                       headers=_auth(token))
+    assert r.status_code == 200
+
+    # Removing the logo from the profile leaves the order's copy alone
+    assert (await api.delete(f"/business/logos/{logo['file_id']}", headers=_auth(token))).json()["logos"] == []
+    got = await api.get(f"/orders/{order}/files/{used.json()['file_id']}", headers=_auth(token))
+    assert got.status_code == 200 and got.content == PNG

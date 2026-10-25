@@ -17,6 +17,7 @@ from orion.config.status_labels import UNSUBMITTED, stage_owner, status_label
 from orion.db.insights import order_rows, stage_segments, summarize_orders, summarize_time
 from orion.spec import Section
 from orion.tools.assist import safe_answer
+from orion.tools.files import MAX_FILES_PER_ORDER
 from orion.graph.graph import OrderNotWaiting, get_order, waiting_on
 from orion.runtime import discard_order, send_customer_reply, start_customer_order
 
@@ -274,6 +275,23 @@ async def upload_file(
     """Upload a logo/artwork file. Returns {file_id, name, content_type, size} to put in the answer."""
     await _owned(c, order_id, claims)
     return await store_upload(c, order_id, claims.sub, file)
+
+
+@router.post("/{order_id}/files/from-profile/{logo_id}", status_code=status.HTTP_201_CREATED)
+async def use_saved_logo(
+    order_id: str, logo_id: str, c: ApiContext = Depends(ctx), claims: TokenClaims = Depends(current_customer)
+) -> dict:
+    """Add a logo saved on the business profile to this order. The order gets its own file row (same stored
+    bytes), so removing the logo from the profile later doesn't touch the order."""
+    await _owned(c, order_id, claims)
+    logo = await c.profile.brand_logo(claims.sub, logo_id)
+    if logo is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "logo not found")
+    if await c.accounts.count_files(order_id) >= MAX_FILES_PER_ORDER:
+        raise HTTPException(status.HTTP_409_CONFLICT, f"at most {MAX_FILES_PER_ORDER} files per order")
+    row = await c.accounts.add_file(order_id, claims.sub, logo["name"], logo["content_type"], logo["size"],
+                                    logo["storage_key"])
+    return {"file_id": str(row["id"]), "name": row["name"], "content_type": row["content_type"], "size": row["size"]}
 
 
 @router.get("/{order_id}/files/{file_id}")

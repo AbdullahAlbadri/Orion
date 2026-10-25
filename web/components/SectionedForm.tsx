@@ -2,10 +2,12 @@
 
 // The product details form, split into Design / Quantity / Quality tabs. Answers are kept across tabs and
 // sent together; the API validates and sends errors back, and we jump to the first tab with an error.
+import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import {
-  ApiError, askAboutSection, fileObjectUrl, type Prompt, type Question, type Section, type UploadedFile,
+  ApiError, api, askAboutSection, fileObjectUrl, type BrandColor, type BusinessView, type Prompt, type Question,
+  type Section, type UploadedFile,
 } from "@/lib/api";
 import { useLang, type TextKey } from "@/lib/i18n";
 import {
@@ -14,6 +16,7 @@ import {
 } from "./Icons";
 import type { Placement } from "@/lib/mockups";
 import { choiceLabel, costTier, errorText, iconFor, questionHint, questionText } from "@/lib/questions";
+import { BRAND, Swatch, colorAnswer } from "./BrandKit";
 import FileUpload from "./FileUpload";
 import PlacementEditor from "./PlacementEditor";
 import TopoTexture from "./TopoTexture";
@@ -37,6 +40,8 @@ function initialChoice(q: Question, value: unknown): ChoiceState {
   const others = list.filter((v) => !q.choices.includes(v));
   return { picked: list.filter((v) => q.choices.includes(v)), other: others.join(", "), otherOn: others.length > 0 };
 }
+
+const otherParts = (s: ChoiceState) => (s.otherOn ? s.other.split(",").map((p) => p.trim()).filter(Boolean) : []);
 
 function choiceAnswer(q: Question, s: ChoiceState): string | string[] {
   const other = s.otherOn ? s.other.trim() : "";
@@ -70,6 +75,12 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
   const [sizes, setSizes] = useState<Record<string, SizeRow[]>>(() =>
     Object.fromEntries(prompt.questions.filter((q) => q.type === "size_table")
       .map((q) => [q.id, initialSizes(prompt.values[q.id])])));
+  // The brand kit from the business profile, offered on questions marked `brand` (never filled in by itself)
+  const [kit, setKit] = useState<BusinessView | null>(null);
+  const wantsKit = prompt.questions.some((q) => q.brand);
+  useEffect(() => {
+    if (wantsKit) api<BusinessView>("/business").then(setKit).catch(() => {});
+  }, [wantsKit]);
   // Start on the first tab with a server error, else the first tab
   const [active, setActive] = useState(() => {
     const i = sections.findIndex((s) => prompt.questions.some((q) => q.section === s.id && prompt.errors[q.id]));
@@ -118,6 +129,15 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
     setChoices({ ...choices, [q.id]: { ...s, picked, otherOn: q.multiple ? s.otherOn : false } });
   }
 
+  // A brand colour goes into the "Other" text, as "Gold #FEB72F"
+  function toggleBrandColor(q: Question, c: BrandColor) {
+    const s = choices[q.id];
+    const token = colorAnswer(c);
+    const parts = otherParts(s);
+    const next = parts.includes(token) ? parts.filter((p) => p !== token) : q.multiple ? [...parts, token] : [token];
+    setChoices({ ...choices, [q.id]: { picked: q.multiple ? s.picked : [], other: next.join(", "), otherOn: next.length > 0 } });
+  }
+
   function toggleOther(q: Question) {
     const s = choices[q.id];
     setChoices({ ...choices, [q.id]: { ...s, otherOn: !s.otherOn, picked: q.multiple ? s.picked : [] } });
@@ -155,7 +175,9 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
         <PlacementEditor mockup={q.mockup} value={placements[q.id]} logoUrl={logo?.url} logoAspect={logo?.aspect}
           method={method} onChange={(items) => setPlacements((prev) => ({ ...prev, [q.id]: items }))} />
       ) : q.type === "file" ? (
-        <FileUpload orderId={orderId} value={files[q.id]} pictures={q.id !== "artwork"} onChange={(items) => setFiles((prev) => ({ ...prev, [q.id]: items }))} />
+        <FileUpload orderId={orderId} value={files[q.id]} pictures={q.id !== "artwork"}
+          saved={q.brand === "logo" && kit ? kit.logos : undefined}
+          onChange={(items) => setFiles((prev) => ({ ...prev, [q.id]: items }))} />
       ) : q.type === "choice" ? (
         <>
           <div className="chips" role={q.multiple ? "group" : "radiogroup"} aria-label={questionText(q, lang)}>
@@ -176,6 +198,8 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
               </button>
             )}
           </div>
+          {q.brand === "colors" && kit && <BrandColors q={q} colors={kit.profile.brand_colors ?? []}
+            picked={otherParts(choices[q.id])} onToggle={(c) => toggleBrandColor(q, c)} />}
           {q.multiple && <div className="hint">{t("pickSeveral")}</div>}
           {choices[q.id].otherOn && (
             <input id={q.id} dir="auto" autoFocus value={choices[q.id].other} placeholder={t("otherPlaceholder")}
@@ -262,6 +286,33 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
         </button>
       </div>
     </form>
+  );
+}
+
+function BrandColors({ q, colors, picked, onToggle }: {
+  q: Question; colors: BrandColor[]; picked: string[]; onToggle: (c: BrandColor) => void;
+}) {
+  const { lang } = useLang();
+  if (colors.length === 0) {
+    return <p className="hint brand-nudge">{BRAND.saveHint[lang]} <Link href="/business#brand">{BRAND.openProfile[lang]}</Link></p>;
+  }
+  return (
+    <div className="brand-suggest">
+      <span className="brand-suggest-title"><SparkleIcon width={14} height={14} /> {BRAND.brandColors[lang]}</span>
+      <div className="chips" role="group" aria-label={BRAND.brandColors[lang]}>
+        {colors.map((c) => {
+          const on = picked.includes(colorAnswer(c));
+          return (
+            <button key={c.hex} type="button" role={q.multiple ? "checkbox" : "radio"} aria-checked={on}
+              className={`chip color-chip${on ? " selected" : ""}`} onClick={() => onToggle(c)}>
+              <Swatch hex={c.hex} />
+              {c.name && <span dir="auto">{c.name}</span>}
+              <span className="hex" dir="ltr">{c.hex}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

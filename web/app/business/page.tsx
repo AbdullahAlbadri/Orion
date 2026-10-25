@@ -5,6 +5,7 @@
 // TODO(decide) whether shipments need any customer customs details at all (see docs/website/landing-redesign.md §1).
 import { useEffect, useState } from "react";
 
+import BrandKit from "@/components/BrandKit";
 import { AddressForm, BusinessDetailsForm } from "@/components/BusinessForms";
 import { CheckIcon, PinIcon, PlusIcon, UsersIcon } from "@/components/Icons";
 import { PageHead } from "@/components/ui";
@@ -20,6 +21,9 @@ const C = {
   firstShipment: t("قبل أول شحنة", "Before your first shipment"),
   fix: t("أكمل", "Fix"),
   details: t("بيانات النشاط", "Business details"),
+  brand: t("هوية العلامة", "Brand identity"),
+  brandHint: t("شعارك وألوانك محفوظة هنا، ونقترحها عليك في كل طلب جديد لتضيفها بضغطة. ولا تُضاف إلى أي طلب إلا إذا اخترتها.",
+    "Your logo and colours live here. Every new order suggests them so you can add them in one tap; they're only added if you choose them."),
   addresses: t("عناوين التوصيل", "Delivery addresses"),
   add: t("إضافة عنوان", "Add address"),
   default: t("افتراضي", "Default"),
@@ -91,6 +95,12 @@ export default function BusinessPage() {
       <section id="details" className="section-gap">
         <div className="section-title"><h2>{L(C.details)}</h2></div>
         <div className="board board-glass"><BusinessDetailsForm profile={v.profile} onSaved={setV} /></div>
+      </section>
+
+      <section id="brand" className="section-gap">
+        <div className="section-title"><h2>{L(C.brand)}</h2></div>
+        <p className="muted">{L(C.brandHint)}</p>
+        <div className="board board-glass"><BrandKit view={v} onSaved={setV} /></div>
       </section>
 
       <section id="addresses" className="section-gap">

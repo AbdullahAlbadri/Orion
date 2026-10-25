@@ -30,6 +30,9 @@ class Question(BaseModel):
     multiple: bool = False         # choice: the customer may pick several (answer is a list)
     mockup: Optional[str] = None   # placement: garment drawing to place logos/labels on (set per product)
     multiline: bool = False        # text: a long answer (a description), shown as a large box
+    # Offer the brand kit saved on the business profile here: its colours (choice) or its logos (file).
+    # Only a suggestion; nothing is filled in until the customer taps it.
+    brand: Optional[Literal["colors", "logo"]] = None
     # Arabic wording for the website. Answers are always stored with the English choice values.
     prompt_ar: Optional[str] = None
     hint_ar: Optional[str] = None

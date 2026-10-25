@@ -17,6 +17,7 @@ export type Question = {
   multiple?: boolean;      // several options may be picked
   mockup?: string | null;  // placement: which garment drawing
   multiline?: boolean;     // text: a long description (large box)
+  brand?: "colors" | "logo" | null;   // offer the business profile's brand colours / saved logos here
   prompt_ar?: string | null;
   hint_ar?: string | null;
   choices_ar?: string[];   // Arabic labels, same order as choices (values stay English)
@@ -56,27 +57,49 @@ export type CustomerStats = {
 export type UploadedFile ={ file_id: string; name: string; content_type: string; size?: number };
 
 /** Upload a logo/artwork file to an order. The API checks type (by content) and size. */
-export async function uploadFile(orderId: string, file: File, retried = false): Promise<UploadedFile> {
+export function uploadFile(orderId: string, file: File): Promise<UploadedFile> {
+  return uploadTo<UploadedFile>(`/orders/${encodeURIComponent(orderId)}/files`, file);
+}
+
+/** Save a logo on the business profile (offered on the logo question of every new order). */
+export function uploadBrandLogo(file: File): Promise<BusinessView> {
+  return uploadTo<BusinessView>("/business/logos", file);
+}
+
+/** Add a logo saved on the business profile to an order; the order gets its own copy. */
+export function addSavedLogo(orderId: string, logoId: string): Promise<UploadedFile> {
+  return api<UploadedFile>(`/orders/${encodeURIComponent(orderId)}/files/from-profile/${encodeURIComponent(logoId)}`,
+    { method: "POST" });
+}
+
+async function uploadTo<T>(path: string, file: File, retried = false): Promise<T> {
   const form = new FormData();
   form.append("file", file);
-  const r = await fetch(`${API_URL}/orders/${encodeURIComponent(orderId)}/files`, {
+  const r = await fetch(`${API_URL}${path}`, {
     method: "POST", credentials: "include", body: form,
     headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
   });
-  if (r.status === 401 && !retried && (await refreshSession())) return uploadFile(orderId, file, true);
+  if (r.status === 401 && !retried && (await refreshSession())) return uploadTo<T>(path, file, true);
   const data = await r.json().catch(() => null);
   if (!r.ok) throw new ApiError(r.status, typeof data?.detail === "string" ? data.detail : `HTTP ${r.status}`);
-  return data as UploadedFile;
+  return data as T;
 }
 
 const fileUrls = new Map<string, Promise<string>>();
 
 /** A private file as an object URL (fetched with the login token; plain <img src> cannot send it). */
 export function fileObjectUrl(orderId: string, fileId: string): Promise<string> {
-  const key = `${orderId}/${fileId}`;
-  if (!fileUrls.has(key)) {
+  return privateFileUrl(`/orders/${encodeURIComponent(orderId)}/files/${encodeURIComponent(fileId)}`);
+}
+
+export function brandLogoUrl(logoId: string): Promise<string> {
+  return privateFileUrl(`/business/logos/${encodeURIComponent(logoId)}`);
+}
+
+function privateFileUrl(path: string): Promise<string> {
+  if (!fileUrls.has(path)) {
     const load = async (retried: boolean): Promise<string> => {
-      const r = await fetch(`${API_URL}/orders/${encodeURIComponent(orderId)}/files/${encodeURIComponent(fileId)}`, {
+      const r = await fetch(`${API_URL}${path}`, {
         credentials: "include", headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
       });
       if (r.status === 401 && !retried && (await refreshSession())) return load(true);
@@ -84,10 +107,10 @@ export function fileObjectUrl(orderId: string, fileId: string): Promise<string> 
       return URL.createObjectURL(await r.blob());
     };
     const p = load(false);
-    p.catch(() => fileUrls.delete(key));
-    fileUrls.set(key, p);
+    p.catch(() => fileUrls.delete(path));
+    fileUrls.set(path, p);
   }
-  return fileUrls.get(key)!;
+  return fileUrls.get(path)!;
 }
 
 /** "Ask Orion" about one form section. Advice only; nothing is saved. */
@@ -154,8 +177,10 @@ export type Me = {
 export type Contact = { name: string; phone?: string | null; role: "sign" | "receive" | "both" };
 export type BusinessProfile = {
   name: string | null; business_type: string | null; store_platform: string | null; store_url: string | null;
-  description: string | null; contacts: Contact[]; updated_at: string | null;
+  description: string | null; contacts: Contact[]; brand_colors: BrandColor[]; updated_at: string | null;
 };
+export type BrandColor = { hex: string; name?: string | null };
+export type BrandLogo = { file_id: string; name: string; content_type: string; size: number };
 export type Address = {
   id: string; label: string | null; contact_name: string; phone: string; city: string; district: string | null;
   street: string; building: string | null; postal_code: string | null; notes: string | null; is_default: boolean;
@@ -163,7 +188,7 @@ export type Address = {
 export type AddressInput = Omit<Address, "id" | "is_default"> & { is_default?: boolean };
 export type CompletenessItem = { id: "business_name" | "description" | "shipping_address" | "receiver"; group: "first_order" | "first_shipment"; done: boolean };
 export type BusinessView = {
-  profile: BusinessProfile; addresses: Address[]; live_orders: number;
+  profile: BusinessProfile; addresses: Address[]; logos: BrandLogo[]; live_orders: number;
   completeness: { items: CompletenessItem[]; done: number; total: number; customs_fields_ready: boolean };
 };
 

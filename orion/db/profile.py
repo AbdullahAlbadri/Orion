@@ -6,7 +6,7 @@ from psycopg.types.json import Jsonb
 from psycopg_pool import AsyncConnectionPool
 
 SETTINGS_COLUMNS = ("name", "phone", "lang", "calendar", "currency", "notify")
-BUSINESS_COLUMNS = ("name", "business_type", "store_platform", "store_url", "description", "contacts")
+BUSINESS_COLUMNS = ("name", "business_type", "store_platform", "store_url", "description", "contacts", "brand_colors")
 ADDRESS_COLUMNS = ("label", "contact_name", "phone", "city", "district", "street", "building", "postal_code", "notes")
 ADDRESS_SELECT = "id::text AS id, " + ", ".join(ADDRESS_COLUMNS) + ", is_default, created_at, updated_at"
 
@@ -54,7 +54,7 @@ class ProfileStore:
                 "SELECT " + ", ".join(BUSINESS_COLUMNS) + ", updated_at FROM business_profiles WHERE customer_id = %s",
                 (customer_id,),
             )).fetchone()
-        return row or {**{k: None for k in BUSINESS_COLUMNS}, "contacts": [], "updated_at": None}
+        return row or {**{k: None for k in BUSINESS_COLUMNS}, "contacts": [], "brand_colors": [], "updated_at": None}
 
     async def save_business(self, customer_id: str, fields: dict) -> dict:
         fields = {k: v for k, v in fields.items() if k in BUSINESS_COLUMNS}
@@ -73,7 +73,44 @@ class ProfileStore:
     async def business_for_ai(self, customer_id: str) -> dict:
         """Only what helps the consultant suggest options. No contacts, phones or identifiers."""
         b = await self.business(customer_id)
-        return {k: b.get(k) for k in ("name", "business_type", "store_platform", "description") if b.get(k)}
+        about = {k: b.get(k) for k in ("name", "business_type", "store_platform", "description") if b.get(k)}
+        if b.get("brand_colors"):
+            about["brand_colors"] = [" ".join(filter(None, (c["hex"], c.get("name")))) for c in b["brand_colors"]]
+        return about
+
+    # --- brand logos ---------------------------------------------------------------------
+
+    async def brand_logos(self, customer_id: str) -> list[dict]:
+        async with self.pool.connection() as conn:
+            return await (await conn.execute(
+                "SELECT id::text AS file_id, name, content_type, size, created_at FROM business_files "
+                "WHERE customer_id = %s ORDER BY created_at",
+                (customer_id,),
+            )).fetchall()
+
+    async def add_brand_logo(self, customer_id: str, name: str, content_type: str, size: int, storage_key: str) -> dict:
+        async with self.pool.connection() as conn:
+            return await (await conn.execute(
+                "INSERT INTO business_files (customer_id, name, content_type, size, storage_key) "
+                "VALUES (%s, %s, %s, %s, %s) RETURNING id::text AS file_id, name, content_type, size, created_at",
+                (customer_id, name, content_type, size, storage_key),
+            )).fetchone()
+
+    async def brand_logo(self, customer_id: str, file_id: str) -> Optional[dict]:
+        async with self.pool.connection() as conn:
+            return await (await conn.execute(
+                "SELECT id::text AS file_id, name, content_type, size, storage_key FROM business_files "
+                "WHERE customer_id = %s AND id::text = %s",
+                (customer_id, file_id),
+            )).fetchone()
+
+    async def delete_brand_logo(self, customer_id: str, file_id: str) -> bool:
+        """Only the profile's copy goes; orders that already use the logo keep their own file row and bytes."""
+        async with self.pool.connection() as conn:
+            cur = await conn.execute(
+                "DELETE FROM business_files WHERE customer_id = %s AND id::text = %s", (customer_id, file_id)
+            )
+            return cur.rowcount > 0
 
     # --- addresses ---------------------------------------------------------------------
 
@@ -219,6 +256,9 @@ class ProfileStore:
                 ),
                 "files": await rows(
                     "SELECT order_id, name, content_type, size, created_at FROM order_files WHERE customer_id = %s"
+                ),
+                "brand_logos": await rows(
+                    "SELECT name, content_type, size, created_at FROM business_files WHERE customer_id = %s"
                 ),
                 "support_requests": await rows(
                     "SELECT r.ref, r.topic, r.status, r.order_id, r.created_at, "
