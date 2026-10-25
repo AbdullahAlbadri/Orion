@@ -1,6 +1,6 @@
 from conftest import HOODIE_ANSWERS, ScriptedConsultant, ask, turn
 from orion.config.policy import Policy
-from orion.graph.graph import get_order, send_reply, start_order
+from orion.graph.graph import get_order, send_reply, start_order, update_paused_order
 from orion.tools.llm import CompletenessReport, FollowUpQuestion, render_context
 
 
@@ -264,3 +264,19 @@ async def test_consultant_sends_pictures_as_images():
     assert content[0]["type"] == "text" and "CUSTOM product" in content[0]["text"]
     assert [c["type"] for c in content[1:]] == ["image_url"]   # the PDF is not sent as an image
     assert content[1]["image_url"]["url"].startswith("data:image/png;base64,")
+
+async def test_paused_order_with_a_re_asked_form_choice_accepts_the_ais_options(make_app):
+    """Orders paused before follow-ups stopped reusing form ids: the AI's own (Arabic) options for a form
+    choice question are accepted, not checked against the form's English values."""
+    consultant = ScriptedConsultant(turns=[turn(questions=[ask("cord_tips")]), turn(ready=True)],
+                                    reports=[CompletenessReport(gaps=[])])
+    app = make_app(consultant)
+    await _through_form(app, "order-1g", lang="ar")
+    state = await get_order(app, "order-1g")
+    old = {**state["pending"]["questions"][0], "id": "sample", "section": "quantity",
+           "choices": ["عينة فقط، بدون إنتاج كامل", "الطلب الكامل مباشرة بعد التأكيد"]}
+    await update_paused_order(app, "order-1g", {"pending": {**state["pending"], "questions": [old]}})
+
+    prompt = await send_reply(app, "order-1g", {"answers": {"sample": "عينة فقط، بدون إنتاج كامل"}})
+    assert prompt["kind"] == "confirm"
+    assert (await get_order(app, "order-1g"))["spec"]["answers"]["sample"] == "عينة فقط، بدون إنتاج كامل"

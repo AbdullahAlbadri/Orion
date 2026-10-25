@@ -348,9 +348,12 @@ async def deep_dive(state: OrderState, consultant: Consultant, policy: Policy = 
                 continue
             try:
                 value = validate_answer(q, raw)
-                if q.id in by_market_id:   # correcting a form answer: keep that question's type (e.g. a number)
-                    original = by_market_id[q.id]
-                    value = validate_answer(original, value if original.type == "choice" else format_answer(value))
+                original = by_market_id.get(q.id)
+                if original is not None and original.type != "choice":
+                    # Re-asking a form answer (orders paused before follow-ups stopped reusing form ids): keep
+                    # its type, e.g. still a number. A choice is taken as answered here: the AI's own options
+                    # (often in Arabic) are not the form's English values.
+                    value = validate_answer(original, format_answer(value))
                 spec.set_answer(q.id, value)
                 if q.id not in by_market_id:   # the AI's own question: keep its wording and section for the receipt
                     spec.labels[q.id] = q.prompt.rstrip("?؟:. ")
