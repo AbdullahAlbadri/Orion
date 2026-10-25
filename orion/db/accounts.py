@@ -249,6 +249,42 @@ class AccountStore:
             )).fetchall()
             return {r["id"] for r in rows}
 
+    # --- customer stats --------------------------------------------------------------
+
+    async def customer_activity(self, customer_id: str) -> dict:
+        """Counts from the business tables for one customer's orders (cancelled ones excluded)."""
+        async with self.pool.connection() as conn:
+            return await (await conn.execute(
+                """
+                WITH mine AS (
+                    SELECT id, stage, quantity, created_at FROM orders
+                    WHERE customer_id = %(c)s AND stage <> 'cancelled'
+                ),
+                msgs AS (
+                    SELECT m.order_id, m.manufacturer_id, m.direction, m.status, m.created_at
+                    FROM manufacturer_messages m JOIN mine ON mine.id = m.order_id
+                ),
+                first_request AS (
+                    SELECT order_id, min(created_at) AS at FROM msgs WHERE direction = 'out' GROUP BY order_id
+                ),
+                first_quote AS (
+                    SELECT p.order_id, min(p.created_at) AS at FROM price_records p
+                    JOIN mine ON mine.id = p.order_id GROUP BY p.order_id
+                )
+                SELECT
+                    (SELECT count(*) FROM mine WHERE stage NOT IN ('draft', 'pre_receipt_review')) AS submitted,
+                    (SELECT count(*) FROM mine WHERE stage IN ('delivered', 'completed')) AS delivered,
+                    (SELECT coalesce(sum(quantity), 0) FROM mine
+                        WHERE stage NOT IN ('draft', 'pre_receipt_review')) AS pieces,
+                    (SELECT count(DISTINCT (order_id, manufacturer_id)) FROM msgs WHERE direction = 'out') AS factories,
+                    (SELECT count(*) FROM msgs WHERE status <> 'blocked') AS messages,
+                    (SELECT count(*) FROM first_quote) AS quoted_orders,
+                    (SELECT avg(extract(epoch FROM q.at - r.at)) / 3600.0 FROM first_quote q
+                        JOIN first_request r USING (order_id) WHERE q.at > r.at) AS hours_to_first_quote
+                """,
+                {"c": customer_id},
+            )).fetchone()
+
     async def team_orders(self, needs_human: Optional[bool] = None, limit: int = 100) -> list[dict]:
         where = {True: "WHERE needs_human IS NOT NULL", False: "WHERE needs_human IS NULL", None: ""}[needs_human]
         async with self.pool.connection() as conn:

@@ -136,6 +136,19 @@ const en = {
   sizeWhyBig: "this method and spot usually go up to {max} cm wide",
   sizeWhySmall: "below {min} cm details get lost",
   apply: "Apply",
+  impactTitle: "What Orion did for you",
+  timeSaved: "Time saved",
+  howEstimated: "How we estimate this",
+  timeBasis: "About {spec} h to write and translate each spec, {factory} h to find and contact each factory, and {message} min per factory message. These are averages, not exact.",
+  moneySaved: "Money saved",
+  moneySavedLater: "Shown once your first order is priced.",
+  factoriesContacted: "Factories contacted for you",
+  messagesHandled: "Factory messages handled in Chinese",
+  piecesOrdered: "Pieces ordered",
+  timeToQuote: "Average time to first quote",
+  unitHours: "hours",
+  unitDays: "days",
+  statsStartAfter: "Starts counting with your first submitted order.",
 };
 
 const ar: typeof en = {
@@ -269,6 +282,19 @@ const ar: typeof en = {
   sizeWhyBig: "هذه الطريقة في هذا الموضع عادةً حتى {max} سم عرضًا",
   sizeWhySmall: "أقل من {min} سم تضيع التفاصيل",
   apply: "تطبيق",
+  impactTitle: "ما قدّمه أوريون لك",
+  timeSaved: "الوقت الذي وفّرته",
+  howEstimated: "كيف نحسب هذا",
+  timeBasis: "نحو {spec} ساعة لكتابة كل مواصفات وترجمتها، و{factory} ساعة للبحث عن كل مصنع والتواصل معه، و{message} دقيقة لكل رسالة مع المصنع. هذه متوسطات وليست أرقامًا دقيقة.",
+  moneySaved: "المال الذي وفّرته",
+  moneySavedLater: "يظهر بعد تسعير أول طلب لك.",
+  factoriesContacted: "مصانع تواصلنا معها لك",
+  messagesHandled: "رسائل مع المصانع بالصينية",
+  piecesOrdered: "القطع المطلوبة",
+  timeToQuote: "متوسط الوقت حتى أول عرض سعر",
+  unitHours: "ساعة",
+  unitDays: "يوم",
+  statsStartAfter: "يبدأ الحساب مع أول طلب ترسله.",
 };
 
 // Product names for order lists (the API returns option ids)

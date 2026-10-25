@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { ArrowNEIcon, BoxIcon, ChatIcon, FactoryIcon, LightbulbIcon, PlusIcon, ShirtIcon } from "@/components/Icons";
+import ImpactStats from "@/components/ImpactStats";
 import ProgressRing from "@/components/ProgressRing";
 import TopoTexture from "@/components/TopoTexture";
 import { api, type OrderRow } from "@/lib/api";
@@ -95,6 +96,8 @@ export default function Dashboard() {
           hint={firstConfirm ? { label: t("reviewSummary"), href: `/orders/${firstConfirm.id}` } : undefined} />
         <Stat variant="ink" icon={<FactoryIcon />} label={t("withFactories")} value={counts.factories} />
       </div>
+
+      <ImpactStats />
 
       <div className="section-title" id="list"><h2>{t("myOrders")}</h2></div>
       <div className="board board-glass" style={{ padding: 10 }}>

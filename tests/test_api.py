@@ -349,6 +349,27 @@ async def test_logo_upload_download_and_privacy(api):
     assert got.status_code == 200 and got.content == PNG
 
 
+async def test_customer_stats_count_real_work_and_estimate_time(api):
+    token = await _login(api, f"stats-{api.run}@example.com")
+    empty = (await api.get("/orders/stats", headers=_auth(token))).json()
+    assert empty["orders_submitted"] == 0 and empty["time_saved_hours"] == 0 and empty["money_saved"] is None
+
+    order_id = await _order_to_sourcing(api, token)
+    await api.ctx.accounts.add_team_member(f"stats-team-{api.run}@orion-team.com", None, "agent")
+    agent = await _login(api, f"stats-team-{api.run}@orion-team.com", "team")
+    body = {"manufacturer_id": api.manufacturer.id, "text": QUOTE_TEXT}
+    await api.post(f"/team/orders/{order_id}/manufacturer-replies", json=body, headers=_auth(agent))
+
+    s = (await api.get("/orders/stats", headers=_auth(token))).json()
+    assert s["orders_submitted"] == 1 and s["pieces_ordered"] == 150
+    assert s["factories_contacted"] == 1 and s["messages_handled"] == 2       # our request + their reply
+    assert s["orders_quoted"] == 1 and s["hours_to_first_quote"] is not None
+    assert s["time_saved_hours"] == 2.0 + 1.5 + 2 * 0.25                      # spec + factory + 2 messages
+    # Another customer's numbers are their own
+    other = await _login(api, f"stats-other-{api.run}@example.com")
+    assert (await api.get("/orders/stats", headers=_auth(other))).json()["factories_contacted"] == 0
+
+
 async def test_new_order_clicks_do_not_pile_up_empty_drafts(api):
     token = await _login(api, f"clicks-{api.run}@example.com")
     new = lambda: api.post("/orders", headers=_auth(token))   # noqa: E731

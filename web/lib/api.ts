@@ -40,7 +40,20 @@ export type Summary = {
 
 export type Section = "design" | "quantity" | "quality";
 
-export type UploadedFile = { file_id: string; name: string; content_type: string; size?: number };
+export type CustomerStats = {
+  orders_submitted: number;
+  orders_delivered: number;
+  pieces_ordered: number;
+  factories_contacted: number;
+  messages_handled: number;
+  orders_quoted: number;
+  hours_to_first_quote: number | null;
+  time_saved_hours: number;
+  time_saved_basis: { per_spec: number; per_factory: number; per_message: number };
+  money_saved: number | null;
+};
+
+export type UploadedFile ={ file_id: string; name: string; content_type: string; size?: number };
 
 /** Upload a logo/artwork file to an order. The API checks type (by content) and size. */
 export async function uploadFile(orderId: string, file: File, retried = false): Promise<UploadedFile> {

@@ -11,6 +11,7 @@ from orion.api.files import file_ids_in, file_response, store_upload
 from orion.api.security import TokenClaims
 from orion.api.views import customer_order_view
 from orion.config.markets import MARKETS, get_questions
+from orion.config.stats import HOURS_PER_FACTORY, HOURS_PER_MESSAGE, HOURS_PER_SPEC
 from orion.spec import Section
 from orion.tools.assist import safe_answer
 from orion.graph.graph import OrderNotWaiting, get_order, waiting_on
@@ -73,6 +74,26 @@ async def list_orders(c: ApiContext = Depends(ctx), claims: TokenClaims = Depend
             continue
         out.append(row)
     return out
+
+
+@router.get("/stats")
+async def stats(c: ApiContext = Depends(ctx), claims: TokenClaims = Depends(current_customer)) -> dict:
+    """What Orion has done for this customer. Counts are real; time saved is an estimate (see config/stats.py)."""
+    a = await c.accounts.customer_activity(claims.sub)
+    specs = a["submitted"]
+    hours = specs * HOURS_PER_SPEC + a["factories"] * HOURS_PER_FACTORY + a["messages"] * HOURS_PER_MESSAGE
+    return {
+        "orders_submitted": specs,
+        "orders_delivered": a["delivered"],
+        "pieces_ordered": int(a["pieces"]),
+        "factories_contacted": a["factories"],
+        "messages_handled": a["messages"],
+        "orders_quoted": a["quoted_orders"],
+        "hours_to_first_quote": round(float(a["hours_to_first_quote"]), 1) if a["hours_to_first_quote"] else None,
+        "time_saved_hours": round(hours, 1),
+        "time_saved_basis": {"per_spec": HOURS_PER_SPEC, "per_factory": HOURS_PER_FACTORY, "per_message": HOURS_PER_MESSAGE},
+        "money_saved": None,   # TODO(decide): needs priced orders and a baseline (config/stats.py)
+    }
 
 
 @router.get("/{order_id}")
