@@ -7,6 +7,7 @@ Interactive nodes follow one pattern:
 
 import logging
 import re
+from difflib import SequenceMatcher
 from typing import Any
 
 from orion.config.markets import CUSTOM_OPTION, MARKETS, Market, get_questions
@@ -25,6 +26,7 @@ from orion.spec import (
     validate_answer,
 )
 from orion.tools.llm import AnswerUpdate, Consultant, ConsultContext, DeepDiveTurn
+from orion.tools.price_guard import price_violation
 
 log = logging.getLogger(__name__)
 
@@ -233,20 +235,80 @@ def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")[:40]
 
 
-def _follow_ups(turn: DeepDiveTurn, market_questions: list[Question], limit: int = MAX_FOLLOW_UPS) -> list[Question]:
-    """The AI's questions, checked in code: unique ids, no size/quantity, at most `limit`."""
-    covered_by_form = {SIZE_TABLE_ID, QUANTITY_ID} | {q.id for q in market_questions if q.type == "size_table"}
+# Words that don't say what a question is about ("fabric_type" is about fabric)
+_GENERIC = {"type", "style", "kind", "choice", "preference", "preferred", "option", "options", "detail", "details",
+            "garment", "product", "item", "method", "the", "of", "for", "your", "main", "specific", "exact"}
+# Different words for the same thing, mapped to one ("logo_print" and "decoration_method" are both decoration)
+_SAME = {"colour": "color", "logo": "decoration", "artwork": "decoration", "print": "decoration",
+         "printing": "decoration", "embroidery": "decoration", "branding": "decoration", "weight": "gsm",
+         "packing": "packaging", "package": "packaging", "tag": "label", "deadline": "needed", "delivery": "needed",
+         "timeline": "needed", "material": "fabric", "cloth": "fabric", "textile": "fabric"}
+
+
+def _concept(qid: str) -> frozenset[str]:
+    words = []
+    for w in qid.split("_"):
+        w = w[:-1] if len(w) > 3 and w.endswith("s") else w
+        w = _SAME.get(w, w)
+        if w and w not in _GENERIC:
+            words.append(w)
+    return frozenset(words)
+
+
+def _plain(text: str) -> str:
+    return re.sub(r"[\W_]+", " ", text.lower()).strip()
+
+
+def _repeats(qid: str, prompt: str, seen_ids: set[str], seen_prompts: list[str]) -> bool:
+    """Code check that a question is new: not an id already asked, not about the same thing as one
+    (by the words in its id), and not near-identical wording."""
+    if qid in seen_ids:
+        return True
+    concept = _concept(qid)
+    if concept and any(concept <= _concept(s) for s in seen_ids):
+        return True
+    text = _plain(prompt)
+    return any(SequenceMatcher(None, text, p).ratio() >= 0.8 for p in seen_prompts)
+
+
+def _tiers(raw: list[int], choices: list[str], kept: list[str]) -> list[int]:
+    """The AI's relative cost per choice, lined up with the kept choices. Dropped unless it gives one per choice."""
+    if len(raw) != len(choices):
+        return []
+    by_choice = {}
+    for choice, tier in zip(choices, raw):
+        by_choice.setdefault(choice.strip(), max(0, min(3, int(tier))))
+    tiers = [by_choice.get(c, 0) for c in kept]
+    return tiers if any(tiers) else []
+
+
+def _follow_ups(
+    turn: DeepDiveTurn, market_questions: list[Question], spec: ProductSpec, limit: int = MAX_FOLLOW_UPS,
+    cost_tiers: bool = True,
+) -> list[Question]:
+    """The AI's questions, checked in code: nothing the form or an earlier round already asked, no
+    size/quantity, no price language, at most `limit`."""
+    seen_ids = {SIZE_TABLE_ID, QUANTITY_ID} | {q.id for q in market_questions} | set(spec.answers) | set(spec.labels)
+    seen_prompts = [_plain(p) for q in market_questions for p in (q.prompt, q.prompt_ar) if p]
+    seen_prompts += [_plain(label) for label in spec.labels.values()]
     out: list[Question] = []
     for f in turn.questions:
         qid = _slug(f.id)
-        if not qid or qid in covered_by_form or any(q.id == qid for q in out) or not f.prompt.strip():
+        if not qid or not f.prompt.strip() or _repeats(qid, f.prompt, seen_ids, seen_prompts):
+            log.info("dropped repeated follow-up %r", f.id)
+            continue
+        if price_violation(" ".join([f.prompt, *f.choices])):
+            log.info("dropped follow-up %r with price language", f.id)
             continue
         choices = list(dict.fromkeys(c.strip() for c in f.choices if c.strip()))[:8]
         out.append(Question(
             id=qid, prompt=f.prompt.strip(), section=f.section, required=True,
             type="choice" if choices else "text", choices=choices,
             allow_other=True, multiple=bool(f.multiple and choices),
+            cost_tiers=_tiers(f.cost_tiers, f.choices, choices) if cost_tiers else [],
         ))
+        seen_ids.add(qid)
+        seen_prompts.append(_plain(f.prompt))
         if len(out) == limit:
             break
     return out
@@ -261,7 +323,7 @@ def _gap_questions(spec: ProductSpec) -> list[Question]:
     ]
 
 
-async def deep_dive(state: OrderState, consultant: Consultant) -> dict:
+async def deep_dive(state: OrderState, consultant: Consultant, policy: Policy = Policy()) -> dict:
     """The AI's follow-up questions, asked as more form questions (same style as the first form)
     until it has nothing left to ask."""
     spec = _spec(state)
@@ -311,7 +373,7 @@ async def deep_dive(state: OrderState, consultant: Consultant) -> dict:
     ctx = _context(state, spec, messages).model_copy(update={"lang": lang})
     turn = await consultant.deep_dive(ctx)
     apply_updates(spec, ctx.questions, turn.updates)
-    questions = _follow_ups(turn, market_questions, ctx.max_questions)
+    questions = _follow_ups(turn, market_questions, spec, ctx.max_questions, policy.ai_cost_tiers)
 
     # Guard against a loop with no customer in it: right after the completeness check found gaps,
     # the AI must ask the customer something rather than declaring itself done again.

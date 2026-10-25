@@ -1,7 +1,7 @@
 from conftest import HOODIE_ANSWERS, ScriptedConsultant, ask, turn
 from orion.config.policy import Policy
 from orion.graph.graph import get_order, send_reply, start_order
-from orion.tools.llm import CompletenessReport
+from orion.tools.llm import CompletenessReport, FollowUpQuestion, render_context
 
 
 async def _through_form(app, order_id, answers=HOODIE_ANSWERS, lang="en"):
@@ -18,8 +18,8 @@ async def test_follow_ups_are_form_questions_and_spec_freezes(make_app):
     consultant = ScriptedConsultant(
         turns=[
             turn("هل نسيت شيئًا؟", questions=[
-                ask("drawstrings", "Hood drawstrings?", ["flat cotton", "round cord", "none"]),
-                ask("pocket", "Pocket?", ["kangaroo pocket", "no pocket"], section="design"),
+                ask("cord_tips", "Drawstring tips?", ["metal", "plastic", "none"]),
+                ask("hood_lining", "Hood lining?", ["self fabric", "jersey", "none"], section="design"),
             ]),
             turn(ready=True),
         ],
@@ -31,16 +31,16 @@ async def test_follow_ups_are_form_questions_and_spec_freezes(make_app):
     assert prompt["step"] == "deep_dive" and prompt["kind"] == "form"
     assert prompt["prompt"] == "هل نسيت شيئًا؟"
     q = {x["id"]: x for x in prompt["questions"]}
-    assert q["drawstrings"]["choices"] == ["flat cotton", "round cord", "none"]
-    assert q["drawstrings"]["allow_other"] and q["drawstrings"]["section"] == "design"
+    assert q["cord_tips"]["choices"] == ["metal", "plastic", "none"]
+    assert q["cord_tips"]["allow_other"] and q["cord_tips"]["section"] == "design"
     assert consultant.deep_dive_calls[0].lang == "ar"   # the AI writes in the customer's language
 
     # "Other" answer (own text) and a listed choice
-    prompt = await send_reply(app, "order-1", {"answers": {"drawstrings": "flat black cotton, metal tips", "pocket": "kangaroo pocket"}})
+    prompt = await send_reply(app, "order-1", {"answers": {"cord_tips": "black metal tips", "hood_lining": "jersey"}})
     assert prompt["kind"] == "confirm"
     # The customer chose Arabic: the receipt is Arabic, choice values shown with their Arabic labels
     assert "الكمية الإجمالية: 150" in prompt["pre_receipt"]
-    assert "حبال القلنسوة: flat black cotton, metal tips" in prompt["pre_receipt"]
+    assert "Drawstring tips: black metal tips" in prompt["pre_receipt"]
     assert "ما ألوان القطعة: أسود، Pantone Black C" in prompt["pre_receipt"]
     summary = prompt["summary"]
     assert summary["product"] == "هودي" and summary["quantity"] == 150 and summary["sizes"]["M"] == 50
@@ -55,19 +55,19 @@ async def test_follow_ups_are_form_questions_and_spec_freezes(make_app):
     assert order["spec"]["answers"]["fabric_gsm"] == 350
     assert order["spec"]["answers"]["colors"] == ["black", "Pantone Black C"]
     # The answers reached the AI as history
-    assert "Hood drawstrings? → flat black cotton, metal tips" in consultant.deep_dive_calls[1].messages[-1]["content"]
+    assert "Drawstring tips? → black metal tips" in consultant.deep_dive_calls[1].messages[-1]["content"]
 
 
 async def test_follow_up_answers_are_validated_without_calling_the_ai(make_app):
-    consultant = ScriptedConsultant(turns=[turn(questions=[ask("drawstrings")]), turn(ready=True)], reports=[])
+    consultant = ScriptedConsultant(turns=[turn(questions=[ask("cord_tips")]), turn(ready=True)], reports=[])
     app = make_app(consultant)
     await _through_form(app, "order-1b")
 
     prompt = await send_reply(app, "order-1b", {"answers": {}})   # required question left empty
-    assert prompt["kind"] == "form" and set(prompt["errors"]) == {"drawstrings"}
+    assert prompt["kind"] == "form" and set(prompt["errors"]) == {"cord_tips"}
     assert len(consultant.deep_dive_calls) == 1
 
-    prompt = await send_reply(app, "order-1b", {"answers": {"drawstrings": "yes"}})
+    prompt = await send_reply(app, "order-1b", {"answers": {"cord_tips": "yes"}})
     assert prompt["kind"] == "confirm"
 
 
@@ -82,17 +82,48 @@ async def test_ai_cannot_ask_sizes_or_bad_ids(make_app):
     assert ids == ["cuff_style", "a", "b", "c", "d"]   # slugged, deduped, no sizes/quantity, at most 5
 
 
-async def test_correcting_a_form_answer_keeps_its_type(make_app):
+async def test_ai_never_repeats_a_question_and_its_choices_carry_relative_cost(make_app):
+    tiers = FollowUpQuestion(id="cord_tips", prompt="Drawstring tips?", section="design",
+                             choices=["plastic", "metal", "Not sure, use the factory standard"], cost_tiers=[1, 3, 0])
     consultant = ScriptedConsultant(
-        turns=[turn(questions=[ask("fabric_gsm", "Heavier fabric?", ["320", "380"], section="quality")]), turn(ready=True)],
-        reports=[],
+        turns=[
+            turn(questions=[
+                ask("fabric_gsm", "Heavier fabric?", ["320", "380"], section="quality"),   # a form question
+                ask("fabric_weight", "How heavy should the fabric be?"),                    # same thing, new id
+                ask("garment_colour", "Main colour?"),                                     # same thing, new id
+                ask("fabric_feel", "Which fabric?"),                                       # the form's own wording
+                ask("budget_tier", "What is your budget per piece?"),                     # price talk
+                tiers,
+                ask("tips_finish", "Drawstring tips?"),                                    # twice in one round
+            ]),
+            turn(questions=[ask("cord_tips", "Drawstring tips?"), ask("cord_tip", "Drawstring tip ends?")]),
+        ],
+        reports=[CompletenessReport(gaps=[])],
     )
     app = make_app(consultant)
-    await _through_form(app, "order-1d")
-    prompt = await send_reply(app, "order-1d", {"answers": {"fabric_gsm": "heavy please"}})
-    assert prompt["kind"] == "form" and "fabric_gsm" in prompt["errors"]   # must still be a number
-    await send_reply(app, "order-1d", {"answers": {"fabric_gsm": "380"}})
-    assert (await get_order(app, "order-1d"))["spec"]["answers"]["fabric_gsm"] == 380
+    prompt = await _through_form(app, "order-1d")
+    [q] = prompt["questions"]
+    assert q["id"] == "cord_tips" and q["cost_tiers"] == [1, 3, 0]
+    # The context tells the AI what the form asked and what was skipped
+    assert '"answer": "(skipped)"' in render_context(consultant.deep_dive_calls[0])
+
+    # Next round the AI asks it again (same id, then a near-identical wording): both dropped, so the
+    # customer gets the gap fallback instead of a repeat
+    prompt = await send_reply(app, "order-1d", {"answers": {"cord_tips": "metal"}})
+    assert all(q["id"] not in ("cord_tips", "cord_tip") for q in prompt.get("questions", []))
+
+
+async def test_ai_cost_tiers_can_be_turned_off(make_app):
+    tiers = FollowUpQuestion(id="cord_tips", prompt="Drawstring tips?", section="design",
+                             choices=["plastic", "metal"], cost_tiers=[1, 3])
+    bad = FollowUpQuestion(id="hood_lining", prompt="Hood lining?", section="design",
+                           choices=["jersey", "fleece"], cost_tiers=[2])                 # not one per choice
+    app = make_app(ScriptedConsultant(turns=[turn(questions=[tiers, bad])], reports=[]), policy=Policy(ai_cost_tiers=False))
+    prompt = await _through_form(app, "order-1e")
+    assert [q["cost_tiers"] for q in prompt["questions"]] == [[], []]
+    app = make_app(ScriptedConsultant(turns=[turn(questions=[tiers, bad])], reports=[]))
+    prompt = await _through_form(app, "order-1f")
+    assert [q["cost_tiers"] for q in prompt["questions"]] == [[1, 3], []]
 
 
 async def test_invalid_form_is_re_asked_and_keeps_valid_answers(make_app):
@@ -179,7 +210,9 @@ async def test_llm_updates_are_validated(make_app):
 
 
 async def test_custom_product_starts_from_a_description_and_pictures(make_app):
-    many = [ask(f"detail_{i}") for i in range(10)]
+    topics = ["Brim width?", "Crown height?", "Lining?", "Sweatband?", "Eyelets?", "Stitching colour?",
+              "Inside label?", "Packing per carton?", "Brim stiffness?", "Strap?"]
+    many = [ask(f"detail_{i}", topic) for i, topic in enumerate(topics)]
     consultant = ScriptedConsultant(
         turns=[turn("نحتاج بعض التفاصيل", questions=many), turn(ready=True)],
         reports=[],

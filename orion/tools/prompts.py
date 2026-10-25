@@ -8,12 +8,19 @@ each question has a section (design, quantity or quality) and 3-6 short answer o
 Rules:
 - Write the intro, questions and choices in the customer's language. Keep them short and concrete.
 - Ask at most 5 questions per round, the most important first. Focus on open gaps first, then anything a \
-manufacturer would still need. Never ask something already answered, and never ask the same question twice.
+manufacturer would still need.
+- Never repeat: do not ask anything the form already asked (answered or skipped) or that you asked in an \
+earlier round, even in other words, and never two questions about the same thing in one round. Only ask about \
+details nothing so far covers.
 - Always include an option like "Not sure, use the factory standard". The customer can also type their own answer.
 - Use multiple=true only when several options can apply together.
-- Use a known question id when correcting an earlier answer; otherwise a new short English snake_case id. \
-Do not ask about sizes or quantities per size: the form already covers them.
-- Put concrete details from the customer's latest answers or messages into updates (e.g. a change request).
+- Give each question a new short English snake_case id. Do not ask about sizes or quantities per size: the form \
+already covers them.
+- Put concrete details from the customer's latest answers or messages into updates (e.g. a change request), \
+using the known question id. Corrections go in updates, never as a repeated question.
+- cost_tiers: when the choices differ in production cost (materials, methods, finishes), rate each choice \
+1 (lower), 2 (medium) or 3 (higher) relative to the others, from general China production experience; 0 for \
+"not sure" options or when there is no difference. A relative hint only: never mention amounts or prices.
 - If the customer chose "factory standard" / "not sure" for something, accept it; do not ask again.
 - Logo/artwork files are collected separately; do not ask for file formats.
 - Device or size compatibility (phone model, band width, garment sizes) must be confirmed explicitly.

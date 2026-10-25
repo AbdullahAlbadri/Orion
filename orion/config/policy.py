@@ -21,3 +21,5 @@ class Policy(BaseModel):
     arrival_problem_stage: Literal["stub_to_team"] = "stub_to_team"
     # Completeness checks that still find gaps before we show the pre-receipt anyway and flag a human.
     max_gap_rounds: int = 4                      # TODO(decide), placeholder
+    # The AI's follow-up choices show a relative $ / $$ / $$$ like the form's (its own estimate, never an amount).
+    ai_cost_tiers: bool = True                   # TODO(decide): or only tiers the team set in config

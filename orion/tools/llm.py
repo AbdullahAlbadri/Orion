@@ -36,7 +36,7 @@ class AnswerUpdate(BaseModel):
 
 
 class FollowUpQuestion(BaseModel):
-    id: str = Field(description="Short English snake_case id; reuse a known question id to correct an earlier answer")
+    id: str = Field(description="New short English snake_case id for a detail no earlier question covers")
     prompt: str = Field(description="The question, in the customer's language")
     section: Literal["design", "quantity", "quality"]
     choices: list[str] = Field(
@@ -44,6 +44,12 @@ class FollowUpQuestion(BaseModel):
                     "'Not sure, use the factory standard'. The customer can also type their own answer."
     )
     multiple: bool = Field(False, description="True if several options can apply at once")
+    cost_tiers: list[int] = Field(
+        default_factory=list,
+        description="Relative production cost of each choice, same order and length as choices: 1 = lower, "
+                    "2 = medium, 3 = higher, 0 = no cost difference or unsure (always 0 for 'not sure' options). "
+                    "Empty list if the choices do not differ in cost. Never an amount.",
+    )
 
 
 class DeepDiveTurn(BaseModel):
@@ -68,16 +74,23 @@ class Consultant(Protocol):
 
 
 def render_context(ctx: ConsultContext, include_chat: bool = True) -> str:
+    answers = ctx.spec.answers
     questions = [
-        {"id": q.id, "prompt": q.prompt, "type": q.type, "choices": q.choices, "required": q.required}
+        {"id": q.id, "prompt": q.prompt, "type": q.type, "choices": q.choices, "answer": answers.get(q.id, "(skipped)")}
         for q in ctx.questions
     ]
+    # Questions the AI asked in earlier rounds (their wording is kept for the receipt)
+    asked_before = [{"id": qid, "question": label, "answer": answers.get(qid)} for qid, label in ctx.spec.labels.items()]
     parts = [
         f"Customer language: {'Arabic' if ctx.lang == 'ar' else 'English'} (write intro, questions and choices in it)",
         f"Product: {ctx.option_name} ({ctx.market_name})",
-        f"Known questions:\n{json.dumps(questions, ensure_ascii=False, indent=1)}",
-        f"Current spec:\n{ctx.spec.model_dump_json(include={'quantity', 'answers', 'open_gaps'}, indent=1)}",
+        "Form questions the customer has ALREADY SEEN (never ask any of these again, in any wording; "
+        f"'(skipped)' means they chose not to answer):\n{json.dumps(questions, ensure_ascii=False, indent=1)}",
     ]
+    if asked_before:
+        parts.append("Questions you ALREADY ASKED in earlier rounds (never ask these again, in any wording):\n"
+                     + json.dumps(asked_before, ensure_ascii=False, indent=1))
+    parts.append(f"Current spec:\n{ctx.spec.model_dump_json(include={'quantity', 'answers', 'open_gaps'}, indent=1)}")
     if ctx.custom:
         parts.append(
             "This is a CUSTOM product: the customer described it in their own words"

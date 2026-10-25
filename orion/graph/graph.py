@@ -43,7 +43,7 @@ def build_graph(deps: Deps, checkpointer: BaseCheckpointSaver, policy: Optional[
     policy = policy or Policy()
 
     async def deep_dive(state: OrderState) -> dict:
-        return await nodes.deep_dive(state, deps.consultant)
+        return await nodes.deep_dive(state, deps.consultant, policy)
 
     async def completeness_check(state: OrderState) -> dict:
         return await nodes.completeness_check(state, deps.consultant, policy)
