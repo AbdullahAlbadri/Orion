@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     consultant_model: str          # customer-facing chat (Arabic / English)
     manufacturer_model: str        # Chinese manufacturer side: translation, reading replies, answers
+    # Thinking models (e.g. Kimi) otherwise spend the whole output budget thinking and return nothing usable
+    manufacturer_reasoning_effort: Optional[str] = "low"   # low / medium / high, or empty for the model default
     classifier_model: str
     assist_model: str = "anthropic/claude-haiku-5.5"   # "Ask Orion" help on form sections (cheap)
 

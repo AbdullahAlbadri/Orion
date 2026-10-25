@@ -27,7 +27,8 @@ def openrouter_agents(settings: Settings, load_image: Optional[ImageLoader] = No
     key = settings.openrouter_api_key.get_secret_value()
     return (
         OpenRouterConsultant(key, settings.openrouter_base_url, settings.consultant_model, load_image=load_image),
-        OpenRouterManufacturerAgent(key, settings.openrouter_base_url, settings.manufacturer_model),
+        OpenRouterManufacturerAgent(key, settings.openrouter_base_url, settings.manufacturer_model,
+                                    reasoning_effort=settings.manufacturer_reasoning_effort or None),
     )
 
 
