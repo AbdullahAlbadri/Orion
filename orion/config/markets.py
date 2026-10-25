@@ -8,6 +8,7 @@ from typing import Optional
 
 from pydantic import BaseModel
 
+from orion.config.size_charts import SIZE_CHARTS
 from orion.spec import QUANTITY_ID, SIZE_TABLE_ID, Question, Section
 
 CUSTOM_OPTION = "custom"
@@ -18,6 +19,7 @@ class Option(BaseModel):
     name: str
     name_ar: str
     questions: list[Question] = []
+    first_questions: list[Question] = []   # asked before the market's common questions
     uses_common_questions: bool = True
     mockup: Optional[str] = None     # garment drawing for placement questions (web/lib/mockups.ts)
 
@@ -109,6 +111,58 @@ def _fabric(*options: tuple[str, str]) -> Question:
     return choice("fabric", "Which fabric?", "ما نوع القماش؟", list(options), section="quality")
 
 
+# The product's own attributes, asked before everything else (the customer's checklist for a hoodie)
+_HOODIE_FIRST = [
+    choice("logo_position", "Logo position?", "موضع الشعار؟",
+           [("front", "الأمام"), ("back", "الخلف"), ("left sleeve", "الكم الأيسر"), ("right sleeve", "الكم الأيمن"),
+            ("hood", "القلنسوة"), ("no logo", "بدون شعار")], multiple=True),
+    choice("hoodie_style", "Type?", "النوع؟",
+           [("pullover", "بدون سحّاب (Pullover)", 1), ("zip-up", "بسحّاب كامل", 2), ("half-zip", "بنصف سحّاب", 2)],
+           allow_other=False),
+    choice("collar", "Collar?", "الياقة؟",
+           [("hooded", "بقلنسوة"), ("double-layer hood", "قلنسوة بطبقتين"), ("crew neck", "ياقة دائرية بدون قلنسوة"),
+            ("mock neck", "ياقة مرتفعة"), ("funnel neck", "ياقة عالية واسعة")]),
+    choice("fabric", "Fabric type?", "نوع النسيج؟",
+           [("knitted fleece (brushed inside)", "صوف محبوك (فليس من الداخل)"), ("french terry", "فرنش تيري"),
+            ("jersey knit", "جيرسي محبوك"), ("waffle knit", "وافل محبوك"), ("woven", "منسوج")]),
+    choice("material", "Material?", "الخامة؟",
+           [("100% cotton", "قطن 100%", 2), ("cotton-polyester 80/20", "قطن وبوليستر 80/20", 1),
+            ("cotton-polyester 60/40", "قطن وبوليستر 60/40", 1), ("100% polyester", "بوليستر 100%", 1),
+            ("organic cotton", "قطن عضوي", 3), ("recycled polyester", "بوليستر معاد تدويره", 2),
+            ("cotton-spandex", "قطن وسباندكس", 2)]),
+    choice("fit_type", "Fit type?", "نوع القصّة؟",
+           [("regular", "عادية"), ("loose", "واسعة"), ("oversized", "أوفر سايز"), ("boxy", "مربعة (Boxy)"),
+            ("slim", "ضيقة")]),
+    choice("design", "Design details?", "تفاصيل التصميم؟",
+           [("plain", "سادة"), ("cut out", "بفتحات (Cut out)"), ("distressed", "ممزق (Distressed)"),
+            ("colour block", "ألوان متداخلة (Colour block)"), ("patchwork", "رقع (Patchwork)"),
+            ("raw hem", "حافة غير مخيطة"), ("side slits", "فتحات جانبية")], multiple=True, required=False),
+    choice("length", "Length?", "الطول؟", [("regular", "عادي"), ("crop", "قصير (Crop)"), ("longline", "طويل")]),
+    choice("sleeve_style", "Sleeve style?", "نوع الأكمام؟",
+           [("regular", "عادية"), ("drop shoulder", "كتف ساقط"), ("raglan", "راجلان"), ("batwing", "خفاشية")]),
+    choice("pattern_type", "Pattern type?", "النقشة؟",
+           [("solid", "سادة"), ("colour block", "ألوان متداخلة"), ("all-over print", "طباعة كاملة"),
+            ("tie-dye", "تاي داي"), ("camouflage", "مموّه"), ("striped", "مخطط"), ("graphic or letters", "رسومات أو حروف")]),
+    choice("style", "Style?", "الطابع؟",
+           [("oversized", "أوفر سايز"), ("boxy", "مربع"), ("fashion", "عصري"), ("unisex", "للجنسين"),
+            ("pullover", "بدون سحّاب"), ("sweatshirt", "سويت شيرت"), ("streetwear", "ستريت وير"), ("casual", "كاجوال"),
+            ("sporty", "رياضي"), ("minimalist", "بسيط")], multiple=True, required=False),
+    choice("features", "Features?", "المزايا؟",
+           [("breathable", "يسمح بالتهوية"), ("warm", "دافئ"), ("anti-pilling", "مقاوم للوبر"),
+            ("anti-shrink", "مقاوم للانكماش"), ("quick-dry", "سريع الجفاف"), ("water-resistant", "مقاوم للماء"),
+            ("eco-friendly", "صديق للبيئة")], multiple=True, required=False),
+    choice("gender", "Gender?", "الفئة؟", [("unisex", "للجنسين"), ("men", "رجالي"), ("women", "نسائي"), ("kids", "أطفال")]),
+    choice("season", "Season?", "الموسم؟",
+           [("winter", "الشتاء"), ("autumn", "الخريف"), ("spring", "الربيع"), ("summer", "الصيف"),
+            ("all seasons", "كل المواسم")], multiple=True, required=False),
+    choice("supply_type", "Supply type?", "نوع التوريد؟",
+           [("OEM service", "تصنيع بتصميمك وشعارك (OEM)"), ("ODM service", "تصميم المصنع مع شعارك (ODM)"),
+            ("ready stock with your logo", "منتج جاهز مع شعارك")],
+           hint="OEM: the factory makes your own design. ODM: you pick one of the factory's designs and add your brand.",
+           hint_ar="OEM: يصنع المصنع تصميمك أنت. ODM: تختار من تصاميم المصنع وتضيف علامتك."),
+]
+
+
 APPAREL = Market(
     id="apparel",
     name="Fashion, apparel & uniforms",
@@ -159,12 +213,9 @@ APPAREL = Market(
     options={
         "hoodie": Option(
             id="hoodie", name="Hoodie", name_ar="هودي", mockup="hoodie",
+            first_questions=_HOODIE_FIRST,
             questions=[
-                _fabric(("cotton fleece", "قطن فليس", 2), ("cotton-poly fleece", "فليس قطن وبوليستر", 1),
-                        ("french terry", "فرنش تيري", 2)),
                 _FABRIC_GSM,
-                choice("hoodie_style", "Pullover or zip-up?", "بدون سحّاب أم بسحّاب؟",
-                       [("pullover", "بدون سحّاب", 1), ("zip-up", "بسحّاب", 2)], allow_other=False),
                 choice("drawstrings", "Hood drawstrings?", "حبال القلنسوة؟",
                        [("flat cotton", "حبال قطنية مسطحة"), ("round cord", "حبل دائري"),
                         ("no drawstrings", "بدون حبال")]),
@@ -173,7 +224,6 @@ APPAREL = Market(
                 _size_table(),
                 _SIZE_STANDARD,
                 _LABELS,
-                _FIT,
             ],
         ),
         "oversized_tee": Option(
@@ -272,8 +322,14 @@ def get_questions(market_id: str, option_id: str) -> list[Question]:
     market = MARKETS[market_id]
     option = market.options[option_id]
     common = market.common_questions if option.uses_common_questions else []
-    # Placement questions draw this product's garment
-    return [
-        q.model_copy(update={"mockup": option.mockup}) if q.type == "placement" and option.mockup else q
-        for q in common + option.questions
-    ]
+    chart = SIZE_CHARTS.get(option.id)
+
+    # Placement questions draw this product's garment; size questions carry its size chart
+    def specialise(q: Question) -> Question:
+        if q.type == "placement" and option.mockup:
+            return q.model_copy(update={"mockup": option.mockup})
+        if q.type == "size_table" and chart:
+            return q.model_copy(update={"size_chart": chart})
+        return q
+
+    return [specialise(q) for q in option.first_questions + common + option.questions]

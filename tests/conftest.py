@@ -101,10 +101,19 @@ def turn(intro: str = "", ready: bool = False, questions=(), **updates: str) -> 
 
 
 HOODIE_ANSWERS = {
+    "logo_position": ["front"],
+    "collar": "hooded",
+    "material": "100% cotton",
+    "fit_type": "loose",
+    "length": "regular",
+    "sleeve_style": "regular",
+    "pattern_type": "solid",
+    "gender": "unisex",
+    "supply_type": "OEM service",
     "colors": "black, Pantone Black C",
     "decoration_method": "embroidery",
     "decoration_placement": "left chest 8cm",
-    "fabric": "cotton fleece",
+    "fabric": "knitted fleece (brushed inside)",
     "fabric_gsm": "350",
     "hoodie_style": "pullover",
     "size_breakdown": "S:20, M:50, L:50, XL:30",

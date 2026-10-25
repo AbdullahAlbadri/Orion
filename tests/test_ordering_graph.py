@@ -91,7 +91,7 @@ async def test_ai_never_repeats_a_question_and_its_choices_carry_relative_cost(m
                 ask("fabric_gsm", "Heavier fabric?", ["320", "380"], section="quality"),   # a form question
                 ask("fabric_weight", "How heavy should the fabric be?"),                    # same thing, new id
                 ask("garment_colour", "Main colour?"),                                     # same thing, new id
-                ask("fabric_feel", "Which fabric?"),                                       # the form's own wording
+                ask("fabric_feel", "Fabric type?"),                                        # the form's own wording
                 ask("budget_tier", "What is your budget per piece?"),                     # price talk
                 tiers,
                 ask("tips_finish", "Drawstring tips?"),                                    # twice in one round
@@ -133,7 +133,7 @@ async def test_invalid_form_is_re_asked_and_keeps_valid_answers(make_app):
 
     assert prompt["kind"] == "form" and prompt["step"] == "mandatory_questions"
     assert set(prompt["errors"]) == {"fabric_gsm", "size_breakdown"}
-    assert prompt["values"]["fabric"] == "cotton fleece"
+    assert prompt["values"]["fabric"] == "knitted fleece (brushed inside)"
 
     prompt = await send_reply(app, "order-2", {"answers": {"fabric_gsm": 320, "size_breakdown": {"M": 10}}})
     assert prompt["step"] == "deep_dive"

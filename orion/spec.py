@@ -33,6 +33,8 @@ class Question(BaseModel):
     # Offer the brand kit saved on the business profile here: its colours (choice) or its logos (file).
     # Only a suggestion; nothing is filled in until the customer taps it.
     brand: Optional[Literal["colors", "logo"]] = None
+    # size_table: typical measurements in cm for this product (config/size_charts.py), shown behind an info button
+    size_chart: Optional[dict[str, Any]] = None
     # Arabic wording for the website. Answers are always stored with the English choice values.
     prompt_ar: Optional[str] = None
     hint_ar: Optional[str] = None

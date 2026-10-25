@@ -213,7 +213,7 @@ async def test_assist_explains_a_section(api):
     token = await _login(api, f"assist-{api.run}@example.com")
     order_id = (await api.post("/orders", headers=_auth(token))).json()["order_id"]
     api.ctx.assistant = FakeAssistant()
-    body = {"section": "quality", "question": "Which fabric for summer?", "answers": {"fabric": "cotton fleece", "x": 1}, "lang": "en"}
+    body = {"section": "quality", "question": "Which weight for summer?", "answers": {"fabric_gsm": "280", "fabric": "jersey knit", "x": 1}, "lang": "en"}
 
     # Before a product is chosen there is nothing to explain
     assert (await api.post(f"/orders/{order_id}/assist", json=body, headers=_auth(token))).status_code == 409
@@ -224,7 +224,7 @@ async def test_assist_explains_a_section(api):
     assert r.status_code == 200 and r.json()["answer"].startswith("Most hoodies")
     call = api.ctx.assistant.calls[-1]
     assert call["product"] == "Hoodie" and call["section"] == "quality"
-    assert set(call["ids"]) == {"fabric", "fabric_gsm", "labels", "packaging", "sample"} and call["answers"] == {"fabric": "cotton fleece"}
+    assert set(call["ids"]) == {"fabric_gsm", "labels", "packaging", "sample"} and call["answers"] == {"fabric_gsm": "280"}
 
     # Rule 1: an answer that talks money never reaches the customer
     api.ctx.assistant = FakeAssistant("Cotton fleece costs about 45 SAR per piece")
