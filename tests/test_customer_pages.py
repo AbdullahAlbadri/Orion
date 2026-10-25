@@ -248,3 +248,54 @@ def test_time_per_phase_counts_finished_phases_and_who_orders_waited_on():
     assert phases["quote"] == {"phase": "quote", "avg_hours": 30.0, "orders": 1}
     assert out["waiting_hours"] == {"customer": 14.0, "factory": 76.0}
     assert out["order_to_delivery_hours"] == 30.0 and out["delivered_orders"] == 1
+
+
+# --- product ideas on the Overview -------------------------------------------------------------
+
+class FakeSuggester:
+    def __init__(self, ideas):
+        self.ideas_out, self.calls = ideas, []
+
+    async def ideas(self, business, catalogue, made, lang):
+        self.calls.append({"business": business, "made": made, "lang": lang, "options": [c["option"] for c in catalogue]})
+        return self.ideas_out
+
+
+async def test_product_ideas_come_from_the_profile_and_are_kept(api):
+    from orion.tools.suggest import ProductIdea
+
+    fake = FakeSuggester([
+        ProductIdea(option="hoodie", title="هودي للفريق", why="يناسب موظفي المقهى", details="قطن، شعار مطرّز"),
+        ProductIdea(option="spaceship", title="Branded aprons", why="Baristas wear them daily", details="Canvas"),
+        ProductIdea(option="tote_bag", title="Tote bag", why="Only 20 SAR each!", details="Cheap"),
+    ])
+    api.ctx.suggester = fake
+    token = await _login(api, f"ideas-{api.run}@example.com")
+    assert (await api.get("/me/suggestions", headers=_auth(token))).json() == {"status": "no_profile", "items": []}
+    assert fake.calls == []                                   # no model call without a profile
+
+    await api.put("/business", json={"name": "Qahwa", "description": "Specialty coffee shop"}, headers=_auth(token))
+    first = (await api.get("/me/suggestions", headers=_auth(token))).json()
+    assert first["status"] == "ok"
+    assert [(i["option"], i["title"]) for i in first["items"]] == [("hoodie", "هودي للفريق"), ("custom", "Branded aprons")]
+    assert fake.calls[0]["business"] == {"name": "Qahwa", "description": "Specialty coffee shop"}
+
+    # Kept until something changes: no second model call
+    again = (await api.get("/me/suggestions", headers=_auth(token))).json()
+    assert again["items"] == first["items"] and len(fake.calls) == 1
+    # A profile change or an explicit refresh makes new ones
+    await api.put("/business", json={"description": "Coffee shop and roastery"}, headers=_auth(token))
+    await api.get("/me/suggestions", headers=_auth(token))
+    await api.post("/me/suggestions/refresh", headers=_auth(token))
+    assert len(fake.calls) == 3
+
+
+async def test_new_order_can_start_with_a_product_chosen(api):
+    token = await _login(api, f"prefill-{api.run}@example.com")
+    r = await api.post("/orders", json={"option": "custom", "description": "Branded aprons for baristas"}, headers=_auth(token))
+    order = r.json()
+    assert order["prompt"]["step"] == "mandatory_questions"
+    assert order["prompt"]["values"]["description"] == "Branded aprons for baristas"
+    # Unknown products fall back to the normal start
+    r = await api.post("/orders", json={"option": "spaceship"}, headers=_auth(token))
+    assert r.json()["prompt"]["step"] == "select_market"

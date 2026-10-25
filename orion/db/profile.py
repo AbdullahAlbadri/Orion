@@ -153,6 +153,26 @@ class ProfileStore:
             "UPDATE addresses SET is_default = false WHERE customer_id = %s AND is_default", (customer_id,)
         )
 
+    # --- product ideas -----------------------------------------------------------------
+
+    async def suggestions(self, customer_id: str, lang: str) -> Optional[dict]:
+        async with self.pool.connection() as conn:
+            return await (await conn.execute(
+                "SELECT fingerprint, items, created_at FROM customer_suggestions WHERE customer_id = %s AND lang = %s",
+                (customer_id, lang),
+            )).fetchone()
+
+    async def save_suggestions(self, customer_id: str, lang: str, fingerprint: str, items: list[dict]) -> None:
+        async with self.pool.connection() as conn:
+            await conn.execute(
+                """
+                INSERT INTO customer_suggestions (customer_id, lang, fingerprint, items) VALUES (%s, %s, %s, %s)
+                ON CONFLICT (customer_id, lang) DO UPDATE SET fingerprint = EXCLUDED.fingerprint,
+                    items = EXCLUDED.items, created_at = now()
+                """,
+                (customer_id, lang, fingerprint, Jsonb(items)),
+            )
+
     # --- sessions ----------------------------------------------------------------------
 
     async def sessions(self, customer_id: str) -> list[dict]:

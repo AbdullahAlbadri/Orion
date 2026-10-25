@@ -4,6 +4,8 @@ Addresses and customs details are never changed by the AI; only these routes (th
 """
 
 import json
+import logging
+from datetime import datetime, timezone
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -15,7 +17,9 @@ from orion.api.context import ApiContext, ctx, current_customer
 from orion.api.security import TokenClaims
 from orion.config.status_labels import CLOSED, UNSUBMITTED
 from orion.graph.graph import get_order
+from orion.tools.suggest import catalogue, clean, fingerprint
 
+log = logging.getLogger("orion.api.me")
 router = APIRouter(tags=["account"])
 
 PHONE = r"^\+?[0-9][0-9 \-]{6,18}$"
@@ -221,3 +225,43 @@ async def default_address(
     if not await c.profile.set_default_address(claims.sub, address_id):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "address not found")
     return await _business_view(c, claims.sub)
+
+
+# --- product ideas (Overview) ---------------------------------------------------------
+
+async def _ideas(c: ApiContext, customer_id: str, lang: str, force: bool) -> dict:
+    """Ideas from the business profile, kept until the profile, past products or language change.
+    A model call happens only when there is nothing current to show (or the customer asks for new ones)."""
+    business = await c.profile.business_for_ai(customer_id)
+    if not business.get("description") and not business.get("name"):
+        return {"status": "no_profile", "items": []}
+    made = sorted({p["option"] for p in await c.products.products(customer_id)})
+    fp = fingerprint(business, made, lang)
+    cached = await c.profile.suggestions(customer_id, lang)
+    if cached and cached["fingerprint"] == fp and not force:
+        return {"status": "ok", "items": cached["items"], "generated_at": cached["created_at"]}
+    if c.suggester is None or not c.suggest_limit.allow(customer_id):
+        if cached:   # better an older list than none
+            return {"status": "stale", "items": cached["items"], "generated_at": cached["created_at"]}
+        return {"status": "unavailable", "items": []}
+    try:
+        items = clean(await c.suggester.ideas(business, catalogue(), made, lang))
+    except Exception:
+        log.exception("product ideas failed")
+        return {"status": "unavailable", "items": cached["items"] if cached else []}
+    await c.profile.save_suggestions(customer_id, lang, fp, items)
+    return {"status": "ok", "items": items, "generated_at": datetime.now(timezone.utc)}
+
+
+@router.get("/me/suggestions")
+async def suggestions(
+    lang: Literal["ar", "en"] = "ar", c: ApiContext = Depends(ctx), claims: TokenClaims = Depends(current_customer)
+) -> dict:
+    return await _ideas(c, claims.sub, lang, force=False)
+
+
+@router.post("/me/suggestions/refresh")
+async def refresh_suggestions(
+    lang: Literal["ar", "en"] = "ar", c: ApiContext = Depends(ctx), claims: TokenClaims = Depends(current_customer)
+) -> dict:
+    return await _ideas(c, claims.sub, lang, force=True)

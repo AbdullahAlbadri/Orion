@@ -47,23 +47,40 @@ def has_details(state: dict) -> bool:
     return bool((state.get("spec") or {}).get("answers"))
 
 
+class NewOrder(BaseModel):
+    """Optional: start with a product already chosen (e.g. from a product idea on the Overview)."""
+    option: Optional[str] = Field(None, max_length=60)
+    description: Optional[str] = Field(None, max_length=600)   # custom products: the idea, as a starting text
+    lang: Literal["en", "ar"] = "ar"
+
+
 @router.post("", status_code=status.HTTP_201_CREATED)
-async def create_order(c: ApiContext = Depends(ctx), claims: TokenClaims = Depends(current_customer)) -> dict:
+async def create_order(
+    body: Optional[NewOrder] = None, c: ApiContext = Depends(ctx), claims: TokenClaims = Depends(current_customer)
+) -> dict:
     """Start an order. Clicking "new order" again does not pile up empty drafts: an untouched draft is
     reused, and an empty draft that already has a product picked is cleared so a new product can be chosen.
     Drafts with answers are kept and a separate order is started."""
+    market = next((m for m in MARKETS.values() if body and body.option in m.options), None)
     for row in await c.accounts.customer_orders(claims.sub):
         if row["stage"] != "draft":
             continue
         state = await get_order(c.graph, row["id"])
         if has_details(state):
             continue
-        if not state.get("spec") and not state.get("market"):
+        if not state.get("spec") and not state.get("market") and market is None:
             return await _view(c, row["id"])          # nothing chosen yet: just continue it
         await discard_order(c.graph, c.pool, row["id"])
+    prefill = None
+    if market is not None:
+        # The customer still sees and answers every question; only the product choice is made for them
+        answers = {"description": body.description.strip()} if body.option == "custom" and body.description else {}
+        prefill = {"market": market.id, "option": body.option, "answers": answers, "lang": body.lang}
     order_id = f"ord_{uuid.uuid4().hex[:12]}"
     await c.accounts.create_order(order_id, claims.sub)
-    await start_customer_order(c.graph, c.pool, order_id, business=await c.profile.business_for_ai(claims.sub))
+    await start_customer_order(
+        c.graph, c.pool, order_id, business=await c.profile.business_for_ai(claims.sub), prefill=prefill
+    )
     return await _view(c, order_id)
 
 

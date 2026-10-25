@@ -19,6 +19,7 @@ from orion.db.products import ProductStore
 from orion.db.profile import ProfileStore
 from orion.deps import Deps
 from orion.tools.email import EmailSender
+from orion.tools.suggest import Suggester
 
 
 @dataclass
@@ -32,8 +33,11 @@ class ApiContext:
     verifiers: dict[str, IdTokenVerifier] = field(default_factory=dict)   # "google" / "apple" when configured
     assistant: Optional[Assistant] = None
     files: Optional[FileStore] = None
+    suggester: Optional[Suggester] = None
     assist_limit: SlidingWindowLimit = field(default_factory=lambda: SlidingWindowLimit(30, 3600))
     support_limit: SlidingWindowLimit = field(default_factory=lambda: SlidingWindowLimit(10, 3600))
+    # Product ideas cost a model call; they are kept until the profile changes, so this is only a backstop
+    suggest_limit: SlidingWindowLimit = field(default_factory=lambda: SlidingWindowLimit(6, 3600))
 
     def __post_init__(self):
         self.profile = ProfileStore(self.pool)
