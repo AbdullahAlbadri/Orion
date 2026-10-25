@@ -5,6 +5,7 @@ import { useState } from "react";
 import type { OrderView, Prompt } from "@/lib/api";
 import { useLang } from "@/lib/i18n";
 import { ShirtIcon } from "./Icons";
+import QuoteCard from "./QuoteCard";
 import Receipt from "./Receipt";
 import SectionedForm from "./SectionedForm";
 
@@ -15,11 +16,12 @@ export default function PromptView({ order, send, busy }: { order: OrderView; se
   const prompt = order.prompt;
 
   if (order.waiting_on === "manufacturer" || !prompt) {
+    const paying = order.waiting_on === "payment";
     return (
       <div className="card">
         <span className="pill factories">{order.status[lang]}</span>
-        <h2 style={{ marginTop: 14 }}>{t("waitingTitle")}</h2>
-        <p className="muted">{t("waitingText")}</p>
+        <h2 style={{ marginTop: 14 }}>{t(paying ? "paymentTitle" : "waitingTitle")}</h2>
+        <p className="muted">{t(paying ? "paymentText" : "waitingText")}</p>
         {order.summary ? <div style={{ marginTop: 16 }}><Receipt summary={order.summary} orderId={order.order_id} /></div>
           : order.pre_receipt && <pre className="receipt">{order.pre_receipt}</pre>}
       </div>
@@ -33,6 +35,8 @@ export default function PromptView({ order, send, busy }: { order: OrderView; se
       return <SectionedForm key={`${prompt.step}:${prompt.questions.map((q) => q.id).join(",")}:${JSON.stringify(prompt.errors)}`} orderId={order.order_id} prompt={prompt} send={send} busy={busy} />;
     case "confirm":
       return <Confirm prompt={prompt} send={send} busy={busy} orderId={order.order_id} />;
+    case "quote":
+      return <QuoteCard quote={prompt.quote} error={prompt.error} send={send} busy={busy} />;
     case "chat":
       return <LegacyMessage prompt={prompt} send={send} busy={busy} />;
     default:

@@ -40,3 +40,7 @@ class OrderState(TypedDict, total=False):
     processed_events: list[str]    # event ids already handled (idempotency)
     manufacturer_next: str         # "wait" | "contact_next"
     quotes: list[dict]             # {"quote_id", "manufacturer_id", "prices", ..., "expires_at", "expired"}
+
+    # Customer quote: {"quote": what the customer sees (SAR), "basis": how it was calculated, "warnings",
+    #  "sent_at", "accepted_at" | "declined_at", ...}
+    customer_quote: Optional[dict]

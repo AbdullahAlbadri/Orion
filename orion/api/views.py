@@ -55,7 +55,8 @@ def customer_order_view(state: dict, waiting: Optional[dict]) -> dict:
     spec = state.get("spec") or {}
     waiting_on = None
     if waiting:
-        waiting_on = "manufacturer" if waiting.get("waiting_on") == "manufacturer" else "customer"
+        # "waiting" pauses are for an outside event (a factory, a payment); anything else is the customer's turn
+        waiting_on = waiting.get("waiting_on") if waiting.get("kind") == "waiting" else "customer"
     return {
         "order_id": state.get("order_id"),
         "stage": state.get("stage"),

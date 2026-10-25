@@ -8,6 +8,9 @@ Manufacturer:
   → translate_spec → contact_manufacturer → wait_for_manufacturer ⇄ handle_manufacturer_event
                           ▲                                              │ (declined)
                           └──────────────────────────────────────────────┘
+Customer quote (the team sends it from wait_for_manufacturer):
+  wait_for_manufacturer → send_customer_quote → quote_review (customer) → wait_for_payment
+                                    └──── (not sent / declined) ──┴──► wait_for_manufacturer
 
 Wait nodes pause the graph with interrupt(); the value passed to Command(resume=...) is the
 customer's reply or the event that resumed the order.
@@ -16,17 +19,21 @@ customer's reply or the event that resumed the order.
 from typing import Any, Optional
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
-from langgraph.graph import START, StateGraph
+from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command, interrupt
 
 from orion.config.policy import POLICY_VERSION, Policy
+from orion.config.pricing import PRICING, Pricing
 from orion.deps import Deps
 from orion.graph import manufacturer_nodes as mfr
 from orion.graph import nodes
+from orion.graph import quote_nodes as quote
 from orion.graph.state import OrderState
 
-INTERACTIVE_STEPS = ["select_market", "pick_option", "mandatory_questions", "deep_dive", "customer_confirm"]
+INTERACTIVE_STEPS = ["select_market", "pick_option", "mandatory_questions", "deep_dive", "customer_confirm",
+                     "quote_review"]
 WAIT_MANUFACTURER = "wait_for_manufacturer"
+WAIT_PAYMENT = "wait_for_payment"
 
 
 def wait_for_customer(state: OrderState) -> dict:
@@ -39,8 +46,22 @@ def wait_for_manufacturer(state: OrderState) -> dict:
     return {"event": event}
 
 
-def build_graph(deps: Deps, checkpointer: BaseCheckpointSaver, policy: Optional[Policy] = None):
-    policy = policy or Policy()
+def wait_for_payment(state: OrderState) -> dict:
+    # TODO(decide): payment provider; its webhook will resume the order here (rule 4)
+    event = interrupt({"step": WAIT_PAYMENT, "kind": "waiting", "waiting_on": "payment"})
+    return {"event": event}
+
+
+def route_event(state: OrderState) -> str:
+    return "send_customer_quote" if (state.get("event") or {}).get("type") == "send_quote" else "handle_manufacturer_event"
+
+
+def build_graph(deps: Deps, checkpointer: BaseCheckpointSaver, policy: Optional[Policy] = None,
+                pricing: Optional[Pricing] = None):
+    policy, pricing = policy or Policy(), pricing or PRICING
+
+    def send_customer_quote(state: OrderState) -> dict:
+        return quote.send_customer_quote(state, policy, pricing)
 
     async def deep_dive(state: OrderState) -> dict:
         return await nodes.deep_dive(state, deps.consultant, policy)
@@ -75,6 +96,10 @@ def build_graph(deps: Deps, checkpointer: BaseCheckpointSaver, policy: Optional[
     g.add_node("contact_manufacturer", contact_manufacturer)
     g.add_node(WAIT_MANUFACTURER, wait_for_manufacturer)
     g.add_node("handle_manufacturer_event", handle_manufacturer_event)
+    # Customer quote
+    g.add_node("send_customer_quote", send_customer_quote)
+    g.add_node("quote_review", quote.quote_review)
+    g.add_node(WAIT_PAYMENT, wait_for_payment)
 
     g.add_edge(START, "select_market")
     g.add_conditional_edges("select_market", nodes.wait_or("pick_option"), [nodes.WAIT, "pick_option"])
@@ -91,12 +116,17 @@ def build_graph(deps: Deps, checkpointer: BaseCheckpointSaver, policy: Optional[
     g.add_edge("freeze_spec", "translate_spec")
     g.add_edge("translate_spec", "contact_manufacturer")
     g.add_edge("contact_manufacturer", WAIT_MANUFACTURER)
-    g.add_edge(WAIT_MANUFACTURER, "handle_manufacturer_event")
+    g.add_conditional_edges(WAIT_MANUFACTURER, route_event, ["send_customer_quote", "handle_manufacturer_event"])
     g.add_conditional_edges(
         "handle_manufacturer_event",
         mfr.route_after_manufacturer_event,
         ["contact_manufacturer", WAIT_MANUFACTURER],
     )
+    g.add_conditional_edges("send_customer_quote", quote.route_after_send,
+                            {"quote_review": nodes.WAIT, "back": WAIT_MANUFACTURER})
+    g.add_conditional_edges("quote_review", quote.route_after_review,
+                            {"ask_again": nodes.WAIT, "paid_next": WAIT_PAYMENT, "back": WAIT_MANUFACTURER})
+    g.add_edge(WAIT_PAYMENT, END)
 
     return g.compile(checkpointer=checkpointer)
 
@@ -140,7 +170,7 @@ async def send_reply(app, order_id: str, reply: Any) -> Optional[dict]:
 
 
 # Which wait point each event type may resume. Timeouts are manufacturer-phase only for now.
-EVENT_WAITS = {"manufacturer_reply": WAIT_MANUFACTURER, "timeout": WAIT_MANUFACTURER}
+EVENT_WAITS = {"manufacturer_reply": WAIT_MANUFACTURER, "timeout": WAIT_MANUFACTURER, "send_quote": WAIT_MANUFACTURER}
 
 
 class OrderNotWaiting(Exception):

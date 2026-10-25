@@ -451,3 +451,31 @@ async def test_team_relays_a_manufacturer_quote(api):
     body = {"manufacturer_id": api.manufacturer.id, "text": "收到"}
     r = await api.post(f"/team/orders/{order_id}/manufacturer-replies", json=body, headers=_auth(agent))
     assert r.status_code == 200 and r.json()["waiting"]["waiting_on"] == "manufacturer"
+
+
+async def test_team_previews_and_sends_the_customer_quote_which_the_customer_accepts(api):
+    customer = await _login(api, f"quote-{api.run}@example.com")
+    order_id = await _order_to_sourcing(api, customer)
+    await api.ctx.accounts.add_team_member(f"quoter-{api.run}@orion-team.com", None, "agent")
+    agent = await _login(api, f"quoter-{api.run}@orion-team.com", "team")
+    body = {"manufacturer_id": api.manufacturer.id, "text": QUOTE_TEXT}
+    await api.post(f"/team/orders/{order_id}/manufacturer-replies", json=body, headers=_auth(agent))
+
+    preview = (await api.get(f"/team/orders/{order_id}/quote-preview", headers=_auth(agent))).json()
+    assert preview["quote"]["unit_price"] == "25.99" and any("shipping" in w for w in preview["warnings"])
+    assert (await api.get(f"/team/orders/{order_id}/quote-preview", headers=_auth(customer))).status_code == 401
+
+    # A warning (no shipping price) stops it until the team sends anyway
+    r = await api.post(f"/team/orders/{order_id}/send-quote", json={}, headers=_auth(agent))
+    assert r.status_code == 409 and "shipping" in r.json()["detail"]
+    r = await api.post(f"/team/orders/{order_id}/send-quote", json={"send_anyway": True}, headers=_auth(agent))
+    assert r.status_code == 200 and r.json()["stage"] == "quote_review"
+
+    # The customer sees riyals only: no factory, no yuan, no fee
+    view = (await api.get(f"/orders/{order_id}", headers=_auth(customer))).json()
+    assert view["prompt"]["kind"] == "quote" and view["prompt"]["quote"]["total"] == "3898.50"
+    assert "元" not in str(view) and "manufacturer" not in str(view["prompt"]) and "fee" not in str(view["prompt"])
+
+    r = await api.post(f"/orders/{order_id}/reply", json={"reply": {"accept": True}}, headers=_auth(customer))
+    assert r.status_code == 200 and r.json()["stage"] == "awaiting_payment"
+    assert r.json()["waiting_on"] == "payment" and r.json()["prompt"] is None

@@ -140,6 +140,37 @@ async function pageOrder(id) {
     } catch (e) { result.replaceChildren(errorBox(e.message)); send.disabled = false; }
   });
 
+  // Customer quote: calculated by the API from the recorded prices; the team previews it and sends it
+  const quoteBox = h("div");
+  const anyway = h("input", { type: "checkbox" });
+  const sendQuote = h("button", { disabled: waiting !== "manufacturer" || !(o.quotes || []).length }, "Send quote to customer");
+  const showQuote = (r) => {
+    const q = r.quote;
+    quoteBox.replaceChildren(
+      q ? h("div", { class: "table-wrap" }, h("table", {}, h("tbody", {},
+        [["Price per piece", q.unit_price], ["Quantity", q.quantity], ["Products", q.products_total],
+         ["Shipping (approx.)", q.shipping ?? "to be confirmed"], ["Total (SAR)", q.total],
+         ["Sample", q.sample_price ?? "-"], ["Production / shipping days", `${q.production_days ?? "?"} / ${q.shipping_days ?? "?"}`],
+         ["Valid until", when(q.valid_until)]].map(([k, v]) => h("tr", {}, h("th", {}, k), h("td", {}, String(v))))))) : null,
+      r.basis ? h("p", { class: "muted" }, `From ${r.basis.manufacturer_id}: ${r.basis.factory_unit_price} ${r.basis.currency} per piece, `
+        + `rate ${r.basis.rate_to_sar} (checked ${r.basis.rates_checked}), fee ${Math.round(r.basis.fee_rate * 100)}%`) : null,
+      r.blocking.length ? h("div", {}, h("strong", {}, "Cannot be sent: "), r.blocking.join("; ")) : null,
+      r.warnings.length ? h("div", {}, h("strong", {}, "Check first: "), r.warnings.join("; ")) : null,
+    );
+  };
+  const preview = h("button", { class: "secondary", disabled: !(o.quotes || []).length }, "Preview quote");
+  preview.addEventListener("click", async () => {
+    try { showQuote(await api(`/team/orders/${encodeURIComponent(id)}/quote-preview`)); } catch (e) { quoteBox.replaceChildren(errorBox(e.message)); }
+  });
+  sendQuote.addEventListener("click", async () => {
+    sendQuote.disabled = true;
+    try {
+      await api(`/team/orders/${encodeURIComponent(id)}/send-quote`, { method: "POST", body: { send_anyway: anyway.checked } });
+      route();
+    } catch (e) { quoteBox.replaceChildren(errorBox(e.message)); sendQuote.disabled = false; }
+  });
+  const sent = o.customer_quote;
+
   show(
     h("p", {}, h("a", { href: "#/attention" }, "← back")),
     h("h1", {}, `Order ${o.order_id}`),
@@ -171,6 +202,15 @@ async function pageOrder(id) {
         q.sample_terms ? h("div", {}, `Samples: ${q.sample_terms}`) : null,
         h("div", { class: "muted" }, q.summary),
       )) : h("p", { class: "muted" }, "No quotes yet."),
+    ),
+    h("div", { class: "card" },
+      h("h2", {}, "Customer quote"),
+      sent ? h("p", {}, `Sent ${when(sent.sent_at)}${sent.sent_by ? ` by ${sent.sent_by}` : ""}: total ${sent.quote.total} SAR`
+        + (sent.accepted_at ? ` · accepted ${when(sent.accepted_at)}` : "")
+        + (sent.declined_at ? ` · declined ${when(sent.declined_at)}${sent.decline_reason ? ` (${sent.decline_reason})` : ""}` : "")) : null,
+      h("p", { class: "muted" }, "Prices come from the verified factory quote, plus the Orion fee, at the fixed rate to SAR; shipping as the factory gave it."),
+      h("div", { class: "row" }, preview, sendQuote, h("label", {}, anyway, " send anyway (I checked the warnings)")),
+      quoteBox,
     ),
     h("div", { class: "card" },
       h("h2", {}, `Spec (version ${spec.version ?? "-"}${spec.frozen ? ", frozen" : ""})`),

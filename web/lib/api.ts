@@ -136,14 +136,25 @@ export type Prompt =
       step: string; kind: "confirm"; prompt: string; prompt_ar?: string | null; pre_receipt: string;
       summary?: Summary | null; error?: string | null;
     }
+  | {
+      step: string; kind: "quote"; prompt: string; prompt_ar?: string | null; quote: CustomerQuote; error?: string | null;
+    }
   // Orders paused by an older API version: a single message to answer in free text
   | { step: string; kind: "chat"; message: string };
+
+/** The customer's quote, calculated by the API. Amounts are SAR strings with two decimals. */
+export type CustomerQuote = {
+  currency: "SAR"; quantity: number; unit_price: string; products_total: string;
+  shipping: string | null;          // approximate; null = to be confirmed
+  total: string; sample_price: string | null;
+  production_days: number | null; shipping_days: number | null; valid_until: string;
+};
 
 export type OrderView = {
   order_id: string;
   stage: string;
   status: { en: string; ar: string };
-  waiting_on: "customer" | "manufacturer" | null;
+  waiting_on: "customer" | "manufacturer" | "payment" | null;
   prompt: Prompt | null;
   messages: { role: "customer" | "orion"; content: string }[];
   pre_receipt: string | null;
