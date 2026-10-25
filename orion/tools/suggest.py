@@ -73,7 +73,7 @@ def clean(ideas: list[ProductIdea]) -> list[dict]:
 
 class OpenRouterSuggester:
     def __init__(self, api_key: str, base_url: str, model: str):
-        self._model = OpenRouterModel(api_key, base_url, model, temperature=0.7, max_tokens=700)
+        self._model = OpenRouterModel(api_key, base_url, model, temperature=0.7, max_tokens=1500)
 
     async def ideas(self, business: dict, catalogue: list[dict], made: list[str], lang: str) -> list[ProductIdea]:
         result = await self._model.structured(IdeaList).ainvoke([

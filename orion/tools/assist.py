@@ -32,7 +32,7 @@ class Assistant(Protocol):
 
 class OpenRouterAssistant:
     def __init__(self, api_key: str, base_url: str, model: str):
-        self._model = OpenRouterModel(api_key, base_url, model, temperature=0.3, max_tokens=500)
+        self._model = OpenRouterModel(api_key, base_url, model, temperature=0.3, max_tokens=1000)
 
     async def help(
         self, product: str, section: str, questions: list[Question], answers: dict, question: str, lang: str
