@@ -318,3 +318,20 @@ html[dir="rtl"] .anim-drive svg { transform: scaleX(-1); }
 .quote-lines .quote-total { background: rgba(254, 183, 47, .1); }
 .quote-lines .quote-total dt, .quote-lines .quote-total dd { color: var(--yellow); font-size: 18px; font-weight: 700; }
 .quote-timing { display: flex; flex-direction: column; gap: 6px; }
+
+/* The tracker standing upright, on an order's page */
+.vtracker { --fill: 0; position: relative; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.vtracker::before, .vtracker::after { content: ""; position: absolute; inset-inline-start: 19px; top: 20px; width: 3px; border-radius: 3px; }
+.vtracker::before { bottom: 20px; background: rgba(248, 248, 248, .1); }
+.vtracker::after { height: calc((100% - 40px) * var(--fill)); transform-origin: top;
+  background: linear-gradient(180deg, var(--yellow), #ffd77a, var(--yellow)) 0 0 / 100% 200%;
+  animation: vtrack-fill .9s cubic-bezier(.2, .8, .2, 1) both, vtrack-flow 2.4s linear infinite; }
+@keyframes vtrack-fill { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes vtrack-flow { to { background-position: 0 -200%; } }
+.vtracker .tracker-step { flex-direction: row; align-items: center; gap: 12px; text-align: start; }
+.vtracker .tracker-icon { width: 40px; height: 40px; flex: none; }
+.vtracker .tracker-icon svg { width: 19px; height: 19px; }
+.vtracker .tracker-step.now .tracker-icon { width: 46px; height: 46px; margin: 0 -3px; }
+.vtracker .tracker-step.now .tracker-icon svg { width: 22px; height: 22px; }
+.vtracker .tracker-label { font-size: 14px; }
+@media (prefers-reduced-motion: reduce) { .vtracker::after { animation: none; } }

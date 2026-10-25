@@ -39,6 +39,29 @@ const C = {
   open: t("فتح الطلب", "Open order"),
 };
 
+/** The same steps standing upright, for one order's page: done steps checked, the current one animated. */
+export function JourneyTracker({ stage }: { stage: string }) {
+  const { lang } = useLang();
+  const current = stepIndex(stage);
+  return (
+    <ol className="vtracker" style={{ ["--fill" as string]: current / (TRACK.length - 1) }}>
+      {TRACK.map((s, i) => {
+        const state = i < current ? "done" : i === current ? "now" : "next";
+        return (
+          <li key={s.key} className={`tracker-step ${state}`} style={{ ["--i" as string]: i }}
+            aria-current={state === "now" ? "step" : undefined}>
+            <span className={`tracker-icon anim-${s.anim}`}>
+              {state === "done" ? <CheckIcon /> : s.icon}
+              {state === "now" && s.anim === "smoke" && <><i className="puff p1" /><i className="puff p2" /></>}
+            </span>
+            <span className="tracker-label">{s.label[lang]}</span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 export default function OrderTracker({ orders }: { orders: OrderRow[] }) {
   const { lang } = useLang();
   const L = (x: T) => x[lang];

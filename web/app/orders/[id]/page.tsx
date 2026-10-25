@@ -4,14 +4,12 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
-import { CheckIcon } from "@/components/Icons";
-import ProgressRing from "@/components/ProgressRing";
+import { JourneyTracker } from "@/components/OrderTracker";
 import PromptView from "@/components/PromptView";
 import TopoTexture from "@/components/TopoTexture";
 import { api, ApiError, type OrderView } from "@/lib/api";
 import { useRequireUser } from "@/lib/auth";
 import { productName, useLang } from "@/lib/i18n";
-import { JOURNEY, journeyIndex, journeyPercent } from "@/lib/journey";
 
 export default function OrderPage() {
   const user = useRequireUser();
@@ -52,7 +50,6 @@ export default function OrderPage() {
 
   if (!user || !order) return <p className={error ? "error" : "muted"}>{error ?? t("loading")}</p>;
 
-  const current = journeyIndex(order.stage);
   const option = order.spec?.option;
 
   return (
@@ -78,18 +75,11 @@ export default function OrderPage() {
 
           <div className="board board-ink cross">
             <TopoTexture />
-            <div className="spread" style={{ marginBottom: 12 }}>
+            <div className="spread" style={{ marginBottom: 14 }}>
               <h2 style={{ margin: 0 }}>{t("journey")}</h2>
-              <ProgressRing percent={journeyPercent(order.stage)} label={t("progress")} size={92} />
+              <span className="muted small">{order.status[lang]}</span>
             </div>
-            <ol className="steps">
-              {JOURNEY.map((step, i) => (
-                <li key={step.key} className={i < current ? "done" : i === current ? "current" : ""}>
-                  <span className="dot">{i < current ? <CheckIcon width={14} height={14} /> : i + 1}</span>
-                  {t(step.key)}
-                </li>
-              ))}
-            </ol>
+            <JourneyTracker stage={order.stage} />
           </div>
         </aside>
       </div>
