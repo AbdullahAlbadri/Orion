@@ -349,10 +349,36 @@ async def test_logo_upload_download_and_privacy(api):
     assert got.status_code == 200 and got.content == PNG
 
 
+async def test_new_order_clicks_do_not_pile_up_empty_drafts(api):
+    token = await _login(api, f"clicks-{api.run}@example.com")
+    new = lambda: api.post("/orders", headers=_auth(token))   # noqa: E731
+
+    first = (await new()).json()["order_id"]
+    assert (await new()).json()["order_id"] == first                     # untouched draft reused
+    assert (await api.get("/orders", headers=_auth(token))).json() == []  # nothing filled: not counted
+
+    # Product picked but nothing answered: cleared so a different product can be chosen
+    for reply in ({"choice": "apparel"}, {"choice": "hoodie"}):
+        await api.post(f"/orders/{first}/reply", json={"reply": reply}, headers=_auth(token))
+    second = (await new()).json()
+    assert second["order_id"] != first and second["prompt"]["step"] == "select_market"
+    assert (await api.get(f"/orders/{first}", headers=_auth(token))).json()["stage"] == "cancelled"
+
+    # A draft with answers is kept and counted; "new order" starts a separate one
+    for reply in ({"choice": "apparel"}, {"choice": "hoodie"}):
+        await api.post(f"/orders/{second['order_id']}/reply", json={"reply": reply}, headers=_auth(token))
+    await api.post(f"/orders/{second['order_id']}/reply",
+                   json={"reply": {"answers": {"colors": ["black"]}}}, headers=_auth(token))   # partial, with errors
+    third = (await new()).json()["order_id"]
+    assert third not in (first, second["order_id"])
+    listed = [o["id"] for o in (await api.get("/orders", headers=_auth(token))).json()]
+    assert listed == [second["order_id"]]
+
+
 async def test_customer_can_discard_unsubmitted_drafts_only(api):
     token = await _login(api, f"discard-{api.run}@example.com")
-    draft = (await api.post("/orders", headers=_auth(token))).json()["order_id"]
     submitted = await _order_to_sourcing(api, token)
+    draft = (await api.post("/orders", headers=_auth(token))).json()["order_id"]
 
     assert (await api.post(f"/orders/{draft}/discard", headers=_auth(token))).status_code == 200
     assert (await api.post(f"/orders/{submitted}/discard", headers=_auth(token))).status_code == 409

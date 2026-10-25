@@ -38,8 +38,25 @@ async def _view(c: ApiContext, order_id: str) -> dict:
     return customer_order_view(await get_order(c.graph, order_id), await waiting_on(c.graph, order_id))
 
 
+def has_details(state: dict) -> bool:
+    """An order counts once the customer has submitted at least one answer."""
+    return bool((state.get("spec") or {}).get("answers"))
+
+
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_order(c: ApiContext = Depends(ctx), claims: TokenClaims = Depends(current_customer)) -> dict:
+    """Start an order. Clicking "new order" again does not pile up empty drafts: an untouched draft is
+    reused, and an empty draft that already has a product picked is cleared so a new product can be chosen.
+    Drafts with answers are kept and a separate order is started."""
+    for row in await c.accounts.customer_orders(claims.sub):
+        if row["stage"] != "draft":
+            continue
+        state = await get_order(c.graph, row["id"])
+        if has_details(state):
+            continue
+        if not state.get("spec") and not state.get("market"):
+            return await _view(c, row["id"])          # nothing chosen yet: just continue it
+        await discard_order(c.graph, c.pool, row["id"])
     order_id = f"ord_{uuid.uuid4().hex[:12]}"
     await c.accounts.create_order(order_id, claims.sub)
     await start_customer_order(c.graph, c.pool, order_id)
@@ -48,7 +65,14 @@ async def create_order(c: ApiContext = Depends(ctx), claims: TokenClaims = Depen
 
 @router.get("")
 async def list_orders(c: ApiContext = Depends(ctx), claims: TokenClaims = Depends(current_customer)) -> list[dict]:
-    return await c.accounts.customer_orders(claims.sub)
+    """The customer's orders; drafts only count once something has been filled in."""
+    rows = await c.accounts.customer_orders(claims.sub)
+    out = []
+    for row in rows:
+        if row["stage"] == "draft" and not has_details(await get_order(c.graph, row["id"])):
+            continue
+        out.append(row)
+    return out
 
 
 @router.get("/{order_id}")

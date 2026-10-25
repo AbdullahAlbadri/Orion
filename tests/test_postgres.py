@@ -2,7 +2,7 @@
 
 import asyncio
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import psycopg
 import pytest
@@ -160,7 +160,7 @@ async def test_worker_fires_deadlines(pg_url):
         assert [x["outcome"] for x in order["manufacturer_attempts"]] == ["no_reply", "waiting"]
 
         # A deadline for an order that is not waiting on a manufacturer is skipped, not retried forever
-        await scheduler.schedule(f"ghost-{run}", "manufacturer_reply", "x", datetime.now(timezone.utc))
+        await scheduler.schedule(f"ghost-{run}", "manufacturer_reply", "x", datetime.now(timezone.utc) - timedelta(minutes=1))
         assert (await fire_due(app, scheduler, pool))["skipped"] == 1
 
 
