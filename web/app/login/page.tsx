@@ -5,6 +5,7 @@ import { useCallback, useState } from "react";
 
 import GoogleButton from "@/components/GoogleButton";
 import { GlobeIcon } from "@/components/Icons";
+import LegalDrawer from "@/components/LegalDrawer";
 import { ApiError, startEmailLogin, verifyEmailLogin, type User } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
@@ -19,9 +20,12 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [legal, setLegal] = useState(false);
+
+  // /start sends new customers to onboarding and everyone else to the dashboard
   const done = useCallback((user: User) => {
     signedIn(user);
-    router.replace("/dashboard");
+    router.replace("/start");
   }, [signedIn, router]);
 
   async function submit(e: React.FormEvent) {
@@ -79,7 +83,14 @@ export default function LoginPage() {
         <button className="btn" disabled={busy}>{step === "email" ? t("sendCode") : t("verify")}</button>
         <div className="divider">{t("or")}</div>
         <GoogleButton onSignedIn={done} onError={setError} />
+        <p className="muted small" style={{ margin: 0 }}>
+          {lang === "ar" ? "بالمتابعة، أنت توافق على " : "By continuing, you agree to Orion's "}
+          <button type="button" className="link-btn" style={{ padding: 0 }} onClick={() => setLegal(true)}>
+            {lang === "ar" ? "الشروط والخصوصية" : "terms and privacy policy"}
+          </button>
+        </p>
       </form>
+      <LegalDrawer open={legal} onClose={() => setLegal(false)} />
     </div>
   );
 }

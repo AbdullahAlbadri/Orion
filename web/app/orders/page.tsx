@@ -1,152 +1,202 @@
 "use client";
 
+// Orders (docs/website/app/11-orders.md): every order, what needs attention first, filters, search and sort.
+// Totals and estimated arrival appear once quotes and shipments exist (no column until then).
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 
-import { ArrowNEIcon, BoxIcon, ChatIcon, FactoryIcon, LightbulbIcon, PlusIcon, ShirtIcon } from "@/components/Icons";
-import ImpactStats from "@/components/ImpactStats";
-import ProgressRing from "@/components/ProgressRing";
-import TopoTexture from "@/components/TopoTexture";
+import { BoxIcon, SearchIcon } from "@/components/Icons";
+import { Empty, PageHead, ProductThumb, StatusChip, Tabs } from "@/components/ui";
 import { api, type OrderRow } from "@/lib/api";
 import { useRequireUser } from "@/lib/auth";
-import { productName, useLang, type TextKey } from "@/lib/i18n";
-import { bucket, journeyPercent, type Bucket } from "@/lib/journey";
+import { ago, COMMON, formatDate, NAV, t } from "@/lib/copy";
+import { HOME } from "@/lib/home";
+import { useLang } from "@/lib/i18n";
+import { useMe } from "@/lib/me";
+import { ACTIONS, chipTone, groupOf, needsAction, orderName, type Group } from "@/lib/orders";
 
-const PILL: Record<Bucket, TextKey> = {
-  draft: "pillDraft", confirm: "pillConfirm", factories: "withFactories", done: "stepDelivered",
+const C = {
+  sub: t("كل طلباتك، وما يحتاجك في الأعلى.", "All your orders, with what needs you at the top."),
+  attention: t("بحاجة لانتباهك", "Needs your attention"),
+  active: t("جارية", "Active"), delivered: t("مُسلّمة", "Delivered"), closed: t("مغلقة", "Closed"), drafts: t("مسودات", "Drafts"),
+  allMarkets: t("كل المجالات", "All markets"),
+  searchPh: t("اسم المنتج أو رقم الطلب", "Product name or reference"),
+  sortUpdated: t("الأحدث تحديثًا", "Last update"), sortCreated: t("تاريخ الإنشاء", "Date created"),
+  from: t("من", "From"), to: t("إلى", "To"),
+  product: t("المنتج", "Product"), reference: t("رقم الطلب", "Reference"), market: t("المجال", "Market"),
+  status: t("الحالة", "Status"), updated: t("آخر تحديث", "Last update"), created: t("أُنشئ", "Created"),
+  discard: t("حذف المسودة", "Discard draft"), discardSure: t("حذف هذه المسودة؟", "Discard this draft?"),
+  keep: t("إبقاء", "Keep"), yes: t("حذف", "Discard"),
+  none: t("لا طلبات هنا.", "No orders here."),
+  noneText: t("صف ما تريد صنعه، ونتولى المصنع والشحن.", "Describe what you want to make, and we handle the factory and shipping."),
+  noMatch: t("لا نتائج لهذا البحث.", "Nothing matches this search."),
 };
 
-export default function Dashboard() {
+type Filter = Group | "all";
+
+export default function OrdersPage() {
   const user = useRequireUser();
-  const { t, lang } = useLang();
+  const { lang } = useLang();
+  const { calendar } = useMe();
+  const router = useRouter();
+  const L = (x: Record<"ar" | "en", string>) => x[lang];
   const [orders, setOrders] = useState<OrderRow[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+  const [filter, setFilter] = useState<Filter>("all");
+  const [market, setMarket] = useState("");
+  const [q, setQ] = useState("");
+  const [sort, setSort] = useState<"updated" | "created">("updated");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
   const [confirming, setConfirming] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user) api<OrderRow[]>("/orders").then(setOrders).catch(() => setError(t("error")));
-  }, [user, t]);
+    if (!user) return;
+    const load = () => api<OrderRow[]>("/orders").then(setOrders);
+    load().catch(() => setError(true));
+    const timer = setInterval(() => { if (!document.hidden) load().catch(() => {}); }, 60_000);
+    return () => clearInterval(timer);
+  }, [user]);
 
-  if (!user || orders === null) return <p className={error ? "error" : "muted"}>{error ?? t("loading")}</p>;
+  const marketName = (id: string | null) => {
+    const m = HOME.markets.items.find((x) => x.id === id);
+    return m ? m.name[lang] : "—";
+  };
 
-  const counts = { draft: 0, confirm: 0, factories: 0 };
-  for (const o of orders) {
-    const b = bucket(o.stage);
-    if (b !== "done") counts[b] += 1;
-  }
-  const latest = orders[0];
-  const firstDraft = orders.find((o) => bucket(o.stage) === "draft");
-  const firstConfirm = orders.find((o) => bucket(o.stage) === "confirm");
+  const counts = useMemo(() => {
+    const c: Record<Filter, number> = { active: 0, delivered: 0, closed: 0, draft: 0, all: orders?.length ?? 0 };
+    for (const o of orders ?? []) c[groupOf(o.stage)] += 1;
+    return c;
+  }, [orders]);
+
+  const shown = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return (orders ?? [])
+      .filter((o) => filter === "all" || groupOf(o.stage) === filter)
+      .filter((o) => !market || o.market === market)
+      .filter((o) => !from || o.created_at.slice(0, 10) >= from)
+      .filter((o) => !to || o.created_at.slice(0, 10) <= to)
+      .filter((o) => !needle || o.id.toLowerCase().includes(needle) || orderName(o, "ar").toLowerCase().includes(needle)
+        || orderName(o, "en").toLowerCase().includes(needle))
+      .sort((a, b) => (sort === "updated" ? b.updated_at.localeCompare(a.updated_at) : b.created_at.localeCompare(a.created_at)));
+  }, [orders, filter, market, q, sort, from, to]);
+
+  if (!user || !orders) return <p className={error ? "error" : "muted"}>{error ? L(COMMON.error) : L(COMMON.loading)}</p>;
+
+  const attention = orders.filter(needsAction);
+  const markets = Array.from(new Set(orders.map((o) => o.market).filter(Boolean))) as string[];
 
   async function discard(id: string) {
     try {
       await api(`/orders/${encodeURIComponent(id)}/discard`, { method: "POST" });
       setOrders((list) => (list ?? []).filter((o) => o.id !== id));
     } catch {
-      setError(t("error"));
+      setError(true);
     }
     setConfirming(null);
   }
-  const date = (iso: string) =>
-    new Date(iso).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-GB", { day: "numeric", month: "long" });
 
   return (
     <>
-      <div className="section-title" style={{ marginTop: 8 }}><h2>{t("overview")}</h2></div>
+      <PageHead title={L(NAV.orders)} sub={L(C.sub)} />
 
-      <div className="overview">
-        {latest ? (
-          <Link href={`/orders/${latest.id}`} className="product-card">
-            <div className="spread">
-              <span className="label">{t("latestOrder")}</span>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img className="mark" src="/brand/mark-gold.png" alt="" />
-            </div>
-            <div>
-              <div className="big">{productName(latest.option, lang)}</div>
-              <div className="label">{latest.quantity ? `${latest.quantity} ${t("pieces")}` : t("stepDescribe")}</div>
-            </div>
-            <div className="spread">
-              <span className={`pill ${bucket(latest.stage)}`}>{t(PILL[bucket(latest.stage)])}</span>
-              <span className="label">{date(latest.updated_at)}</span>
-            </div>
-          </Link>
-        ) : (
-          <Link href="/orders/new" className="product-card">
-            <span className="label">{t("newOrder")}</span>
-            <div className="big">{t("startHint")}</div>
-            <span className="btn btn-sm" style={{ alignSelf: "flex-start" }}><PlusIcon width={18} height={18} /> {t("newOrder")}</span>
-          </Link>
-        )}
+      {orders.length === 0 ? (
+        <Empty icon={<BoxIcon />} title={L(C.none)} text={L(C.noneText)}
+          action={<Link href="/orders/new" className="btn">{L(COMMON.startFirst)}</Link>} />
+      ) : (
+        <>
+          {attention.length > 0 && (
+            <section style={{ marginBottom: 24 }}>
+              <h2>{L(C.attention)}</h2>
+              <div className="attention">
+                {attention.map((o) => (
+                  <div key={o.id} className="attention-item">
+                    <span className="dot" aria-hidden />
+                    <ProductThumb option={o.option} size={40} />
+                    <div className="grow stack-sm">
+                      <strong className="ellipsis">{L(ACTIONS[o.stage].label)}</strong>
+                      <span className="muted small ellipsis">{orderName(o, lang)} · <span className="mono">{o.id}</span></span>
+                    </div>
+                    <Link href={`/orders/${o.id}`} className="btn btn-sm">{L(ACTIONS[o.stage].button)}</Link>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
-        <div className="board board-ink cross spread" style={{ alignItems: "center", justifyContent: "space-around" }}>
-          <TopoTexture />
-          <ProgressRing percent={latest ? journeyPercent(latest.stage) : 0} label={t("progress")} />
-          <div className="stack" style={{ gap: 4 }}>
-            <span className="muted small">{t("journey")}</span>
-            <strong style={{ fontSize: 18 }}>{latest ? productName(latest.option, lang) : "—"}</strong>
+          <div className="toolbar">
+            <Tabs<Filter> value={filter} onChange={setFilter} options={[
+              { key: "active", label: L(C.active), count: counts.active },
+              { key: "delivered", label: L(C.delivered), count: counts.delivered },
+              { key: "closed", label: L(C.closed), count: counts.closed },
+              { key: "draft", label: L(C.drafts), count: counts.draft },
+              { key: "all", label: L(COMMON.all), count: counts.all },
+            ]} />
           </div>
-        </div>
-      </div>
-
-      <div className="grid-stats" style={{ marginTop: 16 }}>
-        <Stat variant="paper" icon={<BoxIcon />} label={t("statDrafts")} value={counts.draft}
-          hint={firstDraft ? { label: t("continueOrder"), href: `/orders/${firstDraft.id}` } : undefined} />
-        <Stat variant="signal" icon={<ChatIcon />} label={t("statConfirm")} value={counts.confirm}
-          hint={firstConfirm ? { label: t("reviewSummary"), href: `/orders/${firstConfirm.id}` } : undefined} />
-        <Stat variant="ink" icon={<FactoryIcon />} label={t("withFactories")} value={counts.factories} />
-      </div>
-
-      <ImpactStats />
-
-      <div className="section-title" id="list"><h2>{t("myOrders")}</h2></div>
-      <div className="board board-glass" style={{ padding: 10 }}>
-        {orders.length === 0 ? (
-          <p className="muted" style={{ padding: 14, margin: 0 }}>{t("noOrders")}</p>
-        ) : (
-          <div className="list">
-            {orders.map((o) => (
-              <Link key={o.id} href={`/orders/${o.id}`} className="list-row">
-                <span className="avatar"><ShirtIcon /></span>
-                <span className="cell-value">{productName(o.option, lang)}</span>
-                <span className="hide-sm"><div className="cell-label">{t("date")}</div><div className="cell-value">{date(o.created_at)}</div></span>
-                <span className="hide-sm"><div className="cell-label">{t("quantity")}</div><div className="cell-value">{o.quantity ?? "—"}</div></span>
-                <span className="hide-sm"><span className={`pill ${bucket(o.stage)}`}>{t(PILL[bucket(o.stage)])}</span></span>
-                <span className="discard-cell">{bucket(o.stage) === "draft" && (confirming === o.id ? (
-                  <span className="row" onClick={(e) => e.preventDefault()}>
-                    <span className="muted small">{t("discardConfirm")}</span>
-                    <button type="button" className="btn btn-sm" onClick={() => discard(o.id)}>{t("discard")}</button>
-                    <button type="button" className="btn-ghost btn-sm" onClick={() => setConfirming(null)}>{t("keep")}</button>
-                  </span>
-                ) : (
-                  <button type="button" className="link-btn hide-sm" aria-label={t("discard")}
-                    onClick={(e) => { e.preventDefault(); setConfirming(o.id); }}>{t("discard")}</button>
-                ))}</span>
-                <span className="btn-outline">{t("open")}</span>
-              </Link>
-            ))}
+          <div className="toolbar">
+            <label className="search">
+              <SearchIcon width={18} height={18} />
+              <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={L(C.searchPh)} aria-label={L(COMMON.search)} />
+            </label>
+            {markets.length > 1 && (
+              <select value={market} onChange={(e) => setMarket(e.target.value)} aria-label={L(C.market)}>
+                <option value="">{L(C.allMarkets)}</option>
+                {markets.map((m) => <option key={m} value={m}>{marketName(m)}</option>)}
+              </select>
+            )}
+            <label className="row small muted">{L(C.from)} <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
+            <label className="row small muted">{L(C.to)} <input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
+            <select value={sort} onChange={(e) => setSort(e.target.value as "updated" | "created")} aria-label="sort">
+              <option value="updated">{L(C.sortUpdated)}</option>
+              <option value="created">{L(C.sortCreated)}</option>
+            </select>
           </div>
-        )}
-      </div>
-    </>
-  );
-}
 
-function Stat({ icon, label, value, variant, hint }: {
-  icon: React.ReactNode; label: string; value: number; variant: "paper" | "signal" | "ink";
-  hint?: { label: string; href: string };
-}) {
-  return (
-    <div className={`board board-${variant} cross stat`}>
-      {variant === "ink" && <TopoTexture />}
-      <span className="icon">{icon}</span>
-      <span className="muted">{label}</span>
-      <span className="value">{value}</span>
-      {hint && (
-        <Link href={hint.href} className="hint-chip" style={{ alignSelf: "flex-start" }}>
-          <LightbulbIcon /> {hint.label} <ArrowNEIcon />
-        </Link>
+          {shown.length === 0 ? <p className="muted">{L(C.noMatch)}</p> : (
+            <table className="table">
+              <thead>
+                <tr><th>{L(C.product)}</th><th>{L(C.reference)}</th><th>{L(C.market)}</th><th>{L(C.status)}</th>
+                  <th>{L(C.updated)}</th><th aria-label="actions" /></tr>
+              </thead>
+              <tbody>
+                {shown.map((o) => {
+                  const group = groupOf(o.stage);
+                  return (
+                    <tr key={o.id} className="click" onClick={() => router.push(`/orders/${o.id}`)}>
+                      <td><div className="cell-product"><ProductThumb option={o.option} size={44} />
+                        <strong className="ellipsis">{orderName(o, lang)}</strong></div></td>
+                      <td data-label={L(C.reference)}><span className="mono">{o.id}</span></td>
+                      <td data-label={L(C.market)}>{marketName(o.market)}</td>
+                      <td data-label={L(C.status)}><StatusChip status={o.status} tone={chipTone(o)} /></td>
+                      <td data-label={L(C.updated)}><span title={formatDate(o.updated_at, lang, calendar, true)}>{ago(o.updated_at, lang)}</span></td>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <div className="row" style={{ justifyContent: "flex-end" }}>
+                          {group === "draft" && o.stage === "draft" && (confirming === o.id ? (
+                            <>
+                              <span className="muted small">{L(C.discardSure)}</span>
+                              <button type="button" className="btn btn-sm" onClick={() => discard(o.id)}>{L(C.yes)}</button>
+                              <button type="button" className="btn-ghost btn-sm" onClick={() => setConfirming(null)}>{L(C.keep)}</button>
+                            </>
+                          ) : (
+                            <button type="button" className="link-btn" onClick={() => setConfirming(o.id)}>{L(C.discard)}</button>
+                          ))}
+                          {group === "delivered" && o.product_id && (
+                            <Link href={`/products/${o.product_id}`} className="btn-outline">{L(COMMON.reorder)}</Link>
+                          )}
+                          <Link href={`/orders/${o.id}`} className="btn-outline">
+                            {group === "draft" ? L(COMMON.continueDraft) : L(COMMON.open)}
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </>
       )}
-    </div>
+    </>
   );
 }
