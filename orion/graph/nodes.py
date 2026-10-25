@@ -70,6 +70,7 @@ def _context(state: OrderState, spec: ProductSpec, messages: list[dict]) -> Cons
     custom = spec.option == CUSTOM_OPTION
     return ConsultContext(
         order_id=state.get("order_id", ""),
+        business=state.get("business") or {},
         images=_images(spec),
         custom=custom,
         max_questions=MAX_FOLLOW_UPS_CUSTOM if custom else MAX_FOLLOW_UPS,
@@ -115,10 +116,37 @@ def apply_updates(spec: ProductSpec, questions: list[Question], updates: list[An
 
 # --- nodes ----------------------------------------------------------------------
 
+def _prefilled_spec(market: Market, option_id: str, prefill: dict) -> ProductSpec:
+    """A reorder starts from the earlier order's answers. Answers that no longer validate are dropped,
+    so a changed question list never carries a stale value into the new order."""
+    spec = ProductSpec(market=market.id, option=option_id)
+    questions = {q.id: q for q in get_questions(market.id, option_id)}
+    labels, sections = prefill.get("labels") or {}, prefill.get("sections") or {}
+    for qid, raw in (prefill.get("answers") or {}).items():
+        question = questions.get(qid)
+        if question is None:
+            # A detail the AI asked about last time: keep it, with its wording and section
+            if isinstance(raw, (str, int, float)) and not is_blank(raw):
+                spec.set_answer(qid, raw)
+                if qid in labels:
+                    spec.labels[qid] = labels[qid]
+                if sections.get(qid):
+                    spec.sections[qid] = sections[qid]
+            continue
+        try:
+            spec.set_answer(qid, validate_answer(question, raw))
+        except InvalidAnswer as e:
+            log.info("reorder: dropped %s=%r: %s", qid, raw, e)
+    return spec
+
+
 def select_market(state: OrderState) -> dict:
     options = {m.id: m.name for m in MARKETS.values()}
     names_ar = {m.id: m.name_ar for m in MARKETS.values()}
     reply = state.get("reply")
+    prefill = state.get("prefill") or {}
+    if reply is None and prefill.get("market") in options:
+        return {"market": prefill["market"], "pending": None}
     if reply is not None:
         market_id = _match_choice(_reply_value(reply, "choice"), options)
         if market_id:
@@ -141,6 +169,10 @@ def pick_option(state: OrderState) -> dict:
     options = {o.id: o.name for o in market.options.values()}
     names_ar = {o.id: o.name_ar for o in market.options.values()}
     reply = state.get("reply")
+    prefill = state.get("prefill") or {}
+    if reply is None and prefill.get("option") in options:
+        spec = _prefilled_spec(market, prefill["option"], prefill)
+        return {"spec": spec.model_dump(), "pending": None, "prefill": None, **_lang(prefill)}
     if reply is not None:
         option_id = _match_choice(_reply_value(reply, "choice"), options)
         if option_id:

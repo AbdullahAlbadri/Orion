@@ -1,7 +1,8 @@
 """Customer order routes. A customer only ever sees their own orders, through customer_order_view."""
 
 import uuid
-from typing import Any, Literal
+from datetime import datetime, timedelta, timezone
+from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, status
 from pydantic import BaseModel, Field
@@ -9,9 +10,11 @@ from pydantic import BaseModel, Field
 from orion.api.context import ApiContext, ctx, current_customer
 from orion.api.files import file_ids_in, file_response, store_upload
 from orion.api.security import TokenClaims
-from orion.api.views import customer_order_view
+from orion.api.views import customer_order_view, order_title, summary_for_version
 from orion.config.markets import MARKETS, get_questions
 from orion.config.stats import HOURS_PER_FACTORY, HOURS_PER_MESSAGE, HOURS_PER_SPEC
+from orion.config.status_labels import UNSUBMITTED, stage_owner, status_label
+from orion.db.insights import order_rows, stage_segments, summarize_orders, summarize_time
 from orion.spec import Section
 from orion.tools.assist import safe_answer
 from orion.graph.graph import OrderNotWaiting, get_order, waiting_on
@@ -60,7 +63,43 @@ async def create_order(c: ApiContext = Depends(ctx), claims: TokenClaims = Depen
         await discard_order(c.graph, c.pool, row["id"])
     order_id = f"ord_{uuid.uuid4().hex[:12]}"
     await c.accounts.create_order(order_id, claims.sub)
-    await start_customer_order(c.graph, c.pool, order_id)
+    await start_customer_order(c.graph, c.pool, order_id, business=await c.profile.business_for_ai(claims.sub))
+    return await _view(c, order_id)
+
+
+def _remap_files(answers: dict, new_ids: dict[str, str]) -> dict:
+    """Point a copied order's file answers at the new order's copies; drop files that were not copied."""
+    out = {}
+    for qid, value in answers.items():
+        if isinstance(value, list) and value and all(isinstance(v, dict) and "file_id" in v for v in value):
+            value = [{**v, "file_id": new_ids[str(v["file_id"])]} for v in value if str(v["file_id"]) in new_ids]
+            if not value:
+                continue
+        out[qid] = value
+    return out
+
+
+async def reorder(c: ApiContext, customer_id: str, source_order_id: str) -> dict:
+    """A new order pre-filled from an earlier one. TODO(decide): which steps a reorder may skip; for now
+    none: the customer reviews the form, answers any new questions and confirms a new summary."""
+    source = await get_order(c.graph, source_order_id)
+    spec = source.get("spec") or {}
+    if not spec.get("frozen"):
+        raise HTTPException(status.HTTP_409_CONFLICT, "only confirmed orders can be reordered")
+    order_id = f"ord_{uuid.uuid4().hex[:12]}"
+    await c.accounts.create_order(order_id, customer_id, reorder_of=source_order_id)
+    new_ids = await c.accounts.copy_files(source_order_id, order_id, customer_id)
+    prefill = {
+        "market": source.get("market"),
+        "option": spec.get("option"),
+        "answers": _remap_files(spec.get("answers") or {}, new_ids),
+        "labels": spec.get("labels") or {},
+        "sections": spec.get("sections") or {},
+        "lang": source.get("lang"),
+    }
+    await start_customer_order(
+        c.graph, c.pool, order_id, business=await c.profile.business_for_ai(customer_id), prefill=prefill
+    )
     return await _view(c, order_id)
 
 
@@ -70,15 +109,32 @@ async def list_orders(c: ApiContext = Depends(ctx), claims: TokenClaims = Depend
     rows = await c.accounts.customer_orders(claims.sub)
     out = []
     for row in rows:
-        if row["stage"] == "draft" and not has_details(await get_order(c.graph, row["id"])):
-            continue
-        out.append(row)
+        state = None
+        if row["stage"] == "draft" or row["option"] == "custom":
+            state = await get_order(c.graph, row["id"])
+            if row["stage"] == "draft" and not has_details(state):
+                continue
+        out.append({
+            **row,
+            "title": order_title(state) if state else None,     # custom products: the customer's own words
+            "status": status_label(row["stage"]),
+            "waiting_on": stage_owner(row["stage"]),
+        })
     return out
 
 
+RANGES = {"month": timedelta(days=31), "quarter": timedelta(days=92), "year": timedelta(days=366)}
+
+
 @router.get("/stats")
-async def stats(c: ApiContext = Depends(ctx), claims: TokenClaims = Depends(current_customer)) -> dict:
-    """What Orion has done for this customer. Counts are real; time saved is an estimate (see config/stats.py)."""
+async def stats(
+    range: Literal["month", "quarter", "year", "all"] = "all",
+    c: ApiContext = Depends(ctx), claims: TokenClaims = Depends(current_customer),
+) -> dict:
+    """What Orion has done for this customer. Counts are real; time saved is an estimate (see config/stats.py).
+    `orders`, `time` and `order_list` follow the date range (orders created in it); the rest is all-time."""
+    since = datetime.now(timezone.utc) - RANGES[range] if range in RANGES else None
+    rows = await order_rows(c.pool, claims.sub, since)
     a = await c.accounts.customer_activity(claims.sub)
     specs = a["submitted"]
     hours = specs * HOURS_PER_SPEC + a["factories"] * HOURS_PER_FACTORY + a["messages"] * HOURS_PER_MESSAGE
@@ -93,7 +149,42 @@ async def stats(c: ApiContext = Depends(ctx), claims: TokenClaims = Depends(curr
         "time_saved_hours": round(hours, 1),
         "time_saved_basis": {"per_spec": HOURS_PER_SPEC, "per_factory": HOURS_PER_FACTORY, "per_message": HOURS_PER_MESSAGE},
         "money_saved": None,   # TODO(decide): needs priced orders and a baseline (config/stats.py)
+        "spend": None,         # TODO(decide): payment provider; spend, cost breakdown, landed cost come from payments
+        "range": range,
+        "orders": summarize_orders(rows),
+        "time": summarize_time(await stage_segments(c.pool, claims.sub, since)),
+        "order_list": [
+            {"id": r["id"], "option": r["option"], "market": r["market"], "stage": r["stage"],
+             "status": status_label(r["stage"]), "quantity": r["quantity"], "revisions": r["revisions"],
+             "mismatches_caught": r["mismatches_caught"], "created_at": r["created_at"]}
+            for r in rows if r["stage"] not in UNSUBMITTED
+        ],
     }
+
+
+@router.get("/documents")
+async def documents(c: ApiContext = Depends(ctx), claims: TokenClaims = Depends(current_customer)) -> list[dict]:
+    """Every pre-receipt version and uploaded file across the customer's orders. Orion-made documents
+    (quotes, invoices, shipping and customs paperwork) join this list as those stages are built."""
+    rows = await c.accounts.customer_orders(claims.sub)
+    docs: list[dict] = []
+    for row in rows:
+        if row["stage"] not in UNSUBMITTED or row["stage"] == "pre_receipt_review":
+            state = await get_order(c.graph, row["id"])
+            title = order_title(state)
+            versions = state.get("spec_versions") or []
+            for i, _ in enumerate(versions, start=1):
+                docs.append({"kind": "pre_receipt", "order_id": row["id"], "option": row["option"], "title": title,
+                             "version": i, "status": "confirmed", "created_at": row["created_at"]})
+            if row["stage"] == "pre_receipt_review":
+                docs.append({"kind": "pre_receipt", "order_id": row["id"], "option": row["option"], "title": title,
+                             "version": None, "status": "needs_review", "created_at": row["updated_at"]})
+    by_order = {r["id"]: r for r in rows}
+    for f in await c.accounts.order_files(list(by_order)):
+        docs.append({"kind": "upload", "order_id": f["order_id"], "option": by_order[f["order_id"]]["option"],
+                     "file_id": f["id"], "name": f["name"], "content_type": f["content_type"], "size": f["size"],
+                     "created_at": f["created_at"]})
+    return docs
 
 
 @router.get("/{order_id}")
@@ -102,6 +193,19 @@ async def get_customer_order(
 ) -> dict:
     await _owned(c, order_id, claims)
     return await _view(c, order_id)
+
+
+@router.get("/{order_id}/receipt")
+async def receipt(
+    order_id: str, version: Optional[int] = None, lang: Literal["ar", "en"] = "ar",
+    c: ApiContext = Depends(ctx), claims: TokenClaims = Depends(current_customer),
+) -> dict:
+    """A pre-receipt: a confirmed version (1, 2, ...) or, without `version`, the current one."""
+    await _owned(c, order_id, claims)
+    summary = summary_for_version(await get_order(c.graph, order_id), version, lang)
+    if summary is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "no pre-receipt for this version")
+    return summary
 
 
 class AssistRequest(BaseModel):

@@ -14,6 +14,9 @@ from orion.tools.files import FileStore
 from orion.api.security import InvalidToken, TokenClaims, decode_access_token
 from orion.config.settings import Settings
 from orion.db.accounts import AccountStore
+from orion.db.inbox import InboxStore
+from orion.db.products import ProductStore
+from orion.db.profile import ProfileStore
 from orion.deps import Deps
 from orion.tools.email import EmailSender
 
@@ -30,6 +33,12 @@ class ApiContext:
     assistant: Optional[Assistant] = None
     files: Optional[FileStore] = None
     assist_limit: SlidingWindowLimit = field(default_factory=lambda: SlidingWindowLimit(30, 3600))
+    support_limit: SlidingWindowLimit = field(default_factory=lambda: SlidingWindowLimit(10, 3600))
+
+    def __post_init__(self):
+        self.profile = ProfileStore(self.pool)
+        self.inbox = InboxStore(self.pool)
+        self.products = ProductStore(self.pool)
 
     @property
     def jwt_secret(self) -> str:

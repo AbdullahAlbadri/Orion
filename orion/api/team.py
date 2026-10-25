@@ -1,9 +1,10 @@
-"""Team routes (console): orders needing a human, outbox, pasted manufacturer replies, manufacturers, members."""
+"""Team routes (console): orders needing a human, outbox, pasted manufacturer replies, manufacturers, members,
+and customer help requests."""
 
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
-from pydantic import BaseModel, EmailStr
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from pydantic import BaseModel, EmailStr, Field
 
 from orion.api.context import ApiContext, ctx, team_member
 from orion.api.files import file_response
@@ -122,3 +123,38 @@ async def members(c: ApiContext = Depends(ctx), _: TokenClaims = Depends(admin))
 @router.post("/members", status_code=status.HTTP_201_CREATED)
 async def add_member(body: NewMember, c: ApiContext = Depends(ctx), _: TokenClaims = Depends(admin)) -> dict:
     return await c.accounts.add_team_member(body.email, body.name, body.role)
+
+
+# --- help requests from customers ----------------------------------------------------
+
+class SupportReply(BaseModel):
+    body: str = Field("", max_length=4000)      # empty = only change the status
+    status: Literal["open", "waiting_customer", "resolved"] = "waiting_customer"
+
+
+@router.get("/support")
+async def support_requests(
+    status_filter: Optional[Literal["open", "waiting_customer", "resolved"]] = Query(None, alias="status"),
+    c: ApiContext = Depends(ctx), _: TokenClaims = Depends(agent),
+) -> list[dict]:
+    return await c.inbox.team_requests(status_filter)
+
+
+@router.get("/support/{request_id}")
+async def support_request(request_id: str, c: ApiContext = Depends(ctx), _: TokenClaims = Depends(agent)) -> dict:
+    row = await c.inbox.request(None, request_id)
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "request not found")
+    return row
+
+
+@router.post("/support/{request_id}/reply")
+async def reply_support(
+    request_id: str, body: SupportReply, c: ApiContext = Depends(ctx), member: TokenClaims = Depends(agent)
+) -> dict:
+    """Answer a customer. The reply also shows in their Messages. Never promise a price or a change here
+    that the team has not agreed (rule 1)."""
+    row = await c.inbox.team_reply(request_id, member.email, body.body.strip(), body.status)
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "request not found")
+    return row

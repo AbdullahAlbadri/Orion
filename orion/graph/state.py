@@ -23,6 +23,12 @@ class OrderState(TypedDict, total=False):
     needs_human: Optional[str]     # latest reason the team must step in
     human_tasks: list[dict]        # every flag: {"reason", "at", ...context}
     spec_versions: list[dict]      # frozen spec history
+    # What the customer wrote about their business (name, type, what they sell), read by the consultant.
+    # Copied in when the order starts; never customs identifiers.
+    business: Optional[dict]
+    # Reorder: {"market", "option", "answers", "labels", "sections"} from an earlier order. Used once to skip
+    # the product choice and fill in the form; the customer still reviews and confirms every step.
+    prefill: Optional[dict]
 
     # Manufacturer phase
     spec_zh: Optional[dict]        # {"product_zh", "fields": [{"id", "label_zh", "value_zh"}]}

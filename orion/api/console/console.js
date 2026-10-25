@@ -249,6 +249,53 @@ async function pageTeam() {
   );
 }
 
+// --- help requests ------------------------------------------------------------------------
+const TOPICS = { order: "Order question", change: "Change / cancellation", price: "Price / quote", delivery: "Delivery / goods",
+  account: "Account", other: "Other" };
+const REQUEST_STATUS = { open: "Open (team's turn)", waiting_customer: "Waiting for the customer", resolved: "Resolved" };
+
+async function pageSupport() {
+  const rows = await api("/team/support");
+  show(
+    h("h1", {}, "Help requests"),
+    h("p", { class: "muted" }, "Customers' questions. People answer these, never the AI. Price or change requests: never promise anything the team has not agreed."),
+    rows.length ? h("div", { class: "table-wrap" }, h("table", {},
+      h("thead", {}, h("tr", {}, ["#", "Customer", "Topic", "Order", "Status", "Last message", "Updated"].map((t) => h("th", {}, t)))),
+      h("tbody", {}, rows.map((r) => h("tr", { class: "click", on: { click: () => (location.hash = `#/request/${r.id}`) } },
+        h("td", {}, r.ref), h("td", {}, r.customer_email), h("td", {}, TOPICS[r.topic] || r.topic), h("td", {}, r.order_id || ""),
+        h("td", {}, r.status === "open" ? h("span", { class: "flag" }, REQUEST_STATUS[r.status]) : REQUEST_STATUS[r.status]),
+        h("td", {}, `${r.last_author === "team" ? "Team: " : ""}${(r.last_message || "").slice(0, 80)}`),
+        h("td", { class: "muted" }, when(r.updated_at)),
+      ))),
+    )) : h("p", { class: "muted" }, "No requests yet."),
+  );
+}
+
+async function pageRequest(id) {
+  const r = await api(`/team/support/${encodeURIComponent(id)}`);
+  const body = h("textarea", { placeholder: "Reply to the customer (shown in their Messages and Help pages)" });
+  const status = h("select", {}, Object.entries(REQUEST_STATUS).map(([k, v]) =>
+    h("option", { value: k, selected: k === "waiting_customer" }, v)));
+  const msg = h("div");
+  const send = h("button", {}, "Send");
+  send.addEventListener("click", async () => {
+    try { await api(`/team/support/${encodeURIComponent(id)}/reply`, { method: "POST", body: { body: body.value, status: status.value } }); route(); }
+    catch (e) { msg.replaceChildren(errorBox(e.message)); }
+  });
+  show(
+    h("p", {}, h("a", { href: "#/support" }, "← back")),
+    h("h1", {}, `Request #${r.ref} · ${TOPICS[r.topic] || r.topic}`),
+    h("div", { class: "card" },
+      h("div", { class: "row" }, h("strong", {}, "Customer:"), r.customer_email, h("strong", {}, "Status:"), REQUEST_STATUS[r.status],
+        r.order_id ? h("a", { href: `#/order/${r.order_id}` }, `Order ${r.order_id}`) : null),
+      Object.keys(r.context || {}).length ? kv(r.context) : null,
+    ),
+    h("div", { class: "card" }, r.messages.map((m) => h("div", { class: "msg" },
+      h("div", { class: "muted" }, `${m.author === "team" ? "Team" : "Customer"} · ${when(m.created_at)}`), h("pre", {}, m.body)))),
+    h("div", { class: "card" }, h("h2", {}, "Reply"), body, h("div", { class: "row" }, "Then mark as:", status, send), msg),
+  );
+}
+
 // --- routing --------------------------------------------------------------------------
 async function route() {
   if (!token) return renderLogin();
@@ -256,7 +303,9 @@ async function route() {
   document.querySelectorAll("nav a").forEach((a) => a.classList.toggle("active", a.getAttribute("href") === `#${path}`));
   try {
     if (path.startsWith("/order/")) return await pageOrder(decodeURIComponent(path.slice(7)));
-    const pages = { "/attention": pageAttention, "/orders": pageOrders, "/outbox": pageOutbox, "/manufacturers": pageManufacturers, "/team": pageTeam };
+    if (path.startsWith("/request/")) return await pageRequest(decodeURIComponent(path.slice(9)));
+    const pages = { "/attention": pageAttention, "/orders": pageOrders, "/support": pageSupport, "/outbox": pageOutbox,
+      "/manufacturers": pageManufacturers, "/team": pageTeam };
     await (pages[path] || pageAttention)();
   } catch (e) {
     if (token) show(errorBox(e.message));

@@ -189,6 +189,9 @@ async def test_spec_mismatch_needs_real_quote_text(make_order):
     tasks = [t["reason"] for t in (await get_order(app, "o1"))["human_tasks"]]
     assert any("fabric_gsm" in t for t in tasks)
     assert not any("colors" in t for t in tasks)
+    # Recorded with the field, for the customer's "mismatches caught" and the stats page
+    mismatches = [t for t in (await get_order(app, "o1"))["human_tasks"] if t.get("kind") == "mismatch"]
+    assert [m["field_id"] for m in mismatches] == ["fabric_gsm"]
 
 
 async def test_acknowledgement_keeps_waiting(make_order):

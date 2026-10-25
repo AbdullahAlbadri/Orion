@@ -41,13 +41,15 @@ def _spec(state: OrderState) -> ProductSpec:
     return ProductSpec.model_validate(state["spec"])
 
 
-def _with_tasks(state: OrderState, reasons: list[str], **context) -> dict:
-    """Append human tasks and point `needs_human` at the latest one."""
+def _with_tasks(state: OrderState, reasons: list[str | dict], **context) -> dict:
+    """Append human tasks and point `needs_human` at the latest one.
+    A reason is text, or {"reason": ..., **details} for tasks with structured details (spec mismatches)."""
     if not reasons:
         return {}
+    items = [r if isinstance(r, dict) else {"reason": r} for r in reasons]
     tasks = list(state.get("human_tasks", []))
-    tasks += [{"reason": r, "at": _now().isoformat(), **context} for r in reasons]
-    return {"human_tasks": tasks, "needs_human": reasons[-1]}
+    tasks += [{**item, "at": _now().isoformat(), **context} for item in items]
+    return {"human_tasks": tasks, "needs_human": items[-1]["reason"]}
 
 
 def _reply_deadline(days: int) -> tuple[datetime, list[str]]:
@@ -228,7 +230,7 @@ async def _handle_reply(
 
     spec = _spec(state)
     analysis = await agent.analyze_reply(spec, state["spec_zh"], text)
-    tasks: list[str] = []
+    tasks: list[str | dict] = []
     update: dict = {}
 
     # Negotiation: never answered by the AI. Code check plus the model's flag.
@@ -276,7 +278,10 @@ async def _handle_reply(
     known_fields = set(spec.answers) | {QUANTITY_ID}
     for m in analysis.mismatches:
         if m.field_id in known_fields and _squash(m.quoted_text) and _squash(m.quoted_text) in _squash(text):
-            tasks.append(f"Manufacturer differs from the spec on '{m.field_id}': {m.manufacturer_says}")
+            tasks.append({
+                "reason": f"Manufacturer differs from the spec on '{m.field_id}': {m.manufacturer_says}",
+                "kind": "mismatch", "field_id": m.field_id,
+            })
 
     attempts = [dict(a) for a in state.get("manufacturer_attempts", [])]
     attempt = next(a for a in attempts if a["manufacturer_id"] == manufacturer_id)

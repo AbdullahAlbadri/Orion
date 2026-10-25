@@ -15,6 +15,7 @@ from orion.api.security import (
     new_refresh_token,
     normalize_email,
 )
+from orion.config.status_labels import STAGE_UPDATES, UNSUBMITTED, stage_owner
 
 
 def _now() -> datetime:
@@ -198,10 +199,15 @@ class AccountStore:
 
     # --- orders -----------------------------------------------------------------
 
-    async def create_order(self, order_id: str, customer_id: str) -> None:
-        async with self.pool.connection() as conn:
+    async def create_order(self, order_id: str, customer_id: str, reorder_of: Optional[str] = None) -> None:
+        async with self.pool.connection() as conn, conn.transaction():
             await conn.execute(
-                "INSERT INTO orders (id, customer_id, stage) VALUES (%s, %s, 'draft')", (order_id, customer_id)
+                "INSERT INTO orders (id, customer_id, stage, reorder_of) VALUES (%s, %s, 'draft', %s)",
+                (order_id, customer_id, reorder_of),
+            )
+            await conn.execute(
+                "INSERT INTO order_stage_events (order_id, stage, waiting_on) VALUES (%s, 'draft', %s)",
+                (order_id, stage_owner("draft")),
             )
 
     async def order(self, order_id: str) -> Optional[dict]:
@@ -211,7 +217,8 @@ class AccountStore:
     async def customer_orders(self, customer_id: str) -> list[dict]:
         async with self.pool.connection() as conn:
             return await (await conn.execute(
-                "SELECT id, stage, market, option, quantity, created_at, updated_at FROM orders "
+                "SELECT id, stage, market, option, quantity, product_id, reorder_of, revisions, mismatches_caught, "
+                "created_at, updated_at FROM orders "
                 "WHERE customer_id = %s AND stage <> 'cancelled' ORDER BY updated_at DESC",
                 (customer_id,),
             )).fetchall()
@@ -241,6 +248,33 @@ class AccountStore:
                 "WHERE order_id = %s AND id::text = %s",
                 (order_id, file_id),
             )).fetchone()
+
+    async def order_files(self, order_ids: list[str]) -> list[dict]:
+        async with self.pool.connection() as conn:
+            return await (await conn.execute(
+                "SELECT id::text AS id, order_id, name, content_type, size, created_at FROM order_files "
+                "WHERE order_id = ANY(%s) ORDER BY created_at DESC",
+                (order_ids,),
+            )).fetchall()
+
+    async def copy_files(self, source_order: str, target_order: str, customer_id: str) -> dict[str, str]:
+        """Reorder: the new order gets its own rows for the earlier order's files (same stored bytes).
+        Returns old file id -> new file id."""
+        async with self.pool.connection() as conn:
+            rows = await (await conn.execute(
+                """
+                INSERT INTO order_files (order_id, customer_id, name, content_type, size, storage_key)
+                SELECT %(t)s, customer_id, name, content_type, size, storage_key FROM order_files
+                WHERE order_id = %(s)s AND customer_id = %(c)s
+                RETURNING id::text AS id, storage_key
+                """,
+                {"t": target_order, "s": source_order, "c": customer_id},
+            )).fetchall()
+            old = await (await conn.execute(
+                "SELECT id::text AS id, storage_key FROM order_files WHERE order_id = %s", (source_order,)
+            )).fetchall()
+        new_by_key = {r["storage_key"]: r["id"] for r in rows}
+        return {r["id"]: new_by_key[r["storage_key"]] for r in old if r["storage_key"] in new_by_key}
 
     async def file_ids(self, order_id: str) -> set[str]:
         async with self.pool.connection() as conn:
@@ -296,18 +330,67 @@ class AccountStore:
 
 
 async def sync_order_row(pool: AsyncConnectionPool, state: dict) -> None:
-    """Copy what the team and stats page query from the graph state into the orders table (rule 12)."""
+    """Copy what the team and stats page query from the graph state into the business tables (rule 12).
+
+    On a stage change it also records the stage history (with who the order now waits on), sends the
+    customer an update for stages they did not cause themselves, and saves the product once the summary
+    is confirmed. Runs in one transaction with the order row locked, so two processes can't double up.
+    """
     if not state.get("order_id"):
         return
+    order_id = state["order_id"]
     spec = state.get("spec") or {}
-    async with pool.connection() as conn:
+    stage = state.get("stage", "draft")
+    tasks = state.get("human_tasks") or []
+    mismatches = sum(1 for t in tasks if t.get("kind") == "mismatch")
+    revisions = max(len(state.get("spec_versions") or []) - 1, 0)
+    async with pool.connection() as conn, conn.transaction():
+        before = await (await conn.execute(
+            "SELECT stage, customer_id, reorder_of, product_id FROM orders WHERE id = %s FOR UPDATE", (order_id,)
+        )).fetchone()
         await conn.execute(
             """
-            INSERT INTO orders (id, stage, needs_human, market, option, quantity, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, now())
+            INSERT INTO orders (id, stage, needs_human, market, option, quantity, revisions, mismatches_caught, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, now())
             ON CONFLICT (id) DO UPDATE SET stage = EXCLUDED.stage, needs_human = EXCLUDED.needs_human,
-                market = EXCLUDED.market, option = EXCLUDED.option, quantity = EXCLUDED.quantity, updated_at = now()
+                market = EXCLUDED.market, option = EXCLUDED.option, quantity = EXCLUDED.quantity,
+                revisions = EXCLUDED.revisions, mismatches_caught = EXCLUDED.mismatches_caught, updated_at = now()
             """,
-            (state["order_id"], state.get("stage", "draft"), state.get("needs_human"),
-             state.get("market"), spec.get("option"), spec.get("quantity")),
+            (order_id, stage, state.get("needs_human"), state.get("market"), spec.get("option"),
+             spec.get("quantity"), revisions, mismatches),
         )
+        if before is None or before["stage"] != stage:
+            await conn.execute(
+                "INSERT INTO order_stage_events (order_id, stage, waiting_on) VALUES (%s, %s, %s)",
+                (order_id, stage, stage_owner(stage)),
+            )
+            customer = before["customer_id"] if before else None
+            if customer and (update := STAGE_UPDATES.get(stage)):
+                await conn.execute(
+                    """
+                    INSERT INTO notifications (customer_id, order_id, kind, event, title_en, title_ar, body_en, body_ar, href)
+                    VALUES (%s, %s, 'status', %s, %s, %s, %s, %s, %s)
+                    """,
+                    (customer, order_id, stage, update["title_en"], update["title_ar"],
+                     update.get("body_en"), update.get("body_ar"), f"/orders/{order_id}"),
+                )
+        if before and before["customer_id"] and before["product_id"] is None and stage not in UNSUBMITTED \
+                and state.get("market") and spec.get("option"):
+            await _save_product(conn, order_id, before, state["market"], spec["option"])
+
+
+async def _save_product(conn, order_id: str, row: dict, market: str, option: str) -> None:
+    """A confirmed order is a product; a reorder belongs to the product it was made from."""
+    product_id = None
+    if row["reorder_of"]:
+        source = await (await conn.execute(
+            "SELECT product_id FROM orders WHERE id = %s AND customer_id = %s", (row["reorder_of"], row["customer_id"])
+        )).fetchone()
+        product_id = source["product_id"] if source else None
+    if product_id is None:
+        await conn.execute(
+            "INSERT INTO products (id, customer_id, market, option) VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING",
+            (order_id, row["customer_id"], market, option),
+        )
+        product_id = order_id
+    await conn.execute("UPDATE orders SET product_id = %s WHERE id = %s", (product_id, order_id))

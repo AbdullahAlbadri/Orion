@@ -112,9 +112,14 @@ def _pending(result: dict) -> Optional[dict]:
     return interrupts[0].value if interrupts else None
 
 
-async def start_order(app, order_id: str) -> Optional[dict]:
-    """Start a new order thread. Returns the first prompt for the customer."""
+async def start_order(
+    app, order_id: str, business: Optional[dict] = None, prefill: Optional[dict] = None
+) -> Optional[dict]:
+    """Start a new order thread. Returns the first prompt for the customer.
+    `business`: the customer's profile for the consultant; `prefill`: a reorder's earlier answers."""
     initial: OrderState = {
+        "business": business or {},
+        "prefill": prefill,
         "order_id": order_id,
         "stage": "draft",
         "policy_version": POLICY_VERSION,

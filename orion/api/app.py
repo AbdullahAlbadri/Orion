@@ -9,7 +9,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from orion.api import auth, orders, team
+from orion.api import auth, inbox, me, orders, products, team
 from orion.api.context import ApiContext
 from orion.api.oidc import apple_verifier, google_verifier
 from orion.config.settings import Settings, get_settings
@@ -72,11 +72,14 @@ def create_app(context: Optional[ApiContext] = None, settings: Optional[Settings
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=True,          # the refresh cookie
-        allow_methods=["GET", "POST"],
+        allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["Authorization", "Content-Type"],
     )
     app.include_router(auth.router)
     app.include_router(orders.router)
+    app.include_router(products.router)
+    app.include_router(me.router)
+    app.include_router(inbox.router)
     app.include_router(team.router)
 
     # Team console: static page using the team API from the same origin

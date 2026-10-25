@@ -55,10 +55,12 @@ async def send_event(app, pool: AsyncConnectionPool, order_id: str, event: dict)
             await sync_order_row(pool, await get_order(app, order_id))
 
 
-async def start_customer_order(app, pool: AsyncConnectionPool, order_id: str) -> Optional[dict]:
+async def start_customer_order(
+    app, pool: AsyncConnectionPool, order_id: str, business: Optional[dict] = None, prefill: Optional[dict] = None
+) -> Optional[dict]:
     async with order_lock(pool, order_id):
         try:
-            return await start_order(app, order_id)
+            return await start_order(app, order_id, business, prefill)
         finally:
             await sync_order_row(pool, await get_order(app, order_id))
 
