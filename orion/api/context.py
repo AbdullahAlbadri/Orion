@@ -19,6 +19,7 @@ from orion.db.products import ProductStore
 from orion.db.profile import ProfileStore
 from orion.deps import Deps
 from orion.tools.email import EmailSender
+from orion.tools.mockup import MockupMaker
 from orion.tools.suggest import Suggester
 
 
@@ -34,10 +35,13 @@ class ApiContext:
     assistant: Optional[Assistant] = None
     files: Optional[FileStore] = None
     suggester: Optional[Suggester] = None
+    mockups: Optional[MockupMaker] = None
     assist_limit: SlidingWindowLimit = field(default_factory=lambda: SlidingWindowLimit(30, 3600))
     support_limit: SlidingWindowLimit = field(default_factory=lambda: SlidingWindowLimit(10, 3600))
     # Product ideas cost a model call; they are kept until the profile changes, so this is only a backstop
     suggest_limit: SlidingWindowLimit = field(default_factory=lambda: SlidingWindowLimit(6, 3600))
+    # AI mockups cost the most per call; the per-order cap is in Policy, this caps a customer across orders
+    mockup_limit: SlidingWindowLimit = field(default_factory=lambda: SlidingWindowLimit(10, 3600))
 
     def __post_init__(self):
         self.profile = ProfileStore(self.pool)

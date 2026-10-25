@@ -18,6 +18,7 @@ import type { Placement } from "@/lib/mockups";
 import { choiceLabel, costTier, errorText, iconFor, questionHint, questionText } from "@/lib/questions";
 import { BRAND, Swatch, colorAnswer } from "./BrandKit";
 import FileUpload from "./FileUpload";
+import MockupPanel from "./MockupPanel";
 import PlacementEditor from "./PlacementEditor";
 import TopoTexture from "./TopoTexture";
 import SizeTable, { initialSizes, sizesToAnswer, type SizeRow } from "./SizeTable";
@@ -172,8 +173,11 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
       {q.type === "size_table" ? (
         <SizeTable rows={sizes[q.id]} onChange={(rows) => setSizes({ ...sizes, [q.id]: rows })} />
       ) : q.type === "placement" ? (
-        <PlacementEditor mockup={q.mockup} value={placements[q.id]} logoUrl={logo?.url} logoAspect={logo?.aspect}
-          method={method} onChange={(items) => setPlacements((prev) => ({ ...prev, [q.id]: items }))} />
+        <>
+          <PlacementEditor mockup={q.mockup} value={placements[q.id]} logoUrl={logo?.url} logoAspect={logo?.aspect}
+            method={method} onChange={(items) => setPlacements((prev) => ({ ...prev, [q.id]: items }))} />
+          <MockupPanel orderId={orderId} answers={answers} />
+        </>
       ) : q.type === "file" ? (
         <FileUpload orderId={orderId} value={files[q.id]} pictures={q.id !== "artwork"}
           saved={q.brand === "logo" && kit ? kit.logos : undefined}

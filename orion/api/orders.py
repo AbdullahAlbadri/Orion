@@ -1,5 +1,6 @@
 """Customer order routes. A customer only ever sees their own orders, through customer_order_view."""
 
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal, Optional
@@ -8,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, sta
 from pydantic import BaseModel, Field
 
 from orion.api.context import ApiContext, ctx, current_customer
-from orion.api.files import file_ids_in, file_response, store_upload
+from orion.api.files import file_ids_in, file_response, serve_file, store_upload
 from orion.api.security import TokenClaims
 from orion.api.views import customer_order_view, order_title, summary_for_version
 from orion.config.markets import MARKETS, get_questions
@@ -17,10 +18,13 @@ from orion.config.status_labels import UNSUBMITTED, stage_owner, status_label
 from orion.db.insights import order_rows, stage_segments, summarize_orders, summarize_time
 from orion.spec import Section
 from orion.tools.assist import safe_answer
-from orion.tools.files import MAX_FILES_PER_ORDER
+from orion.config.policy import Policy
+from orion.tools.files import ALLOWED, MAX_FILES_PER_ORDER, sniff_type
+from orion.tools.mockup import REFERENCE_TYPES, mockup_prompt
 from orion.graph.graph import OrderNotWaiting, get_order, waiting_on
 from orion.runtime import discard_order, send_customer_reply, start_customer_order
 
+log = logging.getLogger("orion.api.orders")
 router = APIRouter(prefix="/orders", tags=["orders"])
 
 
@@ -257,6 +261,73 @@ async def assist(
     question = body.question.strip() or "Help me with this section."
     answer = await c.assistant.help(product, body.section, questions, answers, question, body.lang)
     return {"section": body.section, "answer": safe_answer(answer, body.lang)}
+
+
+class MockupRequest(BaseModel):
+    answers: dict[str, Any] = {}     # the details form as it is now (not saved)
+    lang: Literal["en", "ar"] = "ar"
+
+
+async def _mockup_list(c: ApiContext, order_id: str) -> dict:
+    items = await c.accounts.mockups(order_id)
+    return {"mockups": items, "remaining": max(0, Policy().mockups_per_order - len(items))}
+
+
+@router.get("/{order_id}/mockups")
+async def list_mockups(order_id: str, c: ApiContext = Depends(ctx), claims: TokenClaims = Depends(current_customer)) -> dict:
+    await _owned(c, order_id, claims)
+    return await _mockup_list(c, order_id)
+
+
+@router.post("/{order_id}/mockups", status_code=status.HTTP_201_CREATED)
+async def make_mockup(
+    order_id: str, body: MockupRequest, c: ApiContext = Depends(ctx), claims: TokenClaims = Depends(current_customer)
+) -> dict:
+    """An AI picture of the product from the form as filled in so far, with the customer's logo. An illustration
+    only: nothing is saved to the order's details and it never goes to a factory."""
+    await _owned(c, order_id, claims)
+    if c.mockups is None or c.files is None:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "mockups not available")
+    state = await get_order(c.graph, order_id)
+    spec = state.get("spec")
+    if not spec:
+        raise HTTPException(status.HTTP_409_CONFLICT, "pick a product first")
+    if len(await c.accounts.mockups(order_id)) >= Policy().mockups_per_order:
+        raise HTTPException(status.HTTP_409_CONFLICT, "no mockups left for this order")
+    if not c.mockup_limit.allow(claims.sub):
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "too many mockups, try again later")
+
+    questions = get_questions(spec["market"], spec["option"])
+    answers = {q.id: body.answers[q.id] for q in questions if q.id in body.answers}
+    # The logo: the first uploaded picture in the answers that belongs to this order and an image model can read
+    own_files = await c.accounts.file_ids(order_id)
+    logo = None
+    for file_id in file_ids_in(answers):
+        row = await c.accounts.order_file(order_id, file_id) if file_id in own_files else None
+        if row and row["content_type"] in REFERENCE_TYPES:
+            logo = (c.files.load(row["storage_key"]), row["content_type"])
+            break
+    product = MARKETS[spec["market"]].options[spec["option"]].name
+    prompt, aspect = mockup_prompt(product, questions, answers, has_logo=logo is not None)
+    try:
+        image = await c.mockups.make(prompt, [logo] if logo else [], aspect)
+    except Exception:
+        log.exception("mockup for order %s failed", order_id)
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "the image could not be made, try again") from None
+    content_type = sniff_type(image.data)
+    if content_type not in REFERENCE_TYPES:          # only ever store and serve a real raster image
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "the image could not be made, try again")
+    key = c.files.save(image.data, ALLOWED[content_type])
+    row = await c.accounts.add_mockup(order_id, claims.sub, key, content_type, c.mockups.model, image.cost)
+    return {**row, "logo_used": logo is not None, **(await _mockup_list(c, order_id))}
+
+
+@router.get("/{order_id}/mockups/{mockup_id}")
+async def get_mockup(
+    order_id: str, mockup_id: str, c: ApiContext = Depends(ctx), claims: TokenClaims = Depends(current_customer)
+) -> Response:
+    await _owned(c, order_id, claims)
+    return serve_file(c, await c.accounts.mockup(order_id, mockup_id))
 
 
 @router.post("/{order_id}/discard")

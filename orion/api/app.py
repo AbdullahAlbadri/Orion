@@ -18,6 +18,7 @@ from orion.runtime import open_postgres_app
 from orion.tools.assist import OpenRouterAssistant
 from orion.tools.email import ConsoleEmailSender
 from orion.tools.files import LocalFileStore
+from orion.tools.mockup import OpenRouterMockupMaker
 from orion.tools.suggest import OpenRouterSuggester
 
 log = logging.getLogger("orion.api")
@@ -65,6 +66,9 @@ def create_app(context: Optional[ApiContext] = None, settings: Optional[Settings
                 # Product ideas on the Overview: the same small, cheap model as "Ask Orion"
                 suggester=OpenRouterSuggester(
                     settings.openrouter_api_key.get_secret_value(), settings.openrouter_base_url, settings.assist_model
+                ),
+                mockups=OpenRouterMockupMaker(
+                    settings.openrouter_api_key.get_secret_value(), settings.openrouter_base_url, settings.mockup_model
                 ),
             )
             log.info("API ready (sign-in: email%s)", "".join(f", {p}" for p in verifiers))

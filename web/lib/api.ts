@@ -92,6 +92,22 @@ export function fileObjectUrl(orderId: string, fileId: string): Promise<string> 
   return privateFileUrl(`/orders/${encodeURIComponent(orderId)}/files/${encodeURIComponent(fileId)}`);
 }
 
+export type MockupList = { mockups: { mockup_id: string; created_at: string }[]; remaining: number };
+
+/** An AI picture of the product from the form as it is now (an illustration; nothing is saved to the order). */
+export function makeMockup(orderId: string, answers: Record<string, unknown>, lang: "ar" | "en") {
+  return api<MockupList & { mockup_id: string; logo_used: boolean }>(
+    `/orders/${encodeURIComponent(orderId)}/mockups`, { method: "POST", body: { answers, lang } });
+}
+
+export function listMockups(orderId: string): Promise<MockupList> {
+  return api<MockupList>(`/orders/${encodeURIComponent(orderId)}/mockups`);
+}
+
+export function mockupUrl(orderId: string, mockupId: string): Promise<string> {
+  return privateFileUrl(`/orders/${encodeURIComponent(orderId)}/mockups/${encodeURIComponent(mockupId)}`);
+}
+
 export function brandLogoUrl(logoId: string): Promise<string> {
   return privateFileUrl(`/business/logos/${encodeURIComponent(logoId)}`);
 }

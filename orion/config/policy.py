@@ -23,3 +23,4 @@ class Policy(BaseModel):
     max_gap_rounds: int = 4                      # TODO(decide), placeholder
     # The AI's follow-up choices show a relative $ / $$ / $$$ like the form's (its own estimate, never an amount).
     ai_cost_tiers: bool = True                   # TODO(decide): or only tiers the team set in config
+    mockups_per_order: int = 5                   # TODO(decide): AI mockup images a customer may make per order

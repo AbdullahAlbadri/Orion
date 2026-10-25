@@ -287,6 +287,33 @@ class AccountStore:
             )).fetchall()
             return {r["id"] for r in rows}
 
+    # --- AI mockups (illustrations; kept apart from the order's files) -------------------
+
+    async def add_mockup(self, order_id: str, customer_id: str, storage_key: str, content_type: str, model: str,
+                         cost: Optional[float]) -> dict:
+        async with self.pool.connection() as conn:
+            return await (await conn.execute(
+                "INSERT INTO order_mockups (order_id, customer_id, storage_key, content_type, model, cost) "
+                "VALUES (%s, %s, %s, %s, %s, %s) RETURNING id::text AS mockup_id, created_at",
+                (order_id, customer_id, storage_key, content_type, model, cost),
+            )).fetchone()
+
+    async def mockups(self, order_id: str) -> list[dict]:
+        async with self.pool.connection() as conn:
+            return await (await conn.execute(
+                "SELECT id::text AS mockup_id, created_at FROM order_mockups WHERE order_id = %s ORDER BY created_at DESC",
+                (order_id,),
+            )).fetchall()
+
+    async def mockup(self, order_id: str, mockup_id: str) -> Optional[dict]:
+        async with self.pool.connection() as conn:
+            row = await (await conn.execute(
+                "SELECT id::text AS mockup_id, storage_key, content_type, created_at FROM order_mockups "
+                "WHERE order_id = %s AND id::text = %s",
+                (order_id, mockup_id),
+            )).fetchone()
+        return {**row, "name": f"mockup-{row['mockup_id'][:8]}.png"} if row else None
+
     # --- customer stats --------------------------------------------------------------
 
     async def customer_activity(self, customer_id: str) -> dict:

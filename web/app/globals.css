@@ -518,3 +518,22 @@ html[dir="rtl"] .flip-back { transform: none; }
 
 .describe { min-height: 140px; font-size: 15px; line-height: 1.7; }
 
+
+/* AI mockup under the placement editor */
+.mockup-panel { display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 14px;
+  border: 1px dashed rgba(254, 183, 47, .45); background: rgba(254, 183, 47, .05); }
+.mockup-btn { align-self: flex-start; }
+.mockup-frame { margin: 0; border-radius: 14px; overflow: hidden; background: #ececec; border: 1px solid var(--line); }
+.mockup-frame img { display: block; width: 100%; height: auto; }
+.mockup-frame figcaption { padding: 10px 12px; background: var(--card); color: var(--muted); gap: 10px; }
+.mockup-loading { aspect-ratio: 1 / 1; max-height: 320px; display: grid; place-items: center; color: var(--yellow);
+  background: linear-gradient(110deg, var(--card) 30%, rgba(254, 183, 47, .12) 50%, var(--card) 70%) 0 0 / 300% 100%;
+  animation: mockup-shimmer 1.6s linear infinite; }
+.mockup-loading svg { width: 36px; height: 36px; }
+@keyframes mockup-shimmer { to { background-position: -300% 0; } }
+@media (prefers-reduced-motion: reduce) { .mockup-loading { animation: none; } }
+.mockup-placeholder { display: block; aspect-ratio: 1 / 1; background: var(--card); }
+.mockup-thumbs { display: flex; gap: 8px; flex-wrap: wrap; }
+.mockup-thumbs button { width: 64px; height: 64px; padding: 0; border-radius: 10px; overflow: hidden; border: 2px solid transparent; background: var(--card); }
+.mockup-thumbs button.on { border-color: var(--yellow); }
+.mockup-thumbs img, .mockup-thumbs .mockup-placeholder { width: 100%; height: 100%; object-fit: cover; }

@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     manufacturer_reasoning_effort: Optional[str] = "low"   # low / medium / high, or empty for the model default
     classifier_model: str
     assist_model: str = "anthropic/claude-haiku-5.5"   # "Ask Orion" help on form sections (cheap)
+    mockup_model: str = "google/gemini-nano-banana-2.1"  # AI product mockups from the form and the logo (paid per image)
 
     database_url: str
 
