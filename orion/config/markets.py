@@ -118,14 +118,16 @@ APPAREL = Market(
              ("embroidery", "تطريز", 3), ("heat transfer", "طباعة حرارية", 1), ("no logo", "بدون شعار")],
         ),
         Question(
+            id="artwork", prompt="Upload your logo or artwork.", prompt_ar="ارفع شعارك أو التصميم.",
+            type="file", required=False,
+            hint="PNG, JPG, SVG, PDF, AI or EPS, up to 10 MB. Vector files (SVG, AI, EPS, PDF) print and embroider best.",
+            hint_ar="PNG أو JPG أو SVG أو PDF أو AI أو EPS، حتى 10 ميغابايت. الملفات المتجهة (SVG وAI وEPS وPDF) أفضل للطباعة والتطريز.",
+        ),
+        Question(
             id="decoration_placement", prompt="Where do the logo and labels go, and how big?",
             prompt_ar="أين يوضع الشعار والملصقات، وما حجمها؟", type="placement", required=False,
             hint="Tap a spot or add a logo, then drag it into place and drag the corner to resize.",
             hint_ar="اختر موضعًا أو أضف شعارًا، ثم اسحبه إلى مكانه واسحب الزاوية لتغيير الحجم.",
-        ),
-        Question(
-            id="artwork", prompt="Upload or link your logo/artwork.", prompt_ar="ارفع شعارك أو التصميم، أو ضع رابطه.",
-            type="file", required=False,
         ),
         choice(
             "needed_by", "When do you need the order?", "متى تحتاج الطلب؟",

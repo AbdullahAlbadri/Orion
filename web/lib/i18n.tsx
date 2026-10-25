@@ -125,6 +125,16 @@ const en = {
   openPoints: "Still open: the Orion team will follow up",
   placementTitle: "Logo and label placement",
   filesTitle: "Files",
+  uploadCta: "Drop your logo here or tap to upload",
+  uploadTypes: "PNG, JPG, SVG, PDF, AI or EPS · up to 10 MB",
+  uploading: "Uploading…",
+  fileTooBig: "That file is larger than 10 MB.",
+  fileWrongType: "Please use PNG, JPG, WEBP, SVG, PDF, AI or EPS.",
+  sizeSuggest: "Orion suggests",
+  sizeWhyAspect: "keeps your logo's proportions",
+  sizeWhyBig: "this method and spot usually go up to {max} cm wide",
+  sizeWhySmall: "below {min} cm details get lost",
+  apply: "Apply",
 };
 
 const ar: typeof en = {
@@ -247,6 +257,16 @@ const ar: typeof en = {
   openPoints: "نقاط مفتوحة: سيتابعها فريق أوريون",
   placementTitle: "موضع الشعار والملصقات",
   filesTitle: "الملفات",
+  uploadCta: "اسحب شعارك هنا أو اضغط للرفع",
+  uploadTypes: "PNG أو JPG أو SVG أو PDF أو AI أو EPS · حتى 10 ميغابايت",
+  uploading: "جارٍ الرفع…",
+  fileTooBig: "حجم الملف أكبر من 10 ميغابايت.",
+  fileWrongType: "استخدم PNG أو JPG أو WEBP أو SVG أو PDF أو AI أو EPS.",
+  sizeSuggest: "أوريون يقترح",
+  sizeWhyAspect: "للحفاظ على أبعاد شعارك",
+  sizeWhyBig: "هذه الطريقة في هذا الموضع عادةً حتى {max} سم عرضًا",
+  sizeWhySmall: "أقل من {min} سم تضيع التفاصيل",
+  apply: "تطبيق",
 };
 
 // Product names for order lists (the API returns option ids)

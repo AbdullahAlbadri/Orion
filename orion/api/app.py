@@ -17,6 +17,7 @@ from orion.db.accounts import AccountStore
 from orion.runtime import open_postgres_app
 from orion.tools.assist import OpenRouterAssistant
 from orion.tools.email import ConsoleEmailSender
+from orion.tools.files import LocalFileStore
 
 log = logging.getLogger("orion.api")
 
@@ -58,6 +59,8 @@ def create_app(context: Optional[ApiContext] = None, settings: Optional[Settings
             app.state.ctx = ApiContext(
                 graph=graph, deps=deps, pool=pool, settings=settings,
                 accounts=AccountStore(pool), email=ConsoleEmailSender(), verifiers=verifiers, assistant=assistant,
+                # TODO(step 7): S3-compatible object storage on Hetzner
+                files=LocalFileStore(settings.upload_dir),
             )
             log.info("API ready (sign-in: email%s)", "".join(f", {p}" for p in verifiers))
             yield

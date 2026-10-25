@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:3000"]
     cookie_secure: bool = True                        # refresh-token cookie only over HTTPS (localhost is fine)
     email_from: str = "Orion <login@orionagentic.online>"
+    upload_dir: str = "data/uploads"                  # customer files (local disk until object storage)
     google_client_id: Optional[str] = None            # Google sign-in is off until this is set
     apple_client_id: Optional[str] = None             # Apple sign-in is off until this is set
 

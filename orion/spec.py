@@ -79,6 +79,8 @@ def format_answer(value: Any) -> str:
     """Human-readable answer for receipts and messages."""
     if isinstance(value, list) and value and all(isinstance(v, dict) and "view" in v for v in value):
         return "; ".join(describe_placement(v) for v in value)
+    if is_file_list(value):
+        return ", ".join(v["name"] for v in value)
     if isinstance(value, list):
         return ", ".join(str(v) for v in value)
     if isinstance(value, dict):
@@ -108,6 +110,9 @@ def validate_answer(question: Question, raw: Any) -> Any:
 
     if question.type == "placement":
         return _validate_placements(raw)
+
+    if question.type == "file":
+        return _validate_files(raw)
 
     # text and file (file is a reference/URL until object storage exists)
     return str(raw).strip()
@@ -140,6 +145,29 @@ def _validate_choice(question: Question, raw: Any) -> Any:
     if not question.multiple and len(picked) > 1:
         raise InvalidAnswer("pick one option")
     return picked if question.multiple else picked[0]
+
+
+MAX_FILE_ANSWERS = 10
+
+
+def _validate_files(raw: Any) -> Any:
+    """Uploaded files: [{file_id, name, content_type}]. The API checks the ids belong to the order;
+    here only the shape is checked. A plain link (older orders, terminal) is still accepted."""
+    if isinstance(raw, str):
+        return raw.strip()
+    if not isinstance(raw, list) or not raw or len(raw) > MAX_FILE_ANSWERS:
+        raise InvalidAnswer("upload at least one file")
+    out = []
+    for item in raw:
+        if not isinstance(item, dict) or not item.get("file_id"):
+            raise InvalidAnswer("unknown file")
+        out.append({"file_id": str(item["file_id"]), "name": str(item.get("name") or "file")[:200],
+                    "content_type": str(item.get("content_type") or "")})
+    return out
+
+
+def is_file_list(value: Any) -> bool:
+    return isinstance(value, list) and bool(value) and all(isinstance(v, dict) and "file_id" in v for v in value)
 
 
 MAX_PLACEMENTS = 10

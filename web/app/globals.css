@@ -332,6 +332,26 @@ button { font: inherit; cursor: pointer; border: 0; }
 .cm-inputs { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
 .cm-inputs input { width: 72px; padding: 6px 8px; text-align: center; }
 
+/* file upload */
+.upload { display: flex; flex-direction: column; gap: 10px; }
+.dropzone { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 22px 16px; text-align: center; cursor: pointer;
+  border: 2px dashed rgba(254, 183, 47, .35); border-radius: 18px; background: rgba(254, 183, 47, .04); }
+.dropzone:hover, .dropzone.over, .dropzone:focus-visible { border-color: var(--yellow); background: rgba(254, 183, 47, .1); outline: none; }
+.dropzone-icon { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--yellow); color: var(--navy); }
+.file-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.file-list li { display: flex; align-items: center; gap: 12px; padding: 8px; border-radius: 14px; background: var(--card); }
+.file-name { flex: 1; min-width: 0; overflow-wrap: anywhere; font-weight: 500; }
+.thumb { width: 52px; height: 52px; border-radius: 10px; object-fit: contain; background: repeating-conic-gradient(#2b2940 0 25%, #232136 0 50%) 0 0 / 12px 12px; flex: none; }
+.thumb-doc { display: grid; place-items: center; align-content: center; gap: 2px; color: var(--yellow); font-size: 10px; font-weight: 700; }
+.thumb-doc svg { width: 20px; height: 20px; }
+.placed-logo { pointer-events: none; }
+
+/* "Orion suggests" a producible size */
+.size-hint { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border-radius: 12px;
+  background: rgba(254, 183, 47, .08); border: 1px solid rgba(254, 183, 47, .25); color: var(--yellow); font-size: 13px; }
+.size-hint strong { color: var(--paper); }
+.size-hint .chip { margin-inline-start: auto; padding: 5px 14px; }
+
 /* cost tier on choices ($ / $$ / $$$) */
 .chip .cost { font-size: 12px; font-weight: 700; color: var(--yellow); opacity: .9; letter-spacing: 1px; }
 .chip.selected .cost { color: var(--red); }

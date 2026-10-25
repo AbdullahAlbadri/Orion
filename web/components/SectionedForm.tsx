@@ -4,7 +4,9 @@
 // sent together; the API validates and sends errors back, and we jump to the first tab with an error.
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
-import { ApiError, askAboutSection, type Prompt, type Question, type Section } from "@/lib/api";
+import {
+  ApiError, askAboutSection, fileObjectUrl, type Prompt, type Question, type Section, type UploadedFile,
+} from "@/lib/api";
 import { useLang, type TextKey } from "@/lib/i18n";
 import {
   ArrowIcon, CheckIcon, HashIcon, ImageIcon, LayersIcon, ListIcon, NeedleIcon, PaletteIcon, PlusIcon, RulerIcon, ScaleIcon,
@@ -12,6 +14,7 @@ import {
 } from "./Icons";
 import type { Placement } from "@/lib/mockups";
 import { choiceLabel, costTier, errorText, iconFor, questionHint, questionText } from "@/lib/questions";
+import FileUpload from "./FileUpload";
 import PlacementEditor from "./PlacementEditor";
 import TopoTexture from "./TopoTexture";
 import SizeTable, { initialSizes, sizesToAnswer, type SizeRow } from "./SizeTable";
@@ -58,6 +61,9 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
   const [choices, setChoices] = useState<Record<string, ChoiceState>>(() =>
     Object.fromEntries(prompt.questions.filter((q) => q.type === "choice")
       .map((q) => [q.id, initialChoice(q, prompt.values[q.id])])));
+  const [files, setFiles] = useState<Record<string, UploadedFile[]>>(() =>
+    Object.fromEntries(prompt.questions.filter((q) => q.type === "file")
+      .map((q) => [q.id, Array.isArray(prompt.values[q.id]) ? (prompt.values[q.id] as UploadedFile[]) : []])));
   const [placements, setPlacements] = useState<Record<string, Placement[]>>(() =>
     Object.fromEntries(prompt.questions.filter((q) => q.type === "placement")
       .map((q) => [q.id, Array.isArray(prompt.values[q.id]) ? (prompt.values[q.id] as Placement[]) : []])));
@@ -75,12 +81,30 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
     for (const [id, rows] of Object.entries(sizes)) out[id] = sizesToAnswer(rows);
     for (const q of prompt.questions) if (q.type === "choice") out[q.id] = choiceAnswer(q, choices[q.id]);
     for (const [id, items] of Object.entries(placements)) out[id] = items;
+    for (const [id, items] of Object.entries(files)) out[id] = items;
     return out;
-  }, [values, sizes, choices, placements, prompt.questions]);
+  }, [values, sizes, choices, placements, files, prompt.questions]);
+
+  // The first uploaded image is drawn on the garment, at its real proportions
+  const logoFile = Object.values(files).flat().find((f) => f.content_type.startsWith("image/"));
+  const [logo, setLogo] = useState<{ url: string; aspect: number | null } | null>(null);
+  useEffect(() => {
+    if (!logoFile) { setLogo(null); return; }
+    let alive = true;
+    fileObjectUrl(orderId, logoFile.file_id).then((url) => {
+      const img = new Image();
+      img.onload = () => alive && setLogo({ url, aspect: img.naturalWidth && img.naturalHeight ? img.naturalWidth / img.naturalHeight : null });
+      img.onerror = () => alive && setLogo({ url, aspect: null });
+      img.src = url;
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [orderId, logoFile?.file_id]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const method = typeof answers.decoration_method === "string" ? answers.decoration_method : undefined;
 
   const isAnswered = (q: Question) => {
     if (q.type === "size_table") return Object.keys(sizesToAnswer(sizes[q.id] ?? [])).length > 0;
     if (q.type === "placement") return (placements[q.id] ?? []).length > 0;
+    if (q.type === "file") return (files[q.id] ?? []).length > 0;
     if (q.type === "choice") return choiceAnswer(q, choices[q.id]).length > 0;
     return Boolean(values[q.id]?.trim());
   };
@@ -128,8 +152,10 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
       {q.type === "size_table" ? (
         <SizeTable rows={sizes[q.id]} onChange={(rows) => setSizes({ ...sizes, [q.id]: rows })} />
       ) : q.type === "placement" ? (
-        <PlacementEditor mockup={q.mockup} value={placements[q.id]}
-          onChange={(items) => setPlacements((prev) => ({ ...prev, [q.id]: items }))} />
+        <PlacementEditor mockup={q.mockup} value={placements[q.id]} logoUrl={logo?.url} logoAspect={logo?.aspect}
+          method={method} onChange={(items) => setPlacements((prev) => ({ ...prev, [q.id]: items }))} />
+      ) : q.type === "file" ? (
+        <FileUpload orderId={orderId} value={files[q.id]} onChange={(items) => setFiles((prev) => ({ ...prev, [q.id]: items }))} />
       ) : q.type === "choice" ? (
         <>
           <div className="chips" role={q.multiple ? "group" : "radiogroup"} aria-label={questionText(q, lang)}>
@@ -159,7 +185,6 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
       ) : (
         <input id={q.id} value={values[q.id] ?? ""} dir={q.type === "number" ? "ltr" : "auto"}
           inputMode={q.type === "number" ? "decimal" : undefined}
-          placeholder={q.type === "file" ? "https://…" : undefined}
           onChange={(e) => setValues({ ...values, [q.id]: e.target.value })} />
       )}
     </QuestionCard>
@@ -240,7 +265,7 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
 function QuestionCard({ q, error, children }: { q: Question; error?: string; children: ReactNode }) {
   const { t, lang } = useLang();
   const hint = questionHint(q, lang);
-  const wide = q.type === "size_table" || q.type === "choice" || q.type === "placement";
+  const wide = q.type === "size_table" || q.type === "choice" || q.type === "placement" || q.type === "file";
   return (
     <div className={`qcard${wide ? " wide" : ""}${error ? " has-error" : ""}`}>
       <div className="qhead">

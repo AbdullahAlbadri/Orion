@@ -6,15 +6,19 @@ import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 
 import { useLang } from "@/lib/i18n";
 import { mockupFor, VIEW_H, VIEW_W, type Placement, type PlacementKind, type View } from "@/lib/mockups";
-import { PlusIcon } from "./Icons";
+import { suggestSize } from "@/lib/sizing";
+import { PlusIcon, SparkleIcon } from "./Icons";
 
 const MAX_ITEMS = 10;
 const MIN_CM = 1;
 
 type Drag = { index: number; mode: "move" | "resize"; startX: number; startY: number; start: Placement };
 
-export default function PlacementEditor({ mockup, value, onChange }: {
+export default function PlacementEditor({ mockup, value, onChange, logoUrl, logoAspect, method }: {
   mockup?: string | null; value: Placement[]; onChange: (items: Placement[]) => void;
+  logoUrl?: string | null;       // the uploaded logo, drawn inside logo boxes
+  logoAspect?: number | null;    // its width / height, to keep it undistorted
+  method?: string;               // decoration method chosen in the form (embroidery, screen print...)
 }) {
   const { t, lang } = useLang();
   const m = mockupFor(mockup);
@@ -37,6 +41,7 @@ export default function PlacementEditor({ mockup, value, onChange }: {
 
   function add(item: Placement) {
     if (value.length >= MAX_ITEMS) return;
+    if (item.kind === "logo" && logoAspect) item = { ...item, height_cm: Math.round((item.width_cm / logoAspect) * 2) / 2 };
     setView(item.view);
     onChange([...value, clamp(item)]);
     setSelected(value.length);
@@ -144,11 +149,15 @@ export default function PlacementEditor({ mockup, value, onChange }: {
             const active = selected === i;
             return (
               <g key={i} className={`placed ${pl.kind}${active ? " active" : ""}`}>
+                {pl.kind === "logo" && logoUrl && (
+                  <image href={logoUrl} x={x + 2} y={y + 2} width={Math.max(0, w - 4)} height={Math.max(0, h - 4)}
+                    preserveAspectRatio="xMidYMid meet" className="placed-logo" />
+                )}
                 <rect x={x} y={y} width={w} height={h} rx={pl.kind === "label" ? 2 : 6} tabIndex={0}
                   aria-label={`${t(pl.kind === "logo" ? "logoTag" : "labelTag")} ${pl.width_cm} × ${pl.height_cm} cm`}
                   onPointerDown={(e) => startDrag(e, i, "move")} onKeyDown={(e) => onKey(e, i)} onFocus={() => setSelected(i)} />
                 <text x={x + w / 2} y={y + h / 2} className="placed-text">
-                  {w > 34 && h > 14 ? t(pl.kind === "logo" ? "logoTag" : "labelTag") : ""}
+                  {w > 34 && h > 14 && !(pl.kind === "logo" && logoUrl) ? t(pl.kind === "logo" ? "logoTag" : "labelTag") : ""}
                 </text>
                 <text x={x + w / 2} y={y + h + 14} className="placed-size">{pl.width_cm} × {pl.height_cm} cm</text>
                 {active && (
@@ -179,10 +188,33 @@ export default function PlacementEditor({ mockup, value, onChange }: {
               </span>
               <button type="button" className="icon-btn" aria-label={t("remove")}
                 onClick={(e) => { e.stopPropagation(); onChange(value.filter((_, j) => j !== i)); setSelected(null); }}>×</button>
+              <SizeHint item={pl} method={method} aspect={logoAspect} onApply={(w, h) => update(i, { ...pl, width_cm: w, height_cm: h })} />
             </li>
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+/** "Orion suggests": the producible size closest to the customer's. Applied only when they tap it. */
+function SizeHint({ item, method, aspect, onApply }: {
+  item: Placement; method?: string; aspect?: number | null; onApply: (w: number, h: number) => void;
+}) {
+  const { t } = useLang();
+  const s = suggestSize(item, method, aspect);
+  if (!s) return null;
+  const why = s.reason === "aspect" ? t("sizeWhyAspect")
+    : s.reason === "too_big" ? t("sizeWhyBig").replace("{max}", String(s.limits.maxW))
+    : t("sizeWhySmall").replace("{min}", String(s.limits.minW));
+  return (
+    <div className="size-hint" onClick={(e) => e.stopPropagation()}>
+      <SparkleIcon width={16} height={16} />
+      <span>
+        <strong>{t("sizeSuggest")} <span dir="ltr">{s.width_cm} × {s.height_cm} cm</span></strong>
+        <span className="muted small"> · {why}</span>
+      </span>
+      <button type="button" className="chip" onClick={() => onApply(s.width_cm, s.height_cm)}>{t("apply")}</button>
     </div>
   );
 }

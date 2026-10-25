@@ -39,6 +39,43 @@ export type Summary = {
 
 export type Section = "design" | "quantity" | "quality";
 
+export type UploadedFile = { file_id: string; name: string; content_type: string; size?: number };
+
+/** Upload a logo/artwork file to an order. The API checks type (by content) and size. */
+export async function uploadFile(orderId: string, file: File, retried = false): Promise<UploadedFile> {
+  const form = new FormData();
+  form.append("file", file);
+  const r = await fetch(`${API_URL}/orders/${encodeURIComponent(orderId)}/files`, {
+    method: "POST", credentials: "include", body: form,
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+  });
+  if (r.status === 401 && !retried && (await refreshSession())) return uploadFile(orderId, file, true);
+  const data = await r.json().catch(() => null);
+  if (!r.ok) throw new ApiError(r.status, typeof data?.detail === "string" ? data.detail : `HTTP ${r.status}`);
+  return data as UploadedFile;
+}
+
+const fileUrls = new Map<string, Promise<string>>();
+
+/** A private file as an object URL (fetched with the login token; plain <img src> cannot send it). */
+export function fileObjectUrl(orderId: string, fileId: string): Promise<string> {
+  const key = `${orderId}/${fileId}`;
+  if (!fileUrls.has(key)) {
+    const load = async (retried: boolean): Promise<string> => {
+      const r = await fetch(`${API_URL}/orders/${encodeURIComponent(orderId)}/files/${encodeURIComponent(fileId)}`, {
+        credentials: "include", headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+      });
+      if (r.status === 401 && !retried && (await refreshSession())) return load(true);
+      if (!r.ok) throw new ApiError(r.status, "file not available");
+      return URL.createObjectURL(await r.blob());
+    };
+    const p = load(false);
+    p.catch(() => fileUrls.delete(key));
+    fileUrls.set(key, p);
+  }
+  return fileUrls.get(key)!;
+}
+
 /** "Ask Orion" about one form section. Advice only; nothing is saved. */
 export async function askAboutSection(
   orderId: string, section: Section, question: string, answers: Record<string, unknown>, lang: "ar" | "en",

@@ -19,6 +19,7 @@ from orion.db.stores import Manufacturer
 from orion.deps import Deps
 from orion.graph.graph import build_graph
 from orion.tools.email import ConsoleEmailSender
+from orion.tools.files import LocalFileStore
 from orion.tools.llm import CompletenessReport, DeepDiveTurn
 from orion.tools.manufacturer_llm import ReplyAnalysis
 from orion.tools.prices import ExtractedPrice
@@ -49,7 +50,7 @@ class FakeVerifier:
 
 
 @pytest.fixture
-async def api(pg_url):
+async def api(pg_url, tmp_path):
     run = uuid.uuid4().hex[:8]
     settings = Settings(
         openrouter_api_key="unused", consultant_model="x", manufacturer_model="x", classifier_model="x",
@@ -82,6 +83,7 @@ async def api(pg_url):
         context = ApiContext(
             graph=build_graph(deps, InMemorySaver()), deps=deps, pool=pool, settings=settings,
             accounts=AccountStore(pool), email=email, verifiers={},
+            files=LocalFileStore(str(tmp_path / "uploads")),
         )
         app = create_app(context)
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="https://test") as client:
@@ -290,6 +292,61 @@ async def test_customer_order_flow_and_privacy(api):
     # While the manufacturer has the turn, customer replies are refused
     r = await api.post(f"/orders/{order_id}/reply", json={"reply": {"message": "hi"}}, headers=_auth(alice))
     assert r.status_code == 409
+
+
+PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
+SVG_WITH_SCRIPT = b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'
+
+
+async def test_logo_upload_download_and_privacy(api):
+    alice = await _login(api, f"files-a-{api.run}@example.com")
+    bob = await _login(api, f"files-b-{api.run}@example.com")
+    order = (await api.post("/orders", headers=_auth(alice))).json()["order_id"]
+    bobs_order = (await api.post("/orders", headers=_auth(bob))).json()["order_id"]
+
+    r = await api.post(f"/orders/{order}/files", files={"file": ("logo.png", PNG, "image/png")}, headers=_auth(alice))
+    assert r.status_code == 201
+    logo = r.json()
+    assert logo["content_type"] == "image/png" and logo["name"] == "logo.png"
+
+    # The type comes from the bytes, not the name
+    fake = await api.post(f"/orders/{order}/files", files={"file": ("logo.png", b"hello world", "image/png")},
+                          headers=_auth(alice))
+    assert fake.status_code == 415
+    big = await api.post(f"/orders/{order}/files", files={"file": ("big.png", PNG + b"\x00" * (10 * 1024 * 1024), "image/png")},
+                         headers=_auth(alice))
+    assert big.status_code == 413
+
+    got = await api.get(f"/orders/{order}/files/{logo['file_id']}", headers=_auth(alice))
+    assert got.status_code == 200 and got.content == PNG and got.headers["content-type"] == "image/png"
+    assert (await api.get(f"/orders/{order}/files/{logo['file_id']}", headers=_auth(bob))).status_code == 404
+
+    # SVG is allowed but served so that its script can never run
+    svg = (await api.post(f"/orders/{order}/files", files={"file": ("a.svg", SVG_WITH_SCRIPT, "image/svg+xml")},
+                          headers=_auth(alice))).json()
+    got = await api.get(f"/orders/{order}/files/{svg['file_id']}", headers=_auth(alice))
+    assert "default-src 'none'" in got.headers["content-security-policy"] and got.headers["x-content-type-options"] == "nosniff"
+
+    # Answers may only reference files of the same order
+    for reply in ({"choice": "apparel"}, {"choice": "hoodie"}):
+        await api.post(f"/orders/{bobs_order}/reply", json={"reply": reply}, headers=_auth(bob))
+    stolen = {"answers": {"artwork": [{"file_id": logo["file_id"], "name": "x"}]}}
+    assert (await api.post(f"/orders/{bobs_order}/reply", json={"reply": stolen}, headers=_auth(bob))).status_code == 422
+
+    # Through to the receipt with the logo as an answer; the team can download it
+    for reply in ({"choice": "apparel"}, {"choice": "hoodie"}):
+        await api.post(f"/orders/{order}/reply", json={"reply": reply}, headers=_auth(alice))
+    answers = {**HOODIE_ANSWERS, "artwork": [logo]}
+    r = await api.post(f"/orders/{order}/reply", json={"reply": {"answers": answers}}, headers=_auth(alice))
+    assert r.json()["prompt"]["kind"] == "confirm"
+    design = next(s for s in r.json()["summary"]["sections"] if s["id"] == "design")["items"]
+    artwork = next(i for i in design if i["id"] == "artwork")
+    assert artwork["value"] == "logo.png" and artwork["raw"][0]["file_id"] == logo["file_id"]
+
+    await api.ctx.accounts.add_team_member(f"files-team-{api.run}@orion-team.com", None, "agent")
+    agent = await _login(api, f"files-team-{api.run}@orion-team.com", "team")
+    got = await api.get(f"/team/orders/{order}/files/{logo['file_id']}", headers=_auth(agent))
+    assert got.status_code == 200 and got.content == PNG
 
 
 async def test_customer_can_discard_unsubmitted_drafts_only(api):

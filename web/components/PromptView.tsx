@@ -20,7 +20,7 @@ export default function PromptView({ order, send, busy }: { order: OrderView; se
         <span className="pill factories">{order.status[lang]}</span>
         <h2 style={{ marginTop: 14 }}>{t("waitingTitle")}</h2>
         <p className="muted">{t("waitingText")}</p>
-        {order.summary ? <div style={{ marginTop: 16 }}><Receipt summary={order.summary} /></div>
+        {order.summary ? <div style={{ marginTop: 16 }}><Receipt summary={order.summary} orderId={order.order_id} /></div>
           : order.pre_receipt && <pre className="receipt">{order.pre_receipt}</pre>}
       </div>
     );
@@ -32,7 +32,7 @@ export default function PromptView({ order, send, busy }: { order: OrderView; se
     case "form":
       return <SectionedForm key={`${prompt.step}:${prompt.questions.map((q) => q.id).join(",")}:${JSON.stringify(prompt.errors)}`} orderId={order.order_id} prompt={prompt} send={send} busy={busy} />;
     case "confirm":
-      return <Confirm prompt={prompt} send={send} busy={busy} />;
+      return <Confirm prompt={prompt} send={send} busy={busy} orderId={order.order_id} />;
     case "chat":
       return <LegacyMessage prompt={prompt} send={send} busy={busy} />;
     default:
@@ -73,14 +73,16 @@ function Choice({ prompt, send, busy }: { prompt: Extract<Prompt, { kind: "choic
   );
 }
 
-function Confirm({ prompt, send, busy }: { prompt: Extract<Prompt, { kind: "confirm" }>; send: Send; busy: boolean }) {
+function Confirm({ prompt, send, busy, orderId }: {
+  prompt: Extract<Prompt, { kind: "confirm" }>; send: Send; busy: boolean; orderId: string;
+}) {
   const { t } = useLang();
   const [changing, setChanging] = useState(false);
   const [changes, setChanges] = useState("");
 
   return (
     <div className="stack">
-      {prompt.summary ? <Receipt summary={prompt.summary} /> : <pre className="receipt">{prompt.pre_receipt}</pre>}
+      {prompt.summary ? <Receipt summary={prompt.summary} orderId={orderId} /> : <pre className="receipt">{prompt.pre_receipt}</pre>}
       {prompt.error && <p className="error">{prompt.error}</p>}
       {!changing ? (
         <div className="row">

@@ -216,6 +216,39 @@ class AccountStore:
                 (customer_id,),
             )).fetchall()
 
+    # --- uploaded files -----------------------------------------------------------
+
+    async def add_file(self, order_id: str, customer_id: str, name: str, content_type: str, size: int,
+                       storage_key: str) -> dict:
+        async with self.pool.connection() as conn:
+            return await (await conn.execute(
+                "INSERT INTO order_files (order_id, customer_id, name, content_type, size, storage_key) "
+                "VALUES (%s, %s, %s, %s, %s, %s) RETURNING id, name, content_type, size, created_at",
+                (order_id, customer_id, name, content_type, size, storage_key),
+            )).fetchone()
+
+    async def count_files(self, order_id: str) -> int:
+        async with self.pool.connection() as conn:
+            row = await (await conn.execute(
+                "SELECT count(*) AS n FROM order_files WHERE order_id = %s", (order_id,)
+            )).fetchone()
+            return row["n"]
+
+    async def order_file(self, order_id: str, file_id: str) -> Optional[dict]:
+        async with self.pool.connection() as conn:
+            return await (await conn.execute(
+                "SELECT id, name, content_type, size, storage_key FROM order_files "
+                "WHERE order_id = %s AND id::text = %s",
+                (order_id, file_id),
+            )).fetchone()
+
+    async def file_ids(self, order_id: str) -> set[str]:
+        async with self.pool.connection() as conn:
+            rows = await (await conn.execute(
+                "SELECT id::text AS id FROM order_files WHERE order_id = %s", (order_id,)
+            )).fetchall()
+            return {r["id"] for r in rows}
+
     async def team_orders(self, needs_human: Optional[bool] = None, limit: int = 100) -> list[dict]:
         where = {True: "WHERE needs_human IS NOT NULL", False: "WHERE needs_human IS NULL", None: ""}[needs_human]
         async with self.pool.connection() as conn:

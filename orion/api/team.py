@@ -2,10 +2,11 @@
 
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, EmailStr
 
 from orion.api.context import ApiContext, ctx, team_member
+from orion.api.files import file_response
 from orion.api.security import TokenClaims
 from orion.api.views import team_order_view
 from orion.db.stores import Manufacturer
@@ -58,7 +59,7 @@ async def manufacturer_reply(
 ) -> dict:
     text = body.text.strip()
     if not text:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "empty message")
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "empty message")
     event = {
         "type": "manufacturer_reply",
         # Pasting the same text twice is processed once
@@ -81,6 +82,12 @@ async def resolve(order_id: str, c: ApiContext = Depends(ctx), member: TokenClai
     except LookupError:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "order not found") from None
     return team_order_view(state, await waiting_on(c.graph, order_id))
+
+
+@router.get("/orders/{order_id}/files/{file_id}")
+async def order_file(order_id: str, file_id: str, c: ApiContext = Depends(ctx), _: TokenClaims = Depends(agent)) -> Response:
+    """Download a customer's uploaded file (e.g. to send the logo to the factory)."""
+    return await file_response(c, order_id, file_id)
 
 
 @router.get("/outbox")

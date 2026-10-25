@@ -3,10 +3,11 @@
 import uuid
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, status
 from pydantic import BaseModel, Field
 
 from orion.api.context import ApiContext, ctx, current_customer
+from orion.api.files import file_ids_in, file_response, store_upload
 from orion.api.security import TokenClaims
 from orion.api.views import customer_order_view
 from orion.config.markets import MARKETS, get_questions
@@ -100,11 +101,33 @@ async def discard(order_id: str, c: ApiContext = Depends(ctx), claims: TokenClai
     return {"order_id": order_id, "stage": "cancelled"}
 
 
+@router.post("/{order_id}/files", status_code=status.HTTP_201_CREATED)
+async def upload_file(
+    order_id: str, file: UploadFile, c: ApiContext = Depends(ctx), claims: TokenClaims = Depends(current_customer)
+) -> dict:
+    """Upload a logo/artwork file. Returns {file_id, name, content_type, size} to put in the answer."""
+    await _owned(c, order_id, claims)
+    return await store_upload(c, order_id, claims.sub, file)
+
+
+@router.get("/{order_id}/files/{file_id}")
+async def get_file(
+    order_id: str, file_id: str, c: ApiContext = Depends(ctx), claims: TokenClaims = Depends(current_customer)
+) -> Response:
+    await _owned(c, order_id, claims)
+    return await file_response(c, order_id, file_id)
+
+
 @router.post("/{order_id}/reply")
 async def reply(
     order_id: str, body: Reply, c: ApiContext = Depends(ctx), claims: TokenClaims = Depends(current_customer)
 ) -> dict:
     await _owned(c, order_id, claims)
+    answers = body.reply.get("answers")
+    if isinstance(answers, dict) and (referenced := file_ids_in(answers)):
+        # Only files uploaded to this order can be part of its answers
+        if not referenced <= await c.accounts.file_ids(order_id):
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "unknown file in answers")
     try:
         await send_customer_reply(c.graph, c.pool, order_id, body.reply)
     except OrderNotWaiting:
