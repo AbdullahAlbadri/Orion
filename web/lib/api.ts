@@ -18,10 +18,16 @@ export type Question = {
   mockup?: string | null;  // placement: which garment drawing
   multiline?: boolean;     // text: a long description (large box)
   brand?: "colors" | "logo" | null;   // offer the business profile's brand colours / saved logos here
+  size_chart?: SizeChartData | null;  // size_table: typical measurements in cm, behind the info icon
   prompt_ar?: string | null;
   hint_ar?: string | null;
   choices_ar?: string[];   // Arabic labels, same order as choices (values stay English)
   cost_tiers?: number[];   // relative cost per choice: 1 = $, 2 = $$, 3 = $$$ (0 = none)
+};
+
+export type SizeChartData = {
+  unit: "cm"; measures: { id: string; en: string; ar: string }[]; sizes: Record<string, number[]>;
+  note: { en: string; ar: string };
 };
 
 export type SummaryItem = { id: string; type: string; label: string; value: string; raw: unknown };

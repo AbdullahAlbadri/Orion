@@ -11,14 +11,16 @@ import {
 } from "@/lib/api";
 import { useLang, type TextKey } from "@/lib/i18n";
 import {
-  ArrowIcon, CheckIcon, HashIcon, ImageIcon, LayersIcon, ListIcon, NeedleIcon, PaletteIcon, PlusIcon, RulerIcon, ScaleIcon,
+  ArrowIcon, CheckIcon, HashIcon, ImageIcon, InfoIcon, LayersIcon, ListIcon, NeedleIcon, PaletteIcon, PlusIcon, RulerIcon, ScaleIcon,
   SendIcon, ShieldIcon, ShirtIcon, SparkleIcon, StepsIcon, TagIcon, TargetIcon,
 } from "./Icons";
 import type { Placement } from "@/lib/mockups";
+import { GUIDES, QUESTION_GUIDES } from "@/lib/guides";
 import { choiceLabel, costTier, errorText, iconFor, questionHint, questionText } from "@/lib/questions";
 import { BRAND, Swatch, colorAnswer } from "./BrandKit";
 import FileUpload from "./FileUpload";
 import MockupPanel from "./MockupPanel";
+import SizeChart from "./SizeChart";
 import PlacementEditor from "./PlacementEditor";
 import TopoTexture from "./TopoTexture";
 import SizeTable, { initialSizes, sizesToAnswer, type SizeRow } from "./SizeTable";
@@ -323,6 +325,10 @@ function BrandColors({ q, colors, picked, onToggle }: {
 function QuestionCard({ q, error, children }: { q: Question; error?: string; children: ReactNode }) {
   const { t, lang } = useLang();
   const hint = questionHint(q, lang);
+  const [chartOpen, setChartOpen] = useState(false);
+  const guide = QUESTION_GUIDES[q.id];
+  const infoLabel = q.size_chart ? (lang === "ar" ? "جدول المقاسات" : "Size chart")
+    : guide && GUIDES[guide] ? GUIDES[guide].title[lang] : null;
   const wide = q.type === "size_table" || q.type === "choice" || q.type === "placement" || q.type === "file" || q.multiline;
   return (
     <div className={`qcard${wide ? " wide" : ""}${error ? " has-error" : ""}`}>
@@ -332,7 +338,19 @@ function QuestionCard({ q, error, children }: { q: Question; error?: string; chi
           {questionText(q, lang)}
           {!q.required && <span className="muted small"> ({t("optional")})</span>}
         </label>
+        {q.size_chart ? (
+          <button type="button" className={`qinfo${chartOpen ? " on" : ""}`} aria-expanded={chartOpen}
+            aria-label={infoLabel ?? ""} title={infoLabel ?? ""} onClick={() => setChartOpen(!chartOpen)}>
+            <InfoIcon width={18} height={18} />
+          </button>
+        ) : infoLabel && (
+          // A new tab, so what the customer has filled in stays on this page
+          <Link className="qinfo" href={`/guide/${guide}`} target="_blank" rel="noopener" aria-label={infoLabel} title={infoLabel}>
+            <InfoIcon width={18} height={18} />
+          </Link>
+        )}
       </div>
+      {chartOpen && q.size_chart && <SizeChart chart={q.size_chart} />}
       {children}
       {hint && <div className="hint" dir="auto">{hint}</div>}
       {error && <div className="field-error" dir="auto">{errorText(error, lang)}</div>}
