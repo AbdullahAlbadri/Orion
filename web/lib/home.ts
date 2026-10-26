@@ -10,7 +10,6 @@ export const HOME = {
   nav: {
     how: t("كيف نعمل", "How it works"),
     markets: t("المجالات", "Markets"),
-    costs: t("التكلفة", "Costs"),
     faq: t("الأسئلة", "FAQ"),
     signIn: t("تسجيل الدخول", "Sign in"),
     dashboard: t("لوحتي", "My dashboard"),
@@ -50,8 +49,6 @@ export const HOME = {
     ready: t("ملخصك جاهز", "Your summary is ready"),
     editHint: t("اضغط على أي قيمة لتعديلها", "Tap any value to edit it"),
   },
-  strip: [t("هودي", "Hoodies"), t("عباية", "Abayas"), t("دفتر تخطيط", "Planners"), t("غطاء وسادة", "Pillow covers"),
-    t("قلادة حيوانات", "Pet collars"), t("كيس شحن", "Mailer bags"), t("زي موحد", "Uniforms"), t("حقيبة قماشية", "Tote bags")],
   why: {
     num: "01",
     title: t("شبكة مصانع تعمل لصالحك", "A factory network that works for you"),
@@ -118,6 +115,18 @@ export const HOME = {
     asked: t("ما سنسألك عنه", "What you'll be asked"),
     startHere: t("ابدأ طلبًا في هذا المجال", "Start an order in this market"),
     soonNote: t("نجهّز هذا المجال الآن.", "We're preparing this market now."),
+    board: {
+      title: t("المغادرات", "Departures"),
+      flight: t("الرحلة", "Flight"),
+      market: t("المجال", "Market"),
+      from: t("من", "From"),
+      to: t("إلى", "To"),
+      status: t("الحالة", "Status"),
+      origin: t("الصين", "China"),
+      dest: t("السعودية", "Saudi Arabia"),
+      boarding: t("يصعد الآن", "Boarding"),
+      scheduled: t("قريبًا", "Soon"),
+    },
     items: [
       {
         id: "apparel", live: true, icon: "shirt",
@@ -170,30 +179,8 @@ export const HOME = {
       },
     ],
   },
-  costs: {
-    num: "04",
-    title: t("مم تتكون التكلفة؟", "What does it cost?"),
-    parts: [
-      { title: t("تكلفة المنتج", "Product cost"), text: t("سعر المصنع لمنتجك وكميتك.", "The factory's price for your product and quantity.") },
-      // TODO(decide): fee model
-      { title: t("رسوم أوريون", "Orion fee"), text: t("رسوم خدمتنا، واضحة في عرض السعر.", "Our service fee, shown clearly in your quote.") },
-      // TODO(decide): shipping method and who books it
-      { title: t("الشحن", "Shipping"), text: t("من المصنع إلى عنوانك.", "From the factory to your address.") },
-    ],
-    receipt: {
-      title: t("عرض السعر", "Quote"),
-      total: t("الإجمالي", "Total"),
-      caption: t("هكذا يظهر عرض السعر قبل أن تؤكد", "This is how your quote looks before you confirm"),
-    },
-    promises: [
-      t("ترى كل التكاليف قبل أن تؤكد.", "You see every cost before you confirm."),
-      t("الأسعار تأتي من المصانع، وفريقنا هو من يتولى الاتفاق عليها. الذكاء الاصطناعي لا يتفاوض على الأسعار.",
-        "Prices come from factories, and our team handles agreeing them. The AI never negotiates prices."),
-      t("لا أسعار تقديرية.", "No estimated prices."),
-    ],
-  },
   people: {
-    num: "05",
+    num: "04",
     title: t("وراء أوريون فريق حقيقي", "A real team behind Orion"),
     // TODO(decide): team portraits, names and roles once each person agrees
     commitments: [
@@ -207,7 +194,7 @@ export const HOME = {
     ],
   },
   faq: {
-    num: "06",
+    num: "05",
     title: t("أسئلتك، وأجوبتنا", "Your questions, our answers"),
     // Only questions the team has answered. TODO(decide): payment, samples
     groups: [

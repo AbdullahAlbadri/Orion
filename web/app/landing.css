@@ -83,7 +83,8 @@ html[dir="rtl"] .ln-sheet-backdrop.open .ln-sheet { clip-path: circle(150% at 40
 .ln-hero::before { content: ""; position: absolute; inset: 0; pointer-events: none; background:
   radial-gradient(50% 42% at 50% 0%, rgba(241, 236, 227, .08), transparent 70%),
   radial-gradient(34% 34% at 82% 72%, rgba(226, 184, 102, .07), transparent 70%),
-  radial-gradient(34% 34% at 14% 88%, rgba(142, 43, 31, .2), transparent 70%); }
+  radial-gradient(34% 34% at 14% 72%, rgba(142, 43, 31, .2), transparent 70%);
+  -webkit-mask: linear-gradient(#000 60%, transparent); mask: linear-gradient(#000 60%, transparent); }
 .ln-kicker { font-size: 13px; letter-spacing: .2em; color: var(--gold); font-weight: 500; }
 .ln-hero-title { position: relative; margin-top: 18px; font-size: clamp(48px, 7.4vw, 116px); line-height: 1.05; max-width: 12ch; font-weight: 500; }
 html[dir="ltr"] .ln-hero-title { font-size: clamp(44px, 6.2vw, 96px); max-width: 15ch; }
@@ -107,19 +108,6 @@ html[dir="ltr"] .ln-hero-title { font-size: clamp(44px, 6.2vw, 96px); max-width:
 .ln-city-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 6px var(--gold-soft), 0 0 24px var(--gold); }
 .ln-city b { font-weight: 500; font-size: 15px; white-space: nowrap; }
 .ln-city small { font-size: 11px; letter-spacing: .16em; color: var(--muted); }
-
-/* Product strip: a slow manifest of what can be made */
-.ln-strip { border-block: 1px solid var(--faint); overflow: hidden; padding: 20px 0; }
-.ln-strip-track { display: flex; width: max-content; animation: ln-marquee 70s linear infinite; }
-html[dir="rtl"] .ln-strip-track { animation-name: ln-marquee-rtl; }
-.ln-strip:hover .ln-strip-track { animation-play-state: paused; }
-.ln-strip-set { display: flex; }
-.ln-strip span { display: inline-flex; align-items: center; gap: 30px; padding-inline-end: 30px; font-family: var(--display); font-size: 30px;
-  color: transparent; -webkit-text-stroke: 1px rgba(241, 236, 227, .45); white-space: nowrap; }
-.ln-strip span:nth-child(3n) { color: var(--text); -webkit-text-stroke: 0; }
-.ln-strip i { font-style: normal; color: var(--gold); font-size: 16px; -webkit-text-stroke: 0; }
-@keyframes ln-marquee { to { transform: translateX(-50%); } }
-@keyframes ln-marquee-rtl { to { transform: translateX(50%); } }
 
 /* Sections and their heads: the number is the route stop */
 .ln-section { position: relative; padding: clamp(90px, 12vw, 150px) 0; scroll-margin-top: 70px; }
@@ -235,27 +223,34 @@ html[dir="rtl"] .ln-strip-track { animation-name: ln-marquee-rtl; }
 .ln-dest-pin.big { display: block; margin: 0 auto 34px; width: 22px; height: 22px; animation: ln-glow 2.6s ease-in-out infinite; }
 @keyframes ln-glow { 50% { box-shadow: 0 0 0 18px rgba(226, 184, 102, .05), 0 0 60px var(--gold); } }
 
-/* 03 · Markets: parcels with a shipping label and tape */
-.ln-market-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 30px 24px; }
-.ln-parcel { position: relative; display: block; text-align: start; padding: 26px 20px 20px; border-radius: 6px; min-height: 250px;
-  background: linear-gradient(160deg, #2a2620, #1d1a16); border: 1px solid rgba(241, 236, 227, .08);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05), 0 24px 40px -24px rgba(0, 0, 0, .9);
-  transition: transform .5s var(--ease), box-shadow .5s var(--ease); }
-.ln-parcel:hover { transform: translateY(-6px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05), 0 34px 50px -24px rgba(0, 0, 0, .95); }
-.ln-parcel-tape { position: absolute; top: 0; bottom: 0; inset-inline-start: 50%; width: 46px; margin-inline-start: -23px;
-  background: linear-gradient(90deg, rgba(226, 184, 102, .14), rgba(226, 184, 102, .22), rgba(226, 184, 102, .14)); }
-.ln-parcel.live .ln-parcel-tape { background: linear-gradient(90deg, rgba(226, 184, 102, .35), rgba(226, 184, 102, .5), rgba(226, 184, 102, .35)); }
-.ln-parcel-label { position: relative; display: flex; flex-direction: column; gap: 8px; background: var(--paper); color: var(--paper-ink);
-  padding: 16px 18px; border-radius: 3px; transform: rotate(-1.2deg); box-shadow: 0 8px 18px -8px rgba(0, 0, 0, .6); }
-.ln-parcel:nth-child(even) .ln-parcel-label { transform: rotate(1deg); }
-.ln-parcel-top { display: flex; justify-content: space-between; align-items: center; font-size: 11px; letter-spacing: .14em;
-  padding-bottom: 8px; border-bottom: 1.5px solid var(--paper-ink); }
+/* 03 · Markets: a departures board, one flight per market. Split-flap tiles flip in when the board appears. */
+.ln-board { background: #0d0d11; border: 1px solid var(--faint); border-radius: 14px; padding: 18px clamp(16px, 3vw, 32px) 6px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04), 0 40px 80px -40px rgba(0, 0, 0, .9); }
+.ln-board-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--faint); }
+.ln-board-title { display: inline-flex; align-items: center; gap: 12px; font-family: var(--display); font-size: 26px; color: var(--gold); }
+.ln-board-route { font-size: 12px; letter-spacing: .2em; color: var(--muted); }
+.ln-board-cols, .ln-board-row { display: grid; grid-template-columns: 96px minmax(0, 1fr) 110px 130px 150px 24px; gap: 16px; align-items: center; }
+.ln-board-cols { padding: 14px 0 8px; font-size: 11px; letter-spacing: .16em; color: var(--muted); text-transform: uppercase; }
+.ln-board-row { width: 100%; padding: 16px 0; text-align: start; color: var(--text); border-top: 1px solid var(--faint); transition: background .3s; }
+.ln-board-row:hover, .ln-board-row:focus-visible { background: linear-gradient(90deg, transparent, rgba(226, 184, 102, .07), transparent); }
+.ln-board-market strong { display: block; font-family: var(--display); font-size: 21px; font-weight: 500; line-height: 1.3; }
+.ln-board-market small { display: block; font-size: 13px; color: var(--muted); }
+.ln-board-place { font-size: 14px; color: var(--muted); }
+.ln-board-more { color: var(--muted); transition: color .3s, transform .3s var(--ease); }
+.ln-board-row:hover .ln-board-more { color: var(--gold); transform: translateX(4px); }
+html[dir="rtl"] .ln-board-row:hover .ln-board-more { transform: translateX(-4px); }
+.ln-flap { position: relative; display: inline-flex; align-items: center; gap: 8px; justify-self: start; padding: 6px 10px; border-radius: 4px;
+  background: linear-gradient(#1c1c23 0 50%, #16161c 50%); box-shadow: inset 0 -1px 0 rgba(0, 0, 0, .6), 0 1px 0 rgba(255, 255, 255, .04);
+  font-size: 13px; font-weight: 700; letter-spacing: .12em; font-variant-numeric: tabular-nums; white-space: nowrap;
+  transform: perspective(300px) rotateX(90deg); transition: transform .7s cubic-bezier(.3, 1.5, .5, 1); transition-delay: calc(.25s + var(--i) * 110ms); }
+.ln-flap::after { content: ""; position: absolute; z-index: -1; inset-inline: 0; top: 50%; height: 1px; background: rgba(0, 0, 0, .55); }
+.ln-board.in .ln-flap { transform: none; }
+.ln-flap.status { color: var(--muted); letter-spacing: .06em; }
+.ln-flap.status.live { color: var(--gold); }
+.ln-flap .ln-blink { width: 7px; height: 7px; border-radius: 50%; background: var(--gold); animation: ln-blink 1.2s steps(2, jump-none) infinite; }
+@keyframes ln-blink { 50% { opacity: .2; } }
 .ln-market-icon { display: inline-grid; place-items: center; color: var(--paper-ink); }
 .ln-market-icon svg { width: 22px; height: 22px; }
-.ln-parcel strong { font-family: var(--display); font-size: 22px; font-weight: 700; line-height: 1.25; }
-.ln-market-examples { font-size: 13px; color: var(--paper-muted); }
-.ln-parcel-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 4px; }
-.ln-market-more { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; }
 .ln-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px;
   border: 1.5px solid var(--paper-line); color: var(--paper-muted); }
 .ln-badge.live { border-color: #2f7a4f; color: #2f7a4f; }
@@ -279,27 +274,7 @@ html[dir="rtl"] .ln-strip-track { animation-name: ln-marquee-rtl; }
 .ln-modal .ln-btn { align-self: flex-start; }
 .ln-modal .ln-muted { color: var(--paper-muted); }
 
-/* 04 · Costs: an invoice with the lines, no invented amounts */
-.ln-costs { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(30px, 6vw, 90px); align-items: center; }
-.ln-costs .ln-head { margin-bottom: 30px; }
-.ln-promises { display: flex; flex-direction: column; gap: 16px; }
-.ln-promises li { display: grid; grid-template-columns: 22px 1fr; gap: 12px; color: var(--muted); }
-.ln-promises svg { color: var(--gold); margin-top: 4px; }
-.ln-invoice-wrap figcaption { margin-top: 18px; font-size: 14px; color: var(--muted); text-align: center; }
-.ln-invoice { background: var(--paper); color: var(--paper-ink); padding: 26px 28px 30px; transform: rotate(1.2deg);
-  box-shadow: 0 30px 60px -24px rgba(0, 0, 0, .85);
-  -webkit-mask: linear-gradient(#000 0 0) top / 100% calc(100% - 12px) no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 24px 12px repeat-x;
-          mask: linear-gradient(#000 0 0) top / 100% calc(100% - 12px) no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 24px 12px repeat-x; }
-.ln-invoice-row { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: end; padding: 14px 0; border-bottom: 1px dashed var(--paper-line); }
-.ln-invoice-row strong { display: block; font-size: 17px; }
-.ln-invoice-row small { display: block; font-size: 13px; color: var(--paper-muted); }
-.ln-leader { border-bottom: 1.5px dotted rgba(27, 25, 21, .45); margin-bottom: 7px; }
-.ln-amount { min-width: 60px; text-align: center; padding: 2px 10px; border: 1.5px solid var(--paper-line); font-weight: 700; }
-.ln-amount.gold { border-color: #b88a2e; color: #8a6a26; }
-.ln-invoice-row.total { border-bottom: 0; padding-top: 18px; }
-.ln-invoice-row.total strong { font-family: var(--display); font-size: 24px; }
-
-/* 05 · People: a letter from the team with three seals */
+/* 04 · People: a letter from the team with three seals */
 .ln-letter { max-width: 880px; margin-inline: auto; background: var(--paper); color: var(--paper-ink); padding: clamp(28px, 5vw, 56px);
   border-radius: 3px; box-shadow: 0 40px 70px -30px rgba(0, 0, 0, .9); transform: rotate(-.6deg);
   background-image: repeating-linear-gradient(transparent 0 35px, rgba(27, 25, 21, .06) 35px 36px); }
@@ -312,7 +287,7 @@ html[dir="rtl"] .ln-strip-track { animation-name: ln-marquee-rtl; }
 .ln-commit p { color: var(--paper-muted); }
 .ln-signature { margin-top: 18px; text-align: end; font-family: var(--display); font-size: 22px; color: #8a6a26; }
 
-/* 06 · FAQ */
+/* 05 · FAQ */
 .ln-tabs { position: relative; display: flex; gap: 6px; flex-wrap: wrap; border-bottom: 1px solid var(--faint); margin-bottom: 22px; }
 .ln-tabs button { font-size: 16px; font-weight: 500; color: var(--muted); padding: 10px 16px; transition: color .2s; }
 .ln-tabs button.on, .ln-tabs button:hover { color: var(--text); }
@@ -354,8 +329,7 @@ html[dir="rtl"] .ln-strip-track { animation-name: ln-marquee-rtl; }
 @media (max-width: 960px) {
   .ln-nav-links { display: none; }
   .ln-menu-btn { display: grid; }
-  .ln-why, .ln-costs { grid-template-columns: minmax(0, 1fr); }
-  .ln-market-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ln-why { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 760px) {
   .ln-hide-sm { display: none; }
@@ -372,7 +346,14 @@ html[dir="rtl"] .ln-strip-track { animation-name: ln-marquee-rtl; }
   .ln-polaroid-photo { height: 80px; }
   .ln-stamp { width: 68px; height: 68px; font-size: 13px; bottom: 18px; inset-inline-end: 14px; }
   .ln-doc h3, .ln-doc h3 + p { padding-inline-end: 74px; }
-  .ln-market-grid, .ln-modal-cols { grid-template-columns: minmax(0, 1fr); }
+  .ln-modal-cols { grid-template-columns: minmax(0, 1fr); }
+  .ln-board-cols, .ln-board-place { display: none; }
+  .ln-board-row { grid-template-columns: auto minmax(0, 1fr) 20px; grid-template-areas: "flight market more" "flight status more"; gap: 6px 14px; align-items: start; }
+  .ln-board-row > .ln-flap:first-child { grid-area: flight; }
+  .ln-board-market { grid-area: market; }
+  .ln-flap.status { grid-area: status; }
+  .ln-board-more { grid-area: more; align-self: center; }
+  .ln-board-title { font-size: 22px; }
   .ln-modal-backdrop { place-items: end stretch; padding: 0; }
   .ln-modal { width: 100%; max-height: 88vh; padding-bottom: calc(28px + env(safe-area-inset-bottom)); }
   .ln-mobile-bar { display: block; position: fixed; inset-inline: 0; bottom: 0; z-index: 40; padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
@@ -385,5 +366,6 @@ html[dir="rtl"] .ln-strip-track { animation-name: ln-marquee-rtl; }
   .ln-arc-back { stroke-dashoffset: 0; }
   [data-reveal], .ln-line > span { opacity: 1 !important; transform: none !important; }
   .ln-stamp { opacity: .85; transform: rotate(-14deg); }
+  .ln-flap { transform: none; }
   .ln-sheet { transition: none; }
 }

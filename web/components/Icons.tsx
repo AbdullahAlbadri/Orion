@@ -59,3 +59,4 @@ export const BuildingIcon = (p: P) => (<svg {...base(p)}><path d="M4 21V5l8-2v18
 export const FileIcon = (p: P) => (<svg {...base(p)}><path d="M6 3h8l5 5v13H6z" /><path d="M14 3v5h5M9 13h6M9 17h6" /></svg>);
 export const ArchiveIcon = (p: P) => (<svg {...base(p)}><rect x="3" y="4" width="18" height="5" rx="1.5" /><path d="M5 9v11h14V9M10 13h4" /></svg>);
 export const MailIcon = (p: P) => (<svg {...base(p)}><rect x="3" y="5" width="18" height="14" rx="2.5" /><path d="m4 7 8 6 8-6" /></svg>);
+export const PlaneIcon = (p: P) => (<svg {...base(p)}><path d="M2.5 13.5 20.6 8.6c1-.3 1.6 1 .7 1.5L8 17.2l-3.6-1.1z" /><path d="M9.5 10.6 6.5 5H9l5.4 4.2M3 21h18" /></svg>);

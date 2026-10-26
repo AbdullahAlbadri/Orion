@@ -23,7 +23,6 @@ import "./landing.css";
 const SECTIONS = [
   { id: "how", label: HOME.nav.how },
   { id: "markets", label: HOME.nav.markets },
-  { id: "costs", label: HOME.nav.costs },
   { id: "faq", label: HOME.nav.faq },
 ];
 
@@ -60,7 +59,6 @@ export default function Landing() {
         </div>
       </section>
 
-      <ProductStrip />
 
       <main id="main">
         <section className="ln-section" id="why">
@@ -91,34 +89,6 @@ export default function Landing() {
           <div className="ln-wrap">
             <SectionHead num={HOME.markets.num} title={L(HOME.markets.title)} />
             <Markets startHref={startHref} />
-          </div>
-        </section>
-
-        <section className="ln-section" id="costs">
-          <div className="ln-wrap ln-costs">
-            <div>
-              <SectionHead num={HOME.costs.num} title={L(HOME.costs.title)} />
-              <ul className="ln-promises">
-                {HOME.costs.promises.map((p, i) => (
-                  <li key={i} data-reveal style={{ ["--i" as string]: i }}><CheckIcon width={18} height={18} /> {L(p)}</li>
-                ))}
-              </ul>
-            </div>
-            <figure className="ln-invoice-wrap" data-reveal>
-              <div className="ln-invoice">
-                <div className="ln-doc-top"><span>ORN-0042 · INVOICE</span><b>{L(HOME.costs.receipt.title)}</b></div>
-                {HOME.costs.parts.map((p, i) => (
-                  <div key={i} className="ln-invoice-row" style={{ ["--i" as string]: i }}>
-                    <div><strong>{L(p.title)}</strong><small>{L(p.text)}</small></div>
-                    <i className="ln-leader" /><span className="ln-amount" aria-hidden>—</span>
-                  </div>
-                ))}
-                <div className="ln-invoice-row total">
-                  <div><strong>{L(HOME.costs.receipt.total)}</strong></div><i className="ln-leader" /><span className="ln-amount gold" aria-hidden>—</span>
-                </div>
-              </div>
-              <figcaption>{L(HOME.costs.receipt.caption)}</figcaption>
-            </figure>
           </div>
         </section>
 
@@ -305,22 +275,6 @@ function Nav({ startHref, signedIn }: { startHref: string; signedIn: boolean }) 
         </aside>
       </div>
     </>
-  );
-}
-
-function ProductStrip() {
-  const { lang } = useLang();
-  const items = [...HOME.strip, ...HOME.strip];
-  return (
-    <div className="ln-strip" aria-label={HOME.strip.map((s) => s[lang]).join("، ")}>
-      <div className="ln-strip-track" aria-hidden>
-        {[0, 1].map((copy) => (
-          <div key={copy} className="ln-strip-set">
-            {items.map((s, i) => <span key={i}>{s[lang]}<i>✦</i></span>)}
-          </div>
-        ))}
-      </div>
-    </div>
   );
 }
 

@@ -1,15 +1,16 @@
 "use client";
 
-// Markets as parcels: six boxes with a shipping label and tape; a click opens the market's panel (modal on
-// desktop, bottom sheet on phones). TODO(decide): waitlist for markets that are not open yet; no button until then.
+// Markets as a departures board: one flight per market, China to Saudi Arabia. A click opens the market's panel
+// (modal on desktop, bottom sheet on phones). TODO(decide): waitlist for markets that are not open yet; no button until then.
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-import { ArrowIcon, BookIcon, BoxIcon, CloseIcon, HeartIcon, LayersIcon, ShirtIcon, SparkleIcon } from "@/components/Icons";
+import { ArrowIcon, BookIcon, BoxIcon, CloseIcon, HeartIcon, LayersIcon, PlaneIcon, ShirtIcon, SparkleIcon } from "@/components/Icons";
 import { HOME } from "@/lib/home";
 import { useLang } from "@/lib/i18n";
 
 const M = HOME.markets;
+const B = M.board;
 const ICONS: Record<string, ReactNode> = {
   shirt: <ShirtIcon />, book: <BookIcon />, layers: <LayersIcon />, sparkle: <SparkleIcon />, heart: <HeartIcon />, box: <BoxIcon />,
 };
@@ -36,20 +37,23 @@ export default function Markets({ startHref }: { startHref: string }) {
 
   return (
     <>
-      <div className="ln-market-grid">
+      <div className="ln-board" data-reveal>
+        <div className="ln-board-head">
+          <span className="ln-board-title"><PlaneIcon className="flip-forward" width={24} height={24} /> {B.title[lang]}</span>
+          <span className="ln-board-route" dir="ltr">CN → KSA</span>
+        </div>
+        <div className="ln-board-cols" aria-hidden>
+          <span>{B.flight[lang]}</span><span>{B.market[lang]}</span><span>{B.from[lang]}</span><span>{B.to[lang]}</span><span>{B.status[lang]}</span><span />
+        </div>
         {M.items.map((m, i) => (
-          <button key={m.id} type="button" className={`ln-parcel${m.live ? " live" : ""}`} data-reveal style={{ ["--i" as string]: i }}
+          <button key={m.id} type="button" className="ln-board-row" style={{ ["--i" as string]: i }}
             onClick={(e) => { opener.current = e.currentTarget; setOpen(m.id); }}>
-            <span className="ln-parcel-tape" aria-hidden />
-            <span className="ln-parcel-label">
-              <span className="ln-parcel-top"><span dir="ltr">MKT-{String(i + 1).padStart(2, "0")}</span><span className="ln-market-icon">{ICONS[m.icon]}</span></span>
-              <strong>{m.name[lang]}</strong>
-              <span className="ln-market-examples">{m.examples.map((x) => x[lang]).join(" · ")}</span>
-              <span className="ln-parcel-foot">
-                <span className={`ln-badge${m.live ? " live" : ""}`}>{m.live && <i className="ln-pulse" />}{m.live ? M.live[lang] : M.soon[lang]}</span>
-                <span className="ln-market-more">{M.more[lang]} <ArrowIcon className="flip-forward" width={16} height={16} /></span>
-              </span>
-            </span>
+            <span className="ln-flap" dir="ltr">OR {101 + i}</span>
+            <span className="ln-board-market"><strong>{m.name[lang]}</strong><small>{m.examples.map((x) => x[lang]).join(" · ")}</small></span>
+            <span className="ln-board-place">{B.origin[lang]}</span>
+            <span className="ln-board-place">{B.dest[lang]}</span>
+            <span className={`ln-flap status${m.live ? " live" : ""}`}>{m.live && <i className="ln-blink" />}{m.live ? B.boarding[lang] : B.scheduled[lang]}</span>
+            <ArrowIcon className="ln-board-more flip-forward" width={18} height={18} />
           </button>
         ))}
       </div>
