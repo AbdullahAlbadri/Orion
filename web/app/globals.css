@@ -545,12 +545,19 @@ html[dir="ltr"] .auth-back:hover .auth-back-arrow { translate: -3px 0; }
 .mockup-frame { margin: 0; border-radius: 14px; overflow: hidden; background: #ececec; border: 1px solid var(--line); }
 .mockup-frame img { display: block; width: 100%; height: auto; }
 .mockup-frame figcaption { padding: 10px 12px; background: var(--card); color: var(--muted); gap: 10px; }
-.mockup-loading { aspect-ratio: 1 / 1; max-height: 320px; display: grid; place-items: center; color: var(--yellow);
+.mockup-loading { aspect-ratio: 1 / 1; max-height: 320px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px; color: var(--yellow);
   background: linear-gradient(110deg, var(--card) 30%, rgba(226, 184, 102, .12) 50%, var(--card) 70%) 0 0 / 300% 100%;
   animation: mockup-shimmer 1.6s linear infinite; }
 .mockup-loading svg { width: 36px; height: 36px; }
+/* fills quickly, then slows down and waits at 92% for the real picture */
+.mockup-bar { width: min(260px, 80%); height: 6px; border-radius: 6px; background: rgba(226, 184, 102, .18); overflow: hidden; }
+.mockup-bar span { display: block; height: 100%; width: 92%; border-radius: 6px; background: var(--yellow); transform-origin: left;
+  animation: mockup-fill 55s cubic-bezier(.1, .7, .3, 1) both; }
+html[dir="rtl"] .mockup-bar span { transform-origin: right; }
+@keyframes mockup-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.mockup-loading .small { color: var(--muted); text-align: center; }
 @keyframes mockup-shimmer { to { background-position: -300% 0; } }
-@media (prefers-reduced-motion: reduce) { .mockup-loading { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .mockup-loading, .mockup-bar span { animation: none; } }
 .mockup-placeholder { display: block; aspect-ratio: 1 / 1; background: var(--card); }
 .mockup-thumbs { display: flex; gap: 8px; flex-wrap: wrap; }
 .mockup-thumbs button { width: 64px; height: 64px; padding: 0; border-radius: 10px; overflow: hidden; border: 2px solid transparent; background: var(--card); }

@@ -35,9 +35,10 @@ class MockupMaker(Protocol):
 
 
 def mockup_prompt(product: str, questions: list[Question], answers: dict[str, Any],
-                  pictures: list[str]) -> tuple[str, str]:
+                  pictures: list[str], uploads: Optional[dict[str, str]] = None) -> tuple[str, str]:
     """(prompt, aspect ratio) from the form as it is now. `pictures`: the file ids of the reference images sent
-    with the prompt, in order (image 1, image 2...)."""
+    with the prompt, in order (image 1, image 2...). `uploads`: file id -> the form question it was uploaded for,
+    for pictures that are not placed on the product (a sticker, a label design)."""
     has_logo = bool(pictures)
     details, placements = [], []
     for q in questions:
@@ -55,18 +56,25 @@ def mockup_prompt(product: str, questions: list[Question], answers: dict[str, An
     back = any(p.get("view") == "back" for p in placements)
     lines = [f"Photorealistic e-commerce product photo of a custom {product}, for a brand mockup.", "",
              "Product details:", *details]
+    placed_ids = {p.get("file_id") for p in placements}
+    loose = [(i + 1, (uploads or {}).get(fid, "")) for i, fid in enumerate(pictures) if fid not in placed_ids]
     if placements and has_logo:
         def which(p: dict) -> str:
             if p.get("file_id") in pictures:
                 return f" - attached image {pictures.index(p['file_id']) + 1}"
             return " - attached image 1" if len(pictures) == 1 and p.get("kind") == "logo" else ""
         lines += ["", "Logo and label positions (left and right are the wearer's; the wearer's left is the right side "
-                      "of a front-facing photo):", *[f"- {describe_placement(p)}{which(p)}" for p in placements],
-                  "", "Use the attached images exactly as they are (same shapes, colours and any text), each at its "
-                      "stated position and size, applied with the decoration method above. Do not add any other "
-                      "logos, text or watermarks."]
+                      "of a front-facing photo):", *[f"- {describe_placement(p)}{which(p)}" for p in placements]]
     elif has_logo:
-        lines += ["", "Put the attached logo on the left chest, small. Reproduce it exactly; add no other text."]
+        lines += ["", "Put the attached logo on the left chest, small."]
+    if has_logo:
+        if loose and placements:
+            lines += ["", "Other attached artwork (also show it, on the product where it fits naturally):",
+                      *[f"- attached image {n}" + (f" ({q})" if q else "") for n, q in loose]]
+        lines += ["", f"The {len(pictures)} attached image(s) are the customer's real artwork. Copy each one exactly: "
+                      "the same shapes, colours, letters and proportions, never redrawn, restyled, translated or "
+                      "invented. Show each artwork once, at its stated position and size, applied with the "
+                      "decoration method above. Do not add any other logos, text, labels or watermarks."]
     else:
         lines += ["", "No logo: show the product without any logo, text or print."]
     lines += ["", ("Show the front and back views side by side" if back else "Show the front view")

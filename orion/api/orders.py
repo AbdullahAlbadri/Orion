@@ -312,17 +312,20 @@ async def make_mockup(
     own_files = await c.accounts.file_ids(order_id)
     placed = [p["file_id"] for v in answers.values() if isinstance(v, list)
               for p in v if isinstance(p, dict) and "view" in p and p.get("file_id")]
-    candidates = list(dict.fromkeys(placed)) or list(file_ids_in(answers))
+    # other uploads (a sticker, a label design) follow the placed ones, with the question they answer
+    uploads = {str(f["file_id"]): q.prompt.rstrip("?؟:. ") for q in questions
+               for f in (answers.get(q.id) if is_file_list(answers.get(q.id)) else [])}
+    candidates = list(dict.fromkeys(placed + [f for f in uploads if f not in placed])) or list(file_ids_in(answers))
     pictures, references = [], []
     for file_id in candidates:
         row = await c.accounts.order_file(order_id, file_id) if file_id in own_files else None
         if row and row["content_type"] in REFERENCE_TYPES:
             pictures.append(file_id)
             references.append((c.files.load(row["storage_key"]), row["content_type"]))
-        if len(references) == 4 or (not placed and references):
+        if len(references) == 4:
             break
     product = MARKETS[spec["market"]].options[spec["option"]].name
-    prompt, aspect = mockup_prompt(product, questions, answers, pictures)
+    prompt, aspect = mockup_prompt(product, questions, answers, pictures, uploads)
     try:
         image = await c.mockups.make(prompt, references, aspect)
     except Exception:

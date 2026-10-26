@@ -82,7 +82,13 @@ export default function MockupPanel({ orderId, answers }: { orderId: string; ans
         </div>
         {list && <span className="muted small">{remaining > 0 ? L(C.left).replace("{n}", String(remaining)) : L(C.none)}</span>}
       </div>
-      {busy && <div className="mockup-frame mockup-loading" aria-busy="true"><SparkleIcon /></div>}
+      {busy && (
+        <div className="mockup-frame mockup-loading" aria-busy="true" role="status">
+          <SparkleIcon />
+          <div className="mockup-bar" aria-hidden><span /></div>
+          <span className="small">{L(C.busy)}</span>
+        </div>
+      )}
       {!busy && shown && (
         <figure className="mockup-frame">
           <MockupImage orderId={orderId} id={shown} alt={L(C.caption)} />

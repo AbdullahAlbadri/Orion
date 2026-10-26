@@ -26,7 +26,7 @@ def test_prompt_describes_the_look_and_the_logo_position_not_the_logistics():
     prompt, aspect = mockup_prompt("Hoodie", questions, answers, ["f-1"])
     assert "custom Hoodie" in prompt and "black" in prompt and "embroidery" in prompt and "cotton fleece" in prompt
     assert "logo, front, wearer's left chest, 9 x 7 cm - attached image 1" in prompt
-    assert "Use the attached images exactly" in prompt
+    assert "Copy each one exactly" in prompt
     assert "flexible" not in prompt and "branded box" not in prompt and aspect == "1:1"
 
     back = LOGO_AT_LEFT_CHEST + [{"kind": "logo", "view": "back", "x": 0.5, "y": 0.45, "width_cm": 30, "height_cm": 36}]
