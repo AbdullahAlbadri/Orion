@@ -53,9 +53,11 @@
 }
 
 /* ---------- page parts ---------- */
-.page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin: 8px 0 22px; }
-.page-head h1 { font-size: 28px; margin: 0; }
-.page-head p { margin: 4px 0 0; }
+/* page title: a large display heading over a hairline, as on the overview */
+.page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin: 8px 0 26px;
+  padding-bottom: 22px; border-bottom: 1px solid var(--line); }
+.page-head h1 { font-size: clamp(30px, 3.6vw, 44px); line-height: 1.1; margin: 0; }
+.page-head p { margin: 8px 0 0; }
 .segmented .count { margin-inline-start: 6px; font-size: 12px; background: var(--card-2); border-radius: 999px; padding: 0 7px; }
 .segmented button.on .count { background: rgba(226, 184, 102, .2); }
 .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
@@ -417,3 +419,49 @@ a.ov-row:hover { color: var(--text); background: linear-gradient(90deg, transpar
 .vtracker .tracker-step.now .tracker-icon svg { width: 22px; height: 22px; }
 .vtracker .tracker-label { font-size: 14px; }
 @media (prefers-reduced-motion: reduce) { .vtracker::after { animation: none; } }
+
+/* ---------- shared parts in the journey style ---------- */
+/* tab lists: words with a gold underline, counts beside them */
+.shell .segmented[role="tablist"] { display: flex; gap: 26px; background: none; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; padding: 0; }
+.shell .segmented[role="tablist"] button { position: relative; padding: 10px 0 12px; border-radius: 0; background: none; color: var(--muted); font-size: 15px; }
+.shell .segmented[role="tablist"] button:hover { color: var(--text); }
+.shell .segmented[role="tablist"] button.on { background: none; color: var(--text); font-weight: 600; }
+.shell .segmented[role="tablist"] button.on::after { content: ""; position: absolute; inset-inline: 0; bottom: -1px; height: 2px; background: var(--yellow); }
+.shell .segmented[role="tablist"] .count { background: none; padding: 0; margin-inline-start: 4px; font-size: 12px; color: var(--muted); }
+.shell .segmented[role="tablist"] button.on .count { background: none; color: var(--yellow); }
+
+/* rows that need the customer: a gold edge */
+.attention-item { position: relative; border-radius: var(--radius-sm); padding: 14px 18px; border-color: rgba(226, 184, 102, .22);
+  background: linear-gradient(90deg, rgba(226, 184, 102, .08), rgba(226, 184, 102, .02)); }
+html[dir="rtl"] .attention-item { background: linear-gradient(270deg, rgba(226, 184, 102, .08), rgba(226, 184, 102, .02)); }
+.attention-item::before { content: ""; position: absolute; inset-inline-start: -1px; top: 12px; bottom: 12px; width: 2px; background: var(--yellow); border-radius: 2px; }
+.attention-item .dot { display: none; }
+
+/* a framed panel, like the departures board */
+.panel { background: #0d0d11; border: 1px solid var(--line); border-radius: var(--radius); padding: 18px clamp(14px, 2.4vw, 26px) 8px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .03), 0 40px 80px -50px rgba(0, 0, 0, .9); }
+.panel > .toolbar:first-child { margin-bottom: 12px; }
+
+/* tables read like a departures board: small spaced headings, hairline rows, no boxes */
+.table { border-spacing: 0; }
+.table th { padding: 14px 12px 10px; font-size: 11px; font-weight: 500; letter-spacing: .14em; color: var(--muted); border-bottom: 1px solid var(--line); }
+html[lang="en"] .table th { text-transform: uppercase; }
+.table td { background: transparent; padding: 14px 12px; border-bottom: 1px solid var(--line); }
+.table tr:last-child td { border-bottom: 0; }
+.table tr td:first-child, .table tr td:last-child { border-radius: 0; }
+.table tr.click:hover td { background: linear-gradient(90deg, transparent, rgba(226, 184, 102, .05), transparent); }
+
+/* a split-flap tile for codes and references */
+.flap { position: relative; display: inline-flex; align-items: center; padding: 5px 9px; border-radius: 4px; white-space: nowrap;
+  background: linear-gradient(#1c1c23 0 50%, #16161c 50%); box-shadow: inset 0 -1px 0 rgba(0, 0, 0, .6), 0 1px 0 rgba(255, 255, 255, .04);
+  font: 600 12px/1.2 var(--font-latin), monospace; letter-spacing: .08em; color: var(--text); direction: ltr; unicode-bidi: isolate; }
+.flap::after { content: ""; position: absolute; z-index: -1; inset-inline: 0; top: 50%; height: 1px; background: rgba(0, 0, 0, .55); }
+.flap { isolation: isolate; }
+
+/* statuses: square tiles instead of pills */
+.st { border-radius: 4px; padding: 4px 10px; font-size: 12.5px; }
+@media (max-width: 760px) {
+  .panel { padding: 12px 12px 4px; }
+  .table tr { background: var(--card); border: 1px solid var(--line); }
+  .table td { border-bottom: 0; }
+}

@@ -125,7 +125,7 @@ export default function OrdersPage() {
             </section>
           )}
 
-          <div className="toolbar">
+          <div className="toolbar" style={{ marginBottom: 20 }}>
             <Tabs<Filter> value={filter} onChange={setFilter} options={[
               { key: "active", label: L(C.active), count: counts.active },
               { key: "delivered", label: L(C.delivered), count: counts.delivered },
@@ -134,6 +134,7 @@ export default function OrdersPage() {
               { key: "all", label: L(COMMON.all), count: counts.all },
             ]} />
           </div>
+          <section className="panel">
           <div className="toolbar">
             <label className="search">
               <SearchIcon width={18} height={18} />
@@ -166,7 +167,7 @@ export default function OrdersPage() {
                     <tr key={o.id} className="click" onClick={() => router.push(`/orders/${o.id}`)}>
                       <td><div className="cell-product"><ProductThumb option={o.option} size={44} />
                         <strong className="ellipsis">{orderName(o, lang)}</strong></div></td>
-                      <td data-label={L(C.reference)}><span className="mono">{o.id}</span></td>
+                      <td data-label={L(C.reference)}><span className="flap">{o.id}</span></td>
                       <td data-label={L(C.market)}>{marketName(o.market)}</td>
                       <td data-label={L(C.status)}><StatusChip status={o.status} tone={chipTone(o)} /></td>
                       <td data-label={L(C.updated)}><span title={formatDate(o.updated_at, lang, calendar, true)}>{ago(o.updated_at, lang)}</span></td>
@@ -195,6 +196,7 @@ export default function OrdersPage() {
               </tbody>
             </table>
           )}
+          </section>
         </>
       )}
     </>
