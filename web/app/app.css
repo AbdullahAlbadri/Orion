@@ -208,16 +208,7 @@
 .tracker-chips button.on { color: var(--navy); background: var(--yellow); border-color: var(--yellow); font-weight: 700; }
 .tracker-order { display: flex; align-items: center; gap: 14px; }
 .tracker-order .grow { flex: 1; min-width: 0; }
-.tracker-steps { --fill: 0; position: relative; list-style: none; margin: 6px 0 0; padding: 0; display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr)); }
-.tracker-steps::before, .tracker-steps::after { content: ""; position: absolute; top: 25px; height: 4px; border-radius: 4px;
-  inset-inline-start: calc(100% / 16); }
-.tracker-steps::before { inset-inline-end: calc(100% / 16); background: rgba(241, 236, 227, .1); }
 /* the filled part: gold with a flowing highlight, up to the current step */
-.tracker-steps::after { width: calc((100% - 100% / 8) * var(--fill));
-  background: linear-gradient(90deg, var(--yellow), #f3d595, var(--yellow)); background-size: 200% 100%;
-  animation: track-fill 900ms cubic-bezier(.22, 1, .36, 1) both, track-flow 2.4s linear infinite; transform-origin: left; }
-html[dir="rtl"] .tracker-steps::after { transform-origin: right; }
 @keyframes track-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes track-flow { to { background-position: -200% 0; } }
 .tracker-step { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
@@ -264,7 +255,6 @@ html[dir="rtl"] .anim-drive svg { transform: scaleX(-1); }
   .tracker-icon svg { width: 17px; height: 17px; }
   .tracker-step.now .tracker-icon { width: 42px; height: 42px; margin-top: -4px; }
   .tracker-step.now .tracker-icon svg { width: 20px; height: 20px; }
-  .tracker-steps::before, .tracker-steps::after { top: 15px; height: 3px; }
   .tracker-label { font-size: 10px; }
   .tracker-step:not(.now) .tracker-label { visibility: hidden; }
   .puff { width: 6px; height: 6px; top: 3px; inset-inline-end: 6px; }
@@ -341,11 +331,11 @@ a.ov-row:hover { color: var(--text); background: linear-gradient(90deg, transpar
 
 /* numbers: a ledger with big figures */
 .ov-ledger { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; border-top: 1px solid var(--line); }
-.ov-ledger div { display: flex; flex-direction: column-reverse; gap: 4px; padding: 18px 4px; border-bottom: 1px solid var(--line); }
+.ov-ledger div { display: flex; flex-direction: column-reverse; gap: 4px; padding: 14px 4px; border-bottom: 1px solid var(--line); }
 .ov-ledger div:nth-child(odd):not(.wide) { border-inline-end: 1px solid var(--line); padding-inline-end: 18px; }
 .ov-ledger div:nth-child(even) { padding-inline-start: 18px; }
 .ov-ledger div.wide { grid-column: 1 / -1; padding-inline: 4px; }
-.ov-ledger dd { margin: 0; font-family: var(--display); font-size: 42px; line-height: 1; font-variant-numeric: tabular-nums; }
+.ov-ledger dd { margin: 0; font-family: var(--display); font-size: 34px; line-height: 1; font-variant-numeric: tabular-nums; }
 .ov-ledger dt { font-size: 14px; color: var(--muted); }
 
 /* ideas: white paper tickets with a perforated stub, slightly askew */
@@ -406,7 +396,7 @@ a.ov-row:hover { color: var(--text); background: linear-gradient(90deg, transpar
 .spinning { animation: spin 900ms linear infinite; }
 
 @media (prefers-reduced-motion: reduce) {
-  .tracker *, .tracker *::before, .tracker *::after, .tracker-steps::after, .ov-idea, .ov-pulse, .ov-doc-skeleton, .skeleton, .spinning {
+  .tracker *, .tracker *::before, .tracker *::after, .ov-idea, .ov-pulse, .ov-doc-skeleton, .skeleton, .spinning {
     animation: none !important; }
   .puff { display: none; }
 }
@@ -542,3 +532,91 @@ html[lang="en"] .dep-cols { text-transform: uppercase; }
   .dep-product .thumb { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .dep-row .flap, .dep-blink { animation: none; } }
+
+/* ---------- order tracker: the route as a wavy orbit, a rocket at the current step ---------- */
+.tracker { background:
+    radial-gradient(1.2px 1.2px at 7% 24%, rgba(241, 236, 227, .55) 50%, transparent 52%),
+    radial-gradient(1px 1px at 23% 78%, rgba(241, 236, 227, .4) 50%, transparent 52%),
+    radial-gradient(1.4px 1.4px at 41% 14%, rgba(226, 184, 102, .6) 50%, transparent 52%),
+    radial-gradient(1px 1px at 63% 86%, rgba(241, 236, 227, .45) 50%, transparent 52%),
+    radial-gradient(1.2px 1.2px at 78% 30%, rgba(241, 236, 227, .5) 50%, transparent 52%),
+    radial-gradient(1px 1px at 94% 70%, rgba(241, 236, 227, .4) 50%, transparent 52%),
+    linear-gradient(160deg, #141419, #0b0b0e); }
+.orbit-track { --mid: 56px; position: relative; height: calc(var(--mid) + 78px); margin-top: 4px; }
+.orbit-line { position: absolute; inset-inline: 0; top: 0; width: 100%; height: calc(var(--mid) * 2); overflow: visible; }
+html[dir="rtl"] .orbit-line { transform: scaleX(-1); }
+.orbit-path { fill: none; stroke: rgba(241, 236, 227, .2); stroke-width: 1.5; stroke-dasharray: 3 6; vector-effect: non-scaling-stroke; }
+.orbit-path.done { stroke: var(--yellow); stroke-width: 2.2; stroke-dasharray: none; filter: drop-shadow(0 0 5px rgba(226, 184, 102, .55)); }
+.orbit-clip { transform-box: fill-box; transform-origin: left; animation: orbit-grow 1.4s var(--ease) both; }
+@keyframes orbit-grow { from { transform: scaleX(0); } }
+.orbit-stops { position: absolute; inset: 0; list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); }
+.orbit-stop { position: relative; display: flex; justify-content: center; }
+.orbit-dot { position: absolute; top: var(--mid); translate: 0 -50%; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+  background: #141419; border: 1px solid rgba(241, 236, 227, .18); color: var(--muted);
+  animation: ov-in 500ms cubic-bezier(.22, 1, .36, 1) both; animation-delay: calc(var(--i) * 70ms); }
+.orbit-dot svg { width: 15px; height: 15px; }
+.orbit-stop.done .orbit-dot { background: #221d14; border-color: rgba(226, 184, 102, .65); color: var(--yellow); }
+.orbit-label { position: absolute; top: calc(var(--mid) + 26px); font-size: 13px; color: var(--muted); text-align: center; line-height: 1.3; padding-inline: 2px; }
+.orbit-stop.done .orbit-label { color: var(--text); }
+.orbit-stop.now .orbit-label { color: var(--yellow); font-weight: 700; }
+/* the rocket points along the route: down into odd steps, up into even ones (the wave alternates) */
+.orbit-rocket { --a: 0deg; --flip: 1; position: absolute; top: var(--mid); left: 50%; width: 56px; height: 28px;
+  transform: translate(-50%, -50%) scaleX(var(--flip)) rotate(var(--a)); filter: drop-shadow(0 0 10px rgba(226, 184, 102, .5));
+  animation: rk-hover 2.4s ease-in-out infinite; }
+html[dir="rtl"] .orbit-rocket { --flip: -1; }
+.orbit-stop.down .orbit-rocket { --a: 30deg; }
+.orbit-stop.up .orbit-rocket { --a: -30deg; }
+.orbit-rocket svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.rk-body { fill: var(--sheet); }
+.rk-fin { fill: var(--yellow); }
+.rk-window { fill: var(--sheet-ink); stroke: var(--yellow); stroke-width: 1.5; }
+.rk-flame { fill: #f0a050; transform-box: fill-box; transform-origin: right center; animation: rk-flame .22s ease-in-out infinite alternate; }
+@keyframes rk-flame { to { transform: scaleX(.55); opacity: .7; } }
+@keyframes rk-hover { 50% { translate: 0 -3px; } }
+@media (max-width: 640px) {
+  .orbit-track { --mid: 40px; height: calc(var(--mid) + 56px); }
+  .orbit-dot { width: 22px; height: 22px; }
+  .orbit-dot svg { width: 11px; height: 11px; }
+  .orbit-rocket { width: 40px; height: 20px; }
+  .orbit-label { top: calc(var(--mid) + 18px); font-size: 11px; white-space: nowrap; }
+  .orbit-stop:not(.now) .orbit-label { visibility: hidden; }
+}
+@media (prefers-reduced-motion: reduce) { .orbit-clip, .orbit-rocket, .rk-flame, .orbit-dot { animation: none; } }
+
+/* ---------- overview charts: one series each in the chart gold, the hovered bar in the brand gold ---------- */
+.ov-numbers .chart-card { margin-top: 20px; }
+.ov-stack { display: flex; flex-direction: column; gap: 28px; min-width: 0; }
+.chart-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px 14px; }
+.chart { margin: 0; }
+.chart-title { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
+.chart-note { margin: 10px 0 0; font-size: 13px; color: var(--muted); }
+.col-chart { display: flex; align-items: stretch; gap: 10px; height: 170px; padding-top: 30px; }
+.col { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; outline: none; }
+.col:focus-visible .col-label { color: var(--yellow); }
+.col-track { position: relative; flex: 1; width: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center;
+  border-bottom: 1px solid var(--line); }
+.col-bar { display: block; width: min(30px, 70%); background: #b88a36; border-radius: 4px 4px 0 0; transition: background .2s, height .6s var(--ease); }
+.col.on .col-bar { background: var(--yellow); }
+.col-label { font-size: 12px; color: var(--muted); text-align: center; line-height: 1.25; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.col.on .col-label { color: var(--text); }
+.col-value { font-size: 13px; font-weight: 700; margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+.chart-tip { position: absolute; top: 0; left: 50%; z-index: 2; transform: translate(-50%, -100%); white-space: nowrap; pointer-events: none;
+  padding: 5px 9px; border-radius: 4px; background: var(--sheet); color: var(--sheet-ink); font-size: 12px; box-shadow: 0 10px 20px -8px rgba(0, 0, 0, .8); }
+/* steps chart: the bars stand on the route, a stop under each */
+.col-chart.route { gap: 6px; height: 190px; }
+.route .col-track { border-bottom: 1.5px dashed rgba(226, 184, 102, .35); }
+.route .col-bar { width: min(22px, 60%); }
+.col-stop { width: 10px; height: 10px; margin-top: -13px; border-radius: 50%; border: 1.5px solid rgba(226, 184, 102, .6); background: var(--card); }
+.col.has .col-stop { background: #b88a36; border-color: #b88a36; }
+.route .col-label { white-space: normal; font-size: 11px; min-height: 28px; }
+/* waiting chart: labelled horizontal bars */
+.row-chart { display: flex; flex-direction: column; gap: 16px; padding-top: 12px; }
+.hrow { display: grid; grid-template-columns: 70px minmax(0, 1fr) 76px; gap: 12px; align-items: center; font-size: 14px; }
+.hrow-label { color: var(--muted); }
+.hrow.you .hrow-label { color: var(--text); font-weight: 600; }
+.hrow-track { height: 10px; background: rgba(241, 236, 227, .06); border-start-end-radius: 4px; border-end-end-radius: 4px; }
+.hrow-bar { display: block; height: 100%; background: #b88a36; border-start-end-radius: 4px; border-end-end-radius: 4px; transition: width .6s var(--ease); }
+.hrow:hover .hrow-bar { background: var(--yellow); }
+.hrow-value { text-align: end; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 560px) { .route .col-label { font-size: 9.5px; } .col-chart.route { gap: 2px; } }

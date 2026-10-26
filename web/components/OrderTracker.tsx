@@ -1,8 +1,9 @@
 "use client";
 
-// Order tracker for the Overview: the order's steps in a row, done steps checked, the current step's icon
-// animated (each in its own way: the factory smokes, the gear turns, the truck drives). Several orders in
-// progress: chips switch between them. Still when the customer prefers reduced motion.
+// Order tracker for the Overview: the order's steps along a wavy orbit, the travelled part in gold with a rocket
+// at the current step, done steps checked. On an order's page the same steps stand upright (JourneyTracker),
+// each current icon animated in its own way. Several orders in progress: chips switch between them.
+// Still when the customer prefers reduced motion.
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 
@@ -70,6 +71,8 @@ export default function OrderTracker({ orders }: { orders: OrderRow[] }) {
   if (!order) return null;
   const current = stepIndex(order.stage);
   const fill = current / (TRACK.length - 1);   // 0-1: how far the gold line reaches
+  // the wave dips into odd steps and climbs into even ones; the rocket follows it
+  const heading = current === 0 ? "flat" : current % 2 ? "down" : "up";
 
   return (
     <section className="board board-ink tracker" aria-labelledby="tracker-title">
@@ -101,21 +104,50 @@ export default function OrderTracker({ orders }: { orders: OrderRow[] }) {
           : <Link href={`/orders/${order.id}`} className="btn-outline">{L(C.open)}</Link>}
       </div>
 
-      <ol className="tracker-steps" style={{ ["--fill" as string]: fill }} key={order.id}>
-        {TRACK.map((s, i) => {
-          const state = i < current ? "done" : i === current ? "now" : "next";
-          return (
-            <li key={s.key} className={`tracker-step ${state}`} style={{ ["--i" as string]: i }}
-              aria-current={state === "now" ? "step" : undefined}>
-              <span className={`tracker-icon anim-${s.anim}`}>
-                {state === "done" ? <CheckIcon /> : s.icon}
-                {state === "now" && s.anim === "smoke" && <><i className="puff p1" /><i className="puff p2" /></>}
-              </span>
-              <span className="tracker-label">{L(s.label)}</span>
-            </li>
-          );
-        })}
-      </ol>
+      <div className="orbit-track" key={order.id} style={{ ["--fill" as string]: fill }}>
+        <svg className="orbit-line" viewBox={`0 0 ${TRACK.length * 100} 120`} preserveAspectRatio="none" aria-hidden>
+          <defs>
+            <clipPath id={`orbit-done-${order.id}`}><rect className="orbit-clip" x="0" y="0" height="120" width={(current + 0.5) * 100} /></clipPath>
+          </defs>
+          <path className="orbit-path" d={WAVE} />
+          <path className="orbit-path done" d={WAVE} clipPath={`url(#orbit-done-${order.id})`} />
+        </svg>
+        <ol className="orbit-stops">
+          {TRACK.map((s, i) => {
+            const state = i < current ? "done" : i === current ? "now" : "next";
+            return (
+              <li key={s.key} className={`orbit-stop ${state}${state === "now" ? ` ${heading}` : ""}`} style={{ ["--i" as string]: i }}
+                aria-current={state === "now" ? "step" : undefined}>
+                {state === "now" ? <Rocket /> : (
+                  <span className="orbit-dot">{state === "done" ? <CheckIcon /> : s.icon}</span>
+                )}
+                <span className="orbit-label">{L(s.label)}</span>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
     </section>
+  );
+}
+
+// The route as a wave: it crosses the middle line at every step and swings up and down between them,
+// like a rocket's path through space. The stops sit where it crosses (x = 50, 150, 250 ... in a 100-wide slot).
+const WAVE = TRACK.slice(1).reduce((d, _, i) => {
+  const x = i * 100 + 50;
+  return `${d} Q ${x + 50} ${i % 2 ? 104 : 16} ${x + 100} 60`;
+}, "M 50 60");
+
+/** A small rocket at the current step, pointing along the route, its flame flickering. */
+function Rocket() {
+  return (
+    <span className="orbit-rocket" aria-hidden>
+      <svg viewBox="0 0 56 28">
+        <path className="rk-flame" d="M2 14 L13 9 L11 14 L13 19 Z" />
+        <path className="rk-fin" d="M16 9 L11 2 H19 L24 9 Z M16 19 L11 26 H19 L24 19 Z" />
+        <path className="rk-body" d="M13 8.5 H34 C42 8.5 49 11 53 14 C49 17 42 19.5 34 19.5 H13 Z" />
+        <circle className="rk-window" cx="36" cy="14" r="3" />
+      </svg>
+    </span>
   );
 }

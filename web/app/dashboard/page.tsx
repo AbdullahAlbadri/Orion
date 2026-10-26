@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { ArrowIcon, BellIcon, BuildingIcon, ReplayIcon, SparkleIcon } from "@/components/Icons";
+import { PiecesChart, StepsChart, WaitingChart } from "@/components/OverviewCharts";
 import OrderTracker from "@/components/OrderTracker";
 import { ProductThumb, StatusChip } from "@/components/ui";
 import {
@@ -187,7 +188,10 @@ export default function Overview() {
 
       {!isNew && (
         <div className="ov-grid ov-section">
-          <LatestOrder order={orders[0]} />
+          <div className="ov-stack">
+            <LatestOrder order={orders[0]} />
+            {stats && <div className="chart-card"><WaitingChart waiting={stats.time.waiting_hours} /></div>}
+          </div>
           <section className="ov-numbers" aria-labelledby="numbers">
             <Head id="numbers" more={<Link href="/stats" className="ov-more">{L(C.allStats)} <Forward /></Link>}>{L(C.stats)}</Head>
             <dl className="ov-ledger">
@@ -199,8 +203,13 @@ export default function Overview() {
                 <Figure label={L(C.timeSaved)} value={`≈ ${duration(stats.time_saved_hours, lang)}`} wide />
               )}
             </dl>
+            {stats && <div className="chart-card"><PiecesChart list={stats.order_list} /></div>}
           </section>
         </div>
+      )}
+
+      {!isNew && (
+        <div className="chart-card ov-section"><StepsChart orders={orders} /></div>
       )}
 
       <IdeasSection onStart={(idea, key) => start("/orders", {
