@@ -9,7 +9,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from orion import deps
+from orion import deps as deps_module   # the startup code below has its own variable called deps
 from orion.api import auth, inbox, me, orders, products, team
 from orion.api.context import ApiContext
 from orion.api.oidc import apple_verifier, google_verifier
@@ -57,7 +57,7 @@ def create_app(context: Optional[ApiContext] = None, settings: Optional[Settings
                 verifiers["apple"] = apple_verifier(settings.apple_client_id)
             # Login codes go out through the Orion mailbox when it is set (Gmail limits it to about 500 a day);
             # otherwise they are printed to the log. TODO(decide): email provider (Resend / Postmark / SES)
-            login_mail = deps.mailbox(settings)
+            login_mail = deps_module.mailbox(settings)
             log.info("login codes: %s", "emailed" if login_mail else "printed to the log (no mailbox set)")
             assistant = OpenRouterAssistant(
                 settings.openrouter_api_key.get_secret_value(), settings.openrouter_base_url, settings.assist_model
