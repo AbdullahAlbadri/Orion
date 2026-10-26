@@ -12,6 +12,7 @@ import imaplib
 import logging
 import re
 import smtplib
+import socket
 from dataclasses import dataclass
 from email.message import EmailMessage
 from email.policy import default as default_policy
@@ -109,6 +110,28 @@ class Inbox(Protocol):
     async def done(self, uid: str, flag: bool = False) -> None: ...   # mark read; flag = star it for the team
 
 
+def _connect_ipv4(host: str, port: int, timeout: float) -> socket.socket:
+    """Connect over IPv4 only. The server's containers have no IPv6 route, and Gmail's address list starts with
+    IPv6, which made every connection fail with "Network is unreachable"."""
+    last: Exception = OSError(f"no IPv4 address for {host}")
+    for *_, address in socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM):
+        try:
+            return socket.create_connection(address, timeout)
+        except OSError as e:
+            last = e
+    raise last
+
+
+class _SMTP4(smtplib.SMTP_SSL):
+    def _get_socket(self, host, port, timeout):
+        return self.context.wrap_socket(_connect_ipv4(host, port, timeout), server_hostname=self._host)
+
+
+class _IMAP4(imaplib.IMAP4_SSL):
+    def _create_socket(self, timeout):
+        return self.ssl_context.wrap_socket(_connect_ipv4(self.host, self.port, timeout or 30), server_hostname=self.host)
+
+
 class GmailMailbox:
     """SMTP + IMAP on one mailbox. The blocking libraries run in a thread."""
 
@@ -129,7 +152,7 @@ class GmailMailbox:
         await asyncio.to_thread(self._send, msg)
 
     def _send(self, msg: EmailMessage) -> None:
-        with smtplib.SMTP_SSL(self.smtp_host, self.smtp_port, timeout=30) as smtp:
+        with _SMTP4(self.smtp_host, self.smtp_port, timeout=30) as smtp:
             smtp.login(self.address, self._password)
             smtp.send_message(msg)
 
@@ -138,7 +161,7 @@ class GmailMailbox:
         return await asyncio.to_thread(self._check)
 
     def _check(self) -> str:
-        with smtplib.SMTP_SSL(self.smtp_host, self.smtp_port, timeout=30) as smtp:
+        with _SMTP4(self.smtp_host, self.smtp_port, timeout=30) as smtp:
             smtp.login(self.address, self._password)
         imap = self._imap()
         try:
@@ -151,7 +174,7 @@ class GmailMailbox:
         return await asyncio.to_thread(self._unread, limit)
 
     def _imap(self) -> imaplib.IMAP4_SSL:
-        imap = imaplib.IMAP4_SSL(self.imap_host, timeout=30)
+        imap = _IMAP4(self.imap_host, timeout=30)
         imap.login(self.address, self._password)
         imap.select("INBOX")
         return imap
