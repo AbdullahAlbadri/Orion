@@ -116,21 +116,12 @@ html[dir="ltr"] .ln-hero-title { font-size: clamp(44px, 6.2vw, 96px); max-width:
 .ln-city b { font-weight: 500; font-size: 15px; }
 .ln-city small { font-size: 11px; letter-spacing: .16em; color: var(--muted); }
 
-/* The sky: a starfield over the whole hero and Orion beside the headline */
+/* The sky: a starfield over the whole hero */
 .ln-hero > .ln-wrap { position: relative; z-index: 1; }
 .ln-stars { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .ln-stars circle { fill: var(--text); opacity: .45; }
 .ln-stars .tw { animation: ln-twinkle 4s ease-in-out infinite; animation-delay: var(--d); }
 @keyframes ln-twinkle { 50% { opacity: .06; } }
-.ln-constellation { position: absolute; top: 120px; inset-inline-end: max(5vw, 24px); width: 200px; pointer-events: none; text-align: center; }
-.ln-constellation svg { display: block; width: 100%; height: auto; overflow: visible; }
-.ln-constellation span { display: block; margin-top: 12px; font-size: 11px; letter-spacing: .4em; color: var(--muted); animation: ln-fade 1.2s var(--ease) 2.6s both; }
-.ln-const-line { stroke: rgba(226, 184, 102, .38); stroke-width: 1; stroke-dasharray: 1; stroke-dashoffset: 1;
-  animation: ln-draw 1.4s var(--ease) forwards; animation-delay: calc(1s + var(--i) * 160ms); }
-.ln-const-star { fill: var(--text); filter: drop-shadow(0 0 5px rgba(241, 236, 227, .9)); animation: ln-shine 5s ease-in-out infinite; animation-delay: var(--d); }
-.ln-const-star.betelgeuse { fill: #f2a65a; filter: drop-shadow(0 0 7px #f2a65a); }
-.ln-const-star.rigel { fill: #d6e4ff; filter: drop-shadow(0 0 7px #d6e4ff); }
-@keyframes ln-shine { 50% { opacity: .5; } }
 
 /* Sections and their heads: the number is the route stop */
 .ln-section { position: relative; padding: clamp(90px, 12vw, 150px) 0; scroll-margin-top: 70px; }
@@ -359,7 +350,7 @@ html[dir="rtl"] .ln-board-row:hover .ln-board-more { transform: translateX(-4px)
   .ln-nav-actions .ln-btn.sm { display: none; }
   .ln-hero { padding-top: 120px; }
   .ln-routemap { height: auto; aspect-ratio: 10 / 3; margin: 56px 40px 24px; } /* same ratio as the drawing, so dots stay round */
-  .ln-city b, .ln-constellation { display: none; }
+  .ln-city b { display: none; }
   .ln-city-label { gap: 0; }
   .ln-city.west .ln-city-label { right: 14px; }
   .ln-city.east .ln-city-label { left: 14px; }
@@ -389,7 +380,7 @@ html[dir="rtl"] .ln-board-row:hover .ln-board-more { transform: translateX(-4px)
 }
 @media (prefers-reduced-motion: reduce) {
   .ln *, .ln *::before, .ln *::after { animation: none !important; transition: none !important; }
-  .ln-arc-back, .ln-const-line { stroke-dashoffset: 0; }
+  .ln-arc-back { stroke-dashoffset: 0; }
   [data-reveal], .ln-line > span { opacity: 1 !important; transform: none !important; }
   .ln-stamp { opacity: .85; transform: rotate(-14deg); }
   .ln-flap { transform: none; }
