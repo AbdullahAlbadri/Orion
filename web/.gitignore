@@ -5,3 +5,8 @@ out/
 next-env.d.ts
 *.tsbuildinfo
 .next-shots/
+
+# Thmanyah font: its licence forbids uploading the files anywhere (GitHub included). Keep them local only.
+/fonts/
+# Local design previews (they load the Thmanyah font files)
+/public/preview/

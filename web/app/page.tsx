@@ -1,22 +1,23 @@
 "use client";
 
-// Landing page (docs/website/landing-redesign.md, motion in landing-motion.md). Alternating navy and
-// off-white sections, numbered 01-06. Motion explains or guides; everything is still with reduced motion.
+// Landing page, "the journey" design: your idea leaves for the factory and your product comes back to your door.
+// Each section is a piece of that route: the route map, the factory network, the order's paper trail, parcels,
+// an invoice, a letter from the team, and the door. Everything is still with reduced motion.
 // Left out until the team decides: contact (WhatsApp/email), team portraits, waitlist, payment and sample FAQs.
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ArrowIcon, CheckIcon, CloseIcon, GlobeIcon, LockIcon, MenuIcon, UsersIcon } from "@/components/Icons";
 import Faq from "@/components/landing/Faq";
-import HeroDemo from "@/components/landing/HeroDemo";
-import HowItWorks from "@/components/landing/HowItWorks";
 import Markets from "@/components/landing/Markets";
+import Network from "@/components/landing/Network";
+import PaperTrail from "@/components/landing/PaperTrail";
+import RouteMap from "@/components/landing/RouteMap";
 import LegalDrawer from "@/components/LegalDrawer";
 import { useAuth } from "@/lib/auth";
 import { HOME, type T } from "@/lib/home";
 import { useLang } from "@/lib/i18n";
-import { mockupFor, VIEW_H, VIEW_W } from "@/lib/mockups";
-import { contours, PAGE_PEAKS } from "@/lib/topo";
+import { thDisplay, thSans } from "./fonts";
 import "./landing.css";
 
 const SECTIONS = [
@@ -36,125 +37,107 @@ export default function Landing() {
   useReveal(root, lang);
 
   return (
-    <div className="ln" ref={root}>
+    <div className={`ln ${thSans.variable} ${thDisplay.variable}`} ref={root}>
       <a href="#main" className="ln-skip">{L(HOME.nav.skip)}</a>
       <Nav startHref={startHref} signedIn={!!user} />
 
-      <section className="ln-hero ln-navy" id="top">
-        <HeroBackground />
-        <div className="ln-wrap ln-hero-grid">
-          <div className="ln-hero-copy">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className="ln-hero-mark" src="/brand/mark-gold.png" alt="" width={56} height={53} />
-            <h1 className="ln-hero-title" key={lang}>
-              {L(HOME.hero.words).split(" ").map((w, i) => (
-                <span key={i} className="ln-word" style={{ ["--w" as string]: i }}>{w}{" "}</span>
-              ))}
-            </h1>
-            <p className="ln-hero-sub ln-enter" style={{ ["--d" as string]: 1 }}>{L(HOME.hero.sub)}</p>
-            <div className="ln-row ln-enter" style={{ ["--d" as string]: 2 }}>
-              <Link href={startHref} className="ln-btn">{L(HOME.nav.start)} <ArrowIcon className="ln-arrow" width={18} height={18} /></Link>
-              <a href="#how" className="ln-btn-ghost">{L(HOME.hero.secondary)}</a>
-            </div>
+      <section className="ln-hero" id="top">
+        <div className="ln-wrap">
+          <p className="ln-kicker ln-enter">{L(HOME.hero.kicker)}</p>
+          <h1 className="ln-hero-title" key={lang}>
+            {L(HOME.hero.words).split(" ").map((w, i) => (
+              <span key={i} className="ln-word" style={{ ["--w" as string]: i }}>
+                <span className={w.replace(/[.,،]/g, "") === L(HOME.hero.accent) ? "ln-accent" : undefined}>{w}</span>{" "}
+              </span>
+            ))}
+          </h1>
+          <p className="ln-hero-sub ln-enter" style={{ ["--d" as string]: 1 }}>{L(HOME.hero.sub)}</p>
+          <div className="ln-row ln-enter" style={{ ["--d" as string]: 2 }}>
+            <Link href={startHref} className="ln-btn">{L(HOME.nav.start)} <ArrowIcon className="ln-arrow" width={18} height={18} /></Link>
+            <a href="#how" className="ln-btn-line">{L(HOME.hero.secondary)}</a>
           </div>
-          <div className="ln-hero-visual ln-enter" style={{ ["--d" as string]: 3 }}>
-            <div className="ln-glow" aria-hidden />
-            <HeroDemo />
-          </div>
+          <RouteMap />
         </div>
       </section>
 
       <ProductStrip />
 
       <main id="main">
-        <section className="ln-section ln-paper" id="why">
-          <div className="ln-bignum" aria-hidden>{HOME.why.num}</div>
-          <div className="ln-wrap ln-split">
-            <figure className="ln-why-visual" data-reveal="side">
-              <GarmentArt />
-              <figcaption>{L(HOME.why.visualCaption)}</figcaption>
-            </figure>
-            <div>
-              <SectionHead num={HOME.why.num} title={L(HOME.why.title)} />
-              <ol className="ln-points">
+        <section className="ln-section" id="why">
+          <div className="ln-wrap">
+            <SectionHead num={HOME.why.num} title={L(HOME.why.title)} />
+            <div className="ln-why">
+              <Network />
+              <ul className="ln-points">
                 {HOME.why.points.map((p, i) => (
                   <li key={i} data-reveal style={{ ["--i" as string]: i }}>
-                    <span className="ln-point-num">{String(i + 1).padStart(2, "0")}</span>
+                    <span className="ln-point-dot" aria-hidden />
                     <div><h3>{L(p.title)}</h3><p>{L(p.text)}</p></div>
                   </li>
                 ))}
-              </ol>
+              </ul>
             </div>
           </div>
         </section>
 
-        <section className="ln-section ln-navy" id="how">
+        <section className="ln-section" id="how">
           <div className="ln-wrap">
-            <SectionHead num={HOME.how.num} title={L(HOME.how.title)} />
-            <HowItWorks />
+            <SectionHead num={HOME.how.num} title={L(HOME.how.title)} aside={L(HOME.how.trail.code)} />
+            <PaperTrail />
           </div>
         </section>
 
-        <section className="ln-section ln-paper" id="markets">
+        <section className="ln-section" id="markets">
           <div className="ln-wrap">
             <SectionHead num={HOME.markets.num} title={L(HOME.markets.title)} />
             <Markets startHref={startHref} />
           </div>
         </section>
 
-        <section className="ln-section ln-navy ln-costs" id="costs">
-          <div className="ln-wrap">
-            <SectionHead num={HOME.costs.num} title={L(HOME.costs.title)} />
-            <div className="ln-costs-grid">
-              <div className="ln-cost-cards">
+        <section className="ln-section" id="costs">
+          <div className="ln-wrap ln-costs">
+            <div>
+              <SectionHead num={HOME.costs.num} title={L(HOME.costs.title)} />
+              <ul className="ln-promises">
+                {HOME.costs.promises.map((p, i) => (
+                  <li key={i} data-reveal style={{ ["--i" as string]: i }}><CheckIcon width={18} height={18} /> {L(p)}</li>
+                ))}
+              </ul>
+            </div>
+            <figure className="ln-invoice-wrap" data-reveal>
+              <div className="ln-invoice">
+                <div className="ln-doc-top"><span>ORN-0042 · INVOICE</span><b>{L(HOME.costs.receipt.title)}</b></div>
                 {HOME.costs.parts.map((p, i) => (
-                  <div key={i} className="ln-cost" data-reveal style={{ ["--i" as string]: i }}>
-                    <span className="ln-cost-num">{i + 1}</span>
-                    <div><h3>{L(p.title)}</h3><p>{L(p.text)}</p></div>
+                  <div key={i} className="ln-invoice-row" style={{ ["--i" as string]: i }}>
+                    <div><strong>{L(p.title)}</strong><small>{L(p.text)}</small></div>
+                    <i className="ln-leader" /><span className="ln-amount" aria-hidden>—</span>
                   </div>
                 ))}
-              </div>
-              <figure className="ln-receipt-wrap">
-                <div className="ln-receipt" data-reveal="build">
-                  <div className="ln-receipt-title">{L(HOME.costs.receipt.title)}</div>
-                  {HOME.costs.parts.map((p, i) => (
-                    <div key={i} className="ln-receipt-row" style={{ ["--i" as string]: i }}>
-                      <span>{L(p.title)}</span><i className="ln-bar" />
-                    </div>
-                  ))}
-                  <div className="ln-receipt-line" />
-                  <div className="ln-receipt-row total"><span>{L(HOME.costs.receipt.total)}</span><i className="ln-bar gold" /></div>
+                <div className="ln-invoice-row total">
+                  <div><strong>{L(HOME.costs.receipt.total)}</strong></div><i className="ln-leader" /><span className="ln-amount gold" aria-hidden>—</span>
                 </div>
-                <figcaption>{L(HOME.costs.receipt.caption)}</figcaption>
-              </figure>
-            </div>
-            <ul className="ln-checks" data-reveal="checks">
-              {HOME.costs.promises.map((p, i) => (
-                <li key={i} style={{ ["--i" as string]: i }}>
-                  <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden><path d="M5 12.5 10 17l9-10" /></svg>
-                  {L(p)}
-                </li>
-              ))}
-            </ul>
+              </div>
+              <figcaption>{L(HOME.costs.receipt.caption)}</figcaption>
+            </figure>
           </div>
         </section>
 
-        <section className="ln-section ln-paper" id="people">
+        <section className="ln-section" id="people">
           <div className="ln-wrap">
             <SectionHead num={HOME.people.num} title={L(HOME.people.title)} />
-            <div className="ln-commitments">
+            <div className="ln-letter" data-reveal>
               {HOME.people.commitments.map((c, i) => (
-                <div key={i} className="ln-commit" data-reveal style={{ ["--i" as string]: i }}>
-                  <span className="ln-commit-icon">{{ lock: <LockIcon />, check: <CheckIcon />, people: <UsersIcon /> }[c.icon]}</span>
-                  <h3>{L(c.title)}</h3>
-                  <p>{L(c.text)}</p>
+                <div key={i} className="ln-commit" style={{ ["--i" as string]: i }}>
+                  <span className="ln-seal">{{ lock: <LockIcon />, check: <CheckIcon />, people: <UsersIcon /> }[c.icon]}</span>
+                  <div><h3>{L(c.title)}</h3><p>{L(c.text)}</p></div>
                 </div>
               ))}
+              <p className="ln-signature">{lang === "ar" ? "— فريق أوريون" : "— The Orion team"}</p>
             </div>
           </div>
         </section>
 
-        <section className="ln-section ln-navy" id="faq">
+        <section className="ln-section" id="faq">
           <div className="ln-wrap ln-narrow">
             <SectionHead num={HOME.faq.num} title={L(HOME.faq.title)} />
             <Faq onPrivacy={() => setLegal(true)} />
@@ -163,17 +146,18 @@ export default function Landing() {
 
         <section className="ln-closing" id="closing">
           <div className="ln-wrap">
+            <span className="ln-dest-pin big" aria-hidden />
             <h2 className="ln-closing-lines" data-reveal="lines" key={lang}>
               {HOME.closing.lines.map((l, i) => (
                 <span key={i} className="ln-line" style={{ ["--i" as string]: i }}><span>{L(l)}</span></span>
               ))}
             </h2>
-            <Link href={startHref} className="ln-btn-navy">{L(HOME.nav.start)} <ArrowIcon className="ln-arrow" width={18} height={18} /></Link>
+            <Link href={startHref} className="ln-btn">{L(HOME.nav.start)} <ArrowIcon className="ln-arrow" width={18} height={18} /></Link>
           </div>
         </section>
       </main>
 
-      <footer className="ln-footer ln-navy">
+      <footer className="ln-footer">
         <div className="ln-wrap ln-footer-row">
           <Link href="/" className="ln-logo" aria-label="Orion">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -195,11 +179,15 @@ export default function Landing() {
   );
 }
 
-function SectionHead({ num, title }: { num: string; title: string }) {
+function SectionHead({ num, title, aside }: { num: string; title: string; aside?: string }) {
+  const { lang } = useLang();
+  // Section numbers as route stops; Arabic-Indic digits in Arabic
+  const n = lang === "ar" ? Number(num).toLocaleString("ar-EG", { minimumIntegerDigits: 2 }) : num;
   return (
     <div className="ln-head" data-reveal>
-      <span className="ln-num">{num}</span>
+      <span className="ln-num">{n}</span>
       <h2>{title}</h2>
+      {aside && <span className="ln-head-aside">{aside}</span>}
     </div>
   );
 }
@@ -277,8 +265,8 @@ function Nav({ startHref, signedIn }: { startHref: string; signedIn: boolean }) 
         <div className="ln-wrap ln-nav-row">
           <Link href="/" className="ln-logo" aria-label="Orion">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/brand/mark-gold.png" alt="" width={32} height={30} />
-            <span className="ln-logo-text"><b>أوريون</b><small>Orion</small></span>
+            <img src="/brand/mark-gold.png" alt="" width={30} height={28} />
+            <span>{lang === "ar" ? "أوريون" : "Orion"}</span>
           </Link>
           <nav className="ln-nav-links">
             {SECTIONS.map((s) => (
@@ -288,10 +276,10 @@ function Nav({ startHref, signedIn }: { startHref: string; signedIn: boolean }) 
             {bar && <span className="ln-nav-bar" style={{ transform: `translateX(${bar.left}px)`, width: bar.width }} />}
           </nav>
           <div className="ln-row ln-nav-actions">
-            <button type="button" className="ln-btn-ghost sm" onClick={() => setLang(lang === "ar" ? "en" : "ar")}>
+            <button type="button" className="ln-btn-text" onClick={() => setLang(lang === "ar" ? "en" : "ar")}>
               <GlobeIcon width={16} height={16} /> {lang === "ar" ? "English" : "العربية"}
             </button>
-            <Link href={signedIn ? "/dashboard" : "/start"} className="ln-btn-ghost sm ln-hide-sm">
+            <Link href={signedIn ? "/dashboard" : "/start"} className="ln-btn-text ln-hide-sm">
               {L(signedIn ? HOME.nav.dashboard : HOME.nav.signIn)}
             </Link>
             <Link href={startHref} className="ln-btn sm">{L(HOME.nav.start)}</Link>
@@ -320,31 +308,6 @@ function Nav({ startHref, signedIn }: { startHref: string; signedIn: boolean }) 
   );
 }
 
-/** Hero background: faint contour lines drifting slowly with a slight parallax, and a breathing gold glow. */
-function HeroBackground() {
-  const lines = useMemo(() => contours(1600, 1000, PAGE_PEAKS), []);
-  const ref = useRef<SVGSVGElement>(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    let frame = 0;
-    const onScroll = () => {
-      if (frame) return;
-      frame = requestAnimationFrame(() => {
-        frame = 0;
-        el.style.setProperty("--py", `${Math.min(window.scrollY, 1200) * 0.2}px`);
-      });
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => { window.removeEventListener("scroll", onScroll); if (frame) cancelAnimationFrame(frame); };
-  }, []);
-  return (
-    <svg ref={ref} className="ln-topo" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" aria-hidden>
-      {lines.map((l, i) => <path key={i} d={l.d} />)}
-    </svg>
-  );
-}
-
 function ProductStrip() {
   const { lang } = useLang();
   const items = [...HOME.strip, ...HOME.strip];
@@ -357,26 +320,6 @@ function ProductStrip() {
           </div>
         ))}
       </div>
-    </div>
-  );
-}
-
-/** The Why visual: Orion's own product drawing with a logo placed on it (no stock photo). */
-function GarmentArt() {
-  const m = mockupFor("hoodie");
-  const w = 9 / m.cmPerUnit, h = 7 / m.cmPerUnit;
-  return (
-    <div className="ln-garment" dir="ltr">
-      <svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} aria-hidden>
-        <path d={m.paths.front.body} className="ln-garment-body" />
-        {m.paths.front.details.map((d) => <path key={d} d={d} className="ln-garment-detail" />)}
-        <g className="ln-garment-logo">
-          <rect x={0.63 * VIEW_W - w / 2} y={0.3 * VIEW_H - h / 2} width={w} height={h} rx={6} />
-          <image href="/brand/mark-gold.png" x={0.63 * VIEW_W - w / 2 + 4} y={0.3 * VIEW_H - h / 2 + 4}
-            width={w - 8} height={h - 8} preserveAspectRatio="xMidYMid meet" />
-          <text x={0.63 * VIEW_W} y={0.3 * VIEW_H + h / 2 + 18}>9 × 7 cm</text>
-        </g>
-      </svg>
     </div>
   );
 }
@@ -404,4 +347,3 @@ function MobileBar({ startHref }: { startHref: string }) {
     </div>
   );
 }
-

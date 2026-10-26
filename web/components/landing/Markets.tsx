@@ -1,7 +1,7 @@
 "use client";
 
-// Markets (landing-motion.md §7): six large cards; a click opens the market's panel (modal on desktop,
-// bottom sheet on phones). TODO(decide): waitlist for markets that are not open yet; no button until then.
+// Markets as parcels: six boxes with a shipping label and tape; a click opens the market's panel (modal on
+// desktop, bottom sheet on phones). TODO(decide): waitlist for markets that are not open yet; no button until then.
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
@@ -38,14 +38,17 @@ export default function Markets({ startHref }: { startHref: string }) {
     <>
       <div className="ln-market-grid">
         {M.items.map((m, i) => (
-          <button key={m.id} type="button" className={`ln-market${m.live ? " live" : ""}`} data-reveal style={{ ["--i" as string]: i }}
+          <button key={m.id} type="button" className={`ln-parcel${m.live ? " live" : ""}`} data-reveal style={{ ["--i" as string]: i }}
             onClick={(e) => { opener.current = e.currentTarget; setOpen(m.id); }}>
-            <span className="ln-market-art" aria-hidden><span className="ln-market-icon">{ICONS[m.icon]}</span></span>
-            <span className="ln-market-body">
-              <span className={`ln-badge${m.live ? " live" : ""}`}>{m.live && <i className="ln-pulse" />}{m.live ? M.live[lang] : M.soon[lang]}</span>
+            <span className="ln-parcel-tape" aria-hidden />
+            <span className="ln-parcel-label">
+              <span className="ln-parcel-top"><span dir="ltr">MKT-{String(i + 1).padStart(2, "0")}</span><span className="ln-market-icon">{ICONS[m.icon]}</span></span>
               <strong>{m.name[lang]}</strong>
               <span className="ln-market-examples">{m.examples.map((x) => x[lang]).join(" · ")}</span>
-              <span className="ln-market-more">{M.more[lang]} <ArrowIcon className="flip-forward" width={16} height={16} /></span>
+              <span className="ln-parcel-foot">
+                <span className={`ln-badge${m.live ? " live" : ""}`}>{m.live && <i className="ln-pulse" />}{m.live ? M.live[lang] : M.soon[lang]}</span>
+                <span className="ln-market-more">{M.more[lang]} <ArrowIcon className="flip-forward" width={16} height={16} /></span>
+              </span>
             </span>
           </button>
         ))}

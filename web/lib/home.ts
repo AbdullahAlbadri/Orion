@@ -20,7 +20,12 @@ export const HOME = {
     skip: t("انتقل إلى المحتوى", "Skip to content"),
   },
   hero: {
+    kicker: t("فكرتك ← المصنع ← بابك", "IDEA → FACTORY → YOUR DOOR"),
     words: t("الشبكة الوحيدة بين فكرتك ومصنعك", "The only network between your idea and your factory"),
+    accent: t("فكرتك", "idea"),            // the word drawn in gold
+    // The route drawing: where your idea starts and where factories are. Labels only, no claims.
+    from: t("فكرتك · السعودية", "Your idea · Saudi Arabia"),
+    to: t("المصنع · الصين", "The factory · China"),
     sub: t(
       "صف منتجك للمساعد الذكي، وراجع ملخصًا واضحًا، ونتولى التواصل مع المصنع والشحن إلى عنوانك.",
       "Describe your product to our AI assistant, review a clear summary, and we handle the factory and shipping to your address.",
@@ -50,7 +55,9 @@ export const HOME = {
   why: {
     num: "01",
     title: t("شبكة مصانع تعمل لصالحك", "A factory network that works for you"),
-    visualCaption: t("مثال من رسم المنتج في أوريون: تضع شعارك وتحدد مقاسه", "From Orion's product drawing: place your logo and set its size"),
+    visualCaption: t("أنت تتحدث مع جهة واحدة، ونحن نتحدث مع المصانع", "You talk to one contact; we talk to the factories"),
+    you: t("أنت", "You"),
+    factory: t("المصانع", "Factories"),
     points: [
       { title: t("جهة اتصال واحدة", "One point of contact"),
         text: t("بدل مراسلة عشرات المصانع، تتحدث معنا فقط.", "Instead of messaging dozens of factories, you only talk to us.") },
@@ -88,6 +95,17 @@ export const HOME = {
       stages: [t("تجهيز الطلب", "Preparing your order"), t("مع المصنع", "With the factory"), t("عرض السعر", "Quote"),
         t("قيد التصنيع", "In production"), t("في الطريق", "On its way"), t("تم التسليم", "Delivered")],
       update: t("تحديث جديد من المصنع مع صور", "New factory update with photos"),
+    },
+    // The paper trail: one document per stop, the same order code on each
+    trail: {
+      code: t("مسار الطلب · ٤ محطات", "ORDER ROUTE · 4 STOPS"),
+      stop: t("محطة", "STOP"),
+      from: t("من", "From"), to: t("إلى", "To"),
+      idea: t("فكرتك", "Your idea"), assistant: t("المساعد", "The assistant"), summary: t("ملخصك", "Your summary"),
+      factory: t("المصنع", "The factory"), decision: t("قرارك", "Your decision"), door: t("بابك", "Your door"),
+      product: t("المنتج", "Product"), productValue: t("هودي", "Hoodie"), sampleRow: t("العينة", "Sample"),
+      sampleValue: t("أولًا", "First"), status: t("الحالة", "Status"), waiting: t("بانتظار موافقتك", "Waiting for you"),
+      done: t("تم", "Done"), approved: t("موافق", "Approved"), onTheWay: t("في الطريق", "On its way"),
     },
   },
   markets: {
