@@ -18,6 +18,11 @@ type MeValue = {
 
 const MeContext = createContext<MeValue | null>(null);
 
+/** The first word of the customer's name, for greetings ("Hello Abdullah"). Empty when no name is saved. */
+export function firstName(name: string | null | undefined): string {
+  return name?.trim().split(/\s+/)[0] ?? "";
+}
+
 export function MeProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [me, setMe] = useState<Me | null>(null);

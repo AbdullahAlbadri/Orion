@@ -11,7 +11,7 @@ import { api, type Notification } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { ago, NAV } from "@/lib/copy";
 import { useLang } from "@/lib/i18n";
-import { useMe } from "@/lib/me";
+import { firstName, useMe } from "@/lib/me";
 import {
   BellIcon, BoxIcon, BuildingIcon, CardIcon, ChartIcon, GearIcon, GlobeIcon, HelpIcon, HomeIcon, LogoutIcon,
   MenuIcon, PlusIcon, ShirtIcon, TruckIcon, UserIcon,
@@ -146,10 +146,10 @@ function Header() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/brand/mark-gold.png" alt="" width={30} height={28} />
         </Link>
-        <div>
-          <div className="muted small">{L(NAV.hello)}</div>
-          <div className="who">{me?.name || me?.email || ""}</div>
-        </div>
+        {/* the Overview greets the customer in its own title, so the header does not repeat it there */}
+        {pathname !== "/dashboard" && (
+          <div className="who">{L(NAV.hello)} {firstName(me?.name) || me?.email || ""}</div>
+        )}
       </div>
       <div className="topbar-actions">
         <Link href="/orders/new" className="btn btn-sm hide-phone"><PlusIcon width={18} height={18} /> {L(NAV.newOrder)}</Link>

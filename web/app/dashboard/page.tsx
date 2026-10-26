@@ -18,7 +18,7 @@ import {
 import { useRequireUser } from "@/lib/auth";
 import { ago, COMMON, duration, formatDate, NAV, num, t } from "@/lib/copy";
 import { useLang } from "@/lib/i18n";
-import { useMe } from "@/lib/me";
+import { firstName, useMe } from "@/lib/me";
 import { ACTIONS, chipTone, groupOf, needsAction, orderName } from "@/lib/orders";
 
 const C = {
@@ -141,7 +141,7 @@ export default function Overview() {
       <header className="ov-head">
         <div>
           <p className="ov-kicker">{L(NAV.overview)}</p>
-          <h1 className="ov-title">{L(NAV.hello)}{me?.name ? ` ${me.name}` : ""}</h1>
+          <h1 className="ov-title">{L(NAV.hello)}{firstName(me?.name) ? ` ${firstName(me?.name)}` : ""}</h1>
         </div>
         {!isNew && (
           <dl className="ov-counts">
