@@ -4,12 +4,15 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import { AgreedQuote, OrderUpdates } from "@/components/OrderSections";
 import { JourneyTracker } from "@/components/OrderTracker";
+import Planet from "@/components/Planet";
 import PromptView from "@/components/PromptView";
-import TopoTexture from "@/components/TopoTexture";
+import Receipt from "@/components/Receipt";
 import { api, ApiError, type OrderView } from "@/lib/api";
 import { useRequireUser } from "@/lib/auth";
 import { productName, useLang } from "@/lib/i18n";
+import { groupOf } from "@/lib/orders";
 
 export default function OrderPage() {
   const user = useRequireUser();
@@ -37,9 +40,11 @@ export default function OrderPage() {
     setError(null);
     try {
       // The language goes with every answer, so Orion's follow-up questions come in it
-      setOrder(await api<OrderView>(`/orders/${encodeURIComponent(id)}/reply`, {
+      const next = await api<OrderView>(`/orders/${encodeURIComponent(id)}/reply`, {
         method: "POST", body: { reply: { ...reply, lang } },
-      }));
+      });
+      // Replies do not carry the updates list (only loading the order does): keep the one we have
+      setOrder((prev) => ({ ...next, updates: next.updates ?? prev?.updates }));
     } catch (e) {
       setError(e instanceof ApiError && e.status === 409 ? null : t("error"));
       await load().catch(() => {});
@@ -51,36 +56,46 @@ export default function OrderPage() {
   if (!user || !order) return <p className={error ? "error" : "muted"}>{error ?? t("loading")}</p>;
 
   const option = order.spec?.option;
+  // Once the order is placed: its updates first, then anything the customer must do now (e.g. review the
+  // quote), the agreed price, and the order's details. Before that, the page is the ordering steps.
+  const placed = groupOf(order.stage) !== "draft";
 
   return (
     <>
       <p><Link href="/orders" className="muted">← {t("myOrders")}</Link></p>
       {error && <p className="error">{error}</p>}
       <div className="order-grid">
-        <PromptView order={order} send={send} busy={busy} />
+        {placed ? (
+          <div className="od-col">
+            <OrderUpdates order={order} />
+            {order.waiting_on === "customer" && order.prompt && <PromptView order={order} send={send} busy={busy} />}
+            {order.agreed_quote && <AgreedQuote quote={order.agreed_quote} />}
+            {order.summary ? <Receipt summary={order.summary} orderId={order.order_id} />
+              : order.pre_receipt && <pre className="receipt">{order.pre_receipt}</pre>}
+          </div>
+        ) : <PromptView order={order} send={send} busy={busy} />}
 
         <aside className="side-panel">
-          <div className="product-card" style={{ minHeight: 180 }}>
-            <div className="spread">
-              <span className="label">{t("orderTitle")}</span>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img className="mark" src="/brand/mark-gold.png" alt="" />
+          {/* the order as a paper ticket: its code, the product as a planet, and how many */}
+          <article className="od-ticket">
+            <div className="od-top"><b>{t("orderTitle")}</b><span dir="ltr">{order.order_id}</span></div>
+            <div className="od-main">
+              <Planet option={option ?? null} size={60} />
+              <div className="stack-sm">
+                <strong className="od-name">{productName(option, lang)}</strong>
+                <span className="od-sub">{order.spec?.quantity ? `${order.spec.quantity} ${t("pieces")}` : order.status[lang]}</span>
+              </div>
             </div>
-            <div>
-              <div className="big">{productName(option, lang)}</div>
-              <div className="label">{order.spec?.quantity ? `${order.spec.quantity} ${t("pieces")}` : order.status[lang]}</div>
-            </div>
-            <span className="label" dir="ltr" style={{ alignSelf: "flex-end" }}>{order.order_id}</span>
-          </div>
+            <span className="od-barcode" aria-hidden />
+          </article>
 
-          <div className="board board-ink cross">
-            <TopoTexture />
-            <div className="spread" style={{ marginBottom: 14 }}>
+          <section className="od-route">
+            <div className="spread" style={{ marginBottom: 16 }}>
               <h2 style={{ margin: 0 }}>{t("journey")}</h2>
               <span className="muted small">{order.status[lang]}</span>
             </div>
             <JourneyTracker stage={order.stage} />
-          </div>
+          </section>
         </aside>
       </div>
     </>

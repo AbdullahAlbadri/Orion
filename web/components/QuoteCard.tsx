@@ -10,7 +10,8 @@ import { useLang } from "@/lib/i18n";
 import { useMe } from "@/lib/me";
 import { CheckIcon, TagIcon } from "./Icons";
 
-const C = {
+// Also used for the agreed price on the order page (OrderSections.tsx), so both say the same thing
+export const QUOTE_TEXT = {
   title: t("عرض السعر جاهز", "Your quote is ready"),
   sub: t("راجع العرض ثم أكّده للانتقال إلى الدفع.", "Review the quote, then accept it to move on to payment."),
   unit: t("سعر القطعة", "Price per piece"),
@@ -36,6 +37,7 @@ const C = {
   back: t("رجوع", "Back"),
   sar: t("ر.س", "SAR"),
 };
+const C = QUOTE_TEXT;
 
 export default function QuoteCard({ quote, error, send, busy }: {
   quote: CustomerQuote; error?: string | null; send: (reply: Record<string, unknown>) => Promise<void>; busy: boolean;

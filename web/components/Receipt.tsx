@@ -42,11 +42,7 @@ export default function Receipt({ summary, orderId }: { summary: Summary; orderI
   return (
     <div className="receipt-view stack">
       <div className="product-card receipt-hero">
-        <div className="spread">
-          <span className="label">{t("receiptTitle")}</span>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="mark" src="/brand/mark-gold.png" alt="" />
-        </div>
+        <span className="label">{t("receiptTitle")}</span>
         <div>
           <div className="big">{summary.product}</div>
           <div className="label">{summary.market}</div>

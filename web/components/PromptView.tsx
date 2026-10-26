@@ -4,7 +4,8 @@ import { useState } from "react";
 
 import type { OrderView, Prompt } from "@/lib/api";
 import { useLang } from "@/lib/i18n";
-import { ShirtIcon } from "./Icons";
+import { ArrowIcon, ShirtIcon } from "./Icons";
+import Planet from "./Planet";
 import QuoteCard from "./QuoteCard";
 import Receipt from "./Receipt";
 import SectionedForm from "./SectionedForm";
@@ -59,20 +60,37 @@ function LegacyMessage({ prompt, send, busy }: { prompt: Extract<Prompt, { kind:
   );
 }
 
+/** The first two steps: the market, as rows of the departures board, then the product, as planets to tap. */
 function Choice({ prompt, send, busy }: { prompt: Extract<Prompt, { kind: "choice" }>; send: Send; busy: boolean }) {
   const { lang } = useLang();
+  const name = (o: { name: string; name_ar?: string | null }) => (lang === "ar" && o.name_ar ? o.name_ar : o.name);
   return (
-    <div className="card">
-      <h2 dir="auto">{lang === "ar" && prompt.prompt_ar ? prompt.prompt_ar : prompt.prompt}</h2>
+    <div className="pick">
+      <h2 className="pick-title" dir="auto">{lang === "ar" && prompt.prompt_ar ? prompt.prompt_ar : prompt.prompt}</h2>
       {prompt.error && <p className="error">{prompt.error}</p>}
-      <div className="choices">
-        {prompt.options.map((o) => (
-          <button key={o.id} className="choice" disabled={busy} onClick={() => send({ choice: o.id })}>
-            <span className="avatar"><ShirtIcon width={20} height={20} /></span>
-            {lang === "ar" && o.name_ar ? o.name_ar : o.name}
-          </button>
-        ))}
-      </div>
+      {prompt.step === "pick_option" ? (
+        <div className="pick-planets">
+          {prompt.options.map((o, i) => (
+            <button key={o.id} type="button" className="pick-planet" style={{ ["--i" as string]: i }} disabled={busy}
+              onClick={() => send({ choice: o.id })}>
+              <Planet option={o.id} size={84} />
+              <span className="pick-name">{name(o)}</span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="dep-board">
+          {prompt.options.map((o, i) => (
+            <button key={o.id} type="button" className="dep-row pick-row" style={{ ["--i" as string]: i }} disabled={busy}
+              onClick={() => send({ choice: o.id })}>
+              <span className="flap dep-code">MKT-{String(i + 1).padStart(2, "0")}</span>
+              <span className="dep-product"><span className="pick-icon"><ShirtIcon width={20} height={20} /></span>
+                <strong>{name(o)}</strong></span>
+              <ArrowIcon className="dep-more flip-forward" width={18} height={18} />
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

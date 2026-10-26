@@ -53,6 +53,10 @@ def order_title(state: dict, limit: int = 60) -> Optional[str]:
 
 def customer_order_view(state: dict, waiting: Optional[dict]) -> dict:
     spec = state.get("spec") or {}
+    # The price the customer agreed to: only its customer-facing part (never the factory price, rate or fee
+    # in "basis"), and only once they accepted it
+    sent = state.get("customer_quote") or {}
+    agreed = {**sent["quote"], "accepted_at": sent["accepted_at"]} if sent.get("accepted_at") and sent.get("quote") else None
     waiting_on = None
     if waiting:
         # "waiting" pauses are for an outside event (a factory, a payment); anything else is the customer's turn
@@ -70,6 +74,7 @@ def customer_order_view(state: dict, waiting: Optional[dict]) -> dict:
         "spec": {k: spec.get(k) for k in ("market", "option", "quantity", "answers", "version", "frozen")} if spec else None,
         "title": order_title(state),
         "versions": len(state.get("spec_versions") or []),
+        "agreed_quote": agreed,
         # Differences a factory reply had from the confirmed summary: which detail, and whether the team
         # has dealt with it. What the factory said stays internal.
         "checks": [

@@ -7,7 +7,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { ArrowIcon, BoxIcon, PlaneIcon, SearchIcon } from "@/components/Icons";
-import { Empty, PageHead, ProductThumb, Tabs } from "@/components/ui";
+import Planet from "@/components/Planet";
+import { Empty, PageHead } from "@/components/ui";
 import { api, type OrderRow } from "@/lib/api";
 import { useRequireUser } from "@/lib/auth";
 import { ago, COMMON, formatDate, NAV, t } from "@/lib/copy";
@@ -113,8 +114,7 @@ export default function OrdersPage() {
               <div className="attention">
                 {attention.map((o) => (
                   <div key={o.id} className="attention-item">
-                    <span className="dot" aria-hidden />
-                    <ProductThumb option={o.option} size={40} />
+                    <Planet option={o.option} size={36} />
                     <div className="grow stack-sm">
                       <strong className="ellipsis">{L(ACTIONS[o.stage].label)}</strong>
                       <span className="muted small ellipsis">{orderName(o, lang)} · <span className="mono">{o.id}</span></span>
@@ -126,40 +126,42 @@ export default function OrdersPage() {
             </section>
           )}
 
-          <div className="toolbar" style={{ marginBottom: 20 }}>
-            <Tabs<Filter> value={filter} onChange={setFilter} options={[
-              { key: "active", label: L(C.active), count: counts.active },
-              { key: "delivered", label: L(C.delivered), count: counts.delivered },
-              { key: "closed", label: L(C.closed), count: counts.closed },
-              { key: "draft", label: L(C.drafts), count: counts.draft },
-              { key: "all", label: L(COMMON.all), count: counts.all },
-            ]} />
-          </div>
-          <div className="toolbar">
-            <label className="search">
-              <SearchIcon width={18} height={18} />
-              <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={L(C.searchPh)} aria-label={L(COMMON.search)} />
-            </label>
-            {markets.length > 1 && (
-              <select value={market} onChange={(e) => setMarket(e.target.value)} aria-label={L(C.market)}>
-                <option value="">{L(C.allMarkets)}</option>
-                {markets.map((m) => <option key={m} value={m}>{marketName(m)}</option>)}
-              </select>
-            )}
-            <label className="row small muted">{L(C.from)} <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
-            <label className="row small muted">{L(C.to)} <input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
-            <select value={sort} onChange={(e) => setSort(e.target.value as "updated" | "created")} aria-label="sort">
-              <option value="updated">{L(C.sortUpdated)}</option>
-              <option value="created">{L(C.sortCreated)}</option>
-            </select>
-          </div>
-
-          {shown.length === 0 ? <p className="muted">{L(C.noMatch)}</p> : (
-            <div className="dep-board">
-              <div className="dep-head">
-                <span className="dep-title"><PlaneIcon className="flip-forward" width={24} height={24} /> {L(C.board)}</span>
-                <span className="dep-route" dir="ltr">CN → KSA</span>
+          <div className="dep-board">
+            <div className="dep-head">
+              <span className="dep-title"><PlaneIcon className="flip-forward" width={24} height={24} /> {L(C.board)}</span>
+              <span className="dep-route" dir="ltr">CN → KSA</span>
+            </div>
+            {/* the filters live on the board: status as flap tiles, then search, dates and order */}
+            <div className="dep-filters">
+              <div className="dep-tabs" role="tablist" aria-label={L(C.status)}>
+                {([["active", C.active], ["delivered", C.delivered], ["closed", C.closed], ["draft", C.drafts],
+                  ["all", COMMON.all]] as const).map(([key, label]) => (
+                  <button key={key} type="button" role="tab" aria-selected={filter === key}
+                    className={`flap dep-tab${filter === key ? " on" : ""}`} onClick={() => setFilter(key)}>
+                    {L(label)} <b>{counts[key]}</b>
+                  </button>
+                ))}
               </div>
+              <div className="dep-tools">
+                <label className="dep-search">
+                  <SearchIcon width={16} height={16} />
+                  <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={L(C.searchPh)} aria-label={L(COMMON.search)} />
+                </label>
+                {markets.length > 1 && (
+                  <select value={market} onChange={(e) => setMarket(e.target.value)} aria-label={L(C.market)}>
+                    <option value="">{L(C.allMarkets)}</option>
+                    {markets.map((m) => <option key={m} value={m}>{marketName(m)}</option>)}
+                  </select>
+                )}
+                <label className="dep-date">{L(C.from)} <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
+                <label className="dep-date">{L(C.to)} <input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
+                <select value={sort} onChange={(e) => setSort(e.target.value as "updated" | "created")} aria-label="sort">
+                  <option value="updated">{L(C.sortUpdated)}</option>
+                  <option value="created">{L(C.sortCreated)}</option>
+                </select>
+              </div>
+            </div>
+            {shown.length === 0 ? <p className="muted dep-empty">{L(C.noMatch)}</p> : (<>
               <div className="dep-cols" aria-hidden>
                 <span>{L(C.reference)}</span><span>{L(C.product)}</span><span>{L(C.updated)}</span><span>{L(C.status)}</span><span /><span />
               </div>
@@ -170,7 +172,7 @@ export default function OrdersPage() {
                   <div key={o.id} className="dep-row" style={{ ["--i" as string]: i }} onClick={() => router.push(`/orders/${o.id}`)}>
                     <span className="flap dep-code">{o.id}</span>
                     <span className="dep-product">
-                      <ProductThumb option={o.option} size={40} />
+                      <Planet option={o.option} size={38} />
                       <span className="stack-sm"><strong className="ellipsis">{orderName(o, lang)}</strong><small>{marketName(o.market)}</small></span>
                     </span>
                     <span className="dep-place" title={formatDate(o.updated_at, lang, calendar, true)}>{ago(o.updated_at, lang)}</span>
@@ -196,8 +198,8 @@ export default function OrdersPage() {
                   </div>
                 );
               })}
-            </div>
-          )}
+            </>)}
+          </div>
         </>
       )}
     </>

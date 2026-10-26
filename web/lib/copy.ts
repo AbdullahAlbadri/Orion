@@ -8,7 +8,6 @@ export const t = (ar: string, en: string): T => ({ ar, en });
 export const NAV = {
   overview: t("نظرة عامة", "Overview"),
   orders: t("الطلبات", "Orders"),
-  shipments: t("الشحنات", "Shipments"),
   products: t("منتجاتي", "My products"),
   payments: t("المدفوعات والمستندات", "Payments & documents"),
   stats: t("الإحصاءات", "Stats"),

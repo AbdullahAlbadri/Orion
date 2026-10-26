@@ -1,6 +1,6 @@
 "use client";
 
-// Signed-in layout (docs/website/00-sitemap.md "Navigation"): a 7-entry sidebar; a header with Messages
+// Signed-in layout (docs/website/00-sitemap.md "Navigation"): a 6-entry sidebar; a header with Messages
 // (bell + unread count), Help, language and the account menu; on phones a bottom bar with a centre
 // "new order" button and a "More" sheet. The sidebar sits on the start side, so it is on the right in Arabic.
 import Link from "next/link";
@@ -14,7 +14,7 @@ import { useLang } from "@/lib/i18n";
 import { firstName, useMe } from "@/lib/me";
 import {
   BellIcon, BoxIcon, BuildingIcon, CardIcon, ChartIcon, GearIcon, GlobeIcon, HelpIcon, HomeIcon, LogoutIcon,
-  MenuIcon, PlusIcon, ShirtIcon, TruckIcon, UserIcon,
+  MenuIcon, PlusIcon, ShirtIcon, UserIcon,
 } from "./Icons";
 import Sky from "./Sky";
 import "../app/app.css";
@@ -35,7 +35,6 @@ export function Logo() {
 const SIDEBAR = [
   { href: "/dashboard", label: NAV.overview, icon: <HomeIcon /> },
   { href: "/orders", label: NAV.orders, icon: <BoxIcon />, also: ["/orders/"] },
-  { href: "/shipments", label: NAV.shipments, icon: <TruckIcon /> },
   { href: "/products", label: NAV.products, icon: <ShirtIcon />, also: ["/products/"] },
   { href: "/payments", label: NAV.payments, icon: <CardIcon />, also: ["/documents"] },
   { href: "/stats", label: NAV.stats, icon: <ChartIcon /> },
@@ -87,7 +86,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         <Link href="/dashboard" className={pathname === "/dashboard" ? "on" : ""}><HomeIcon /><span>{L(NAV.overview)}</span></Link>
         <Link href="/orders" className={pathname.startsWith("/orders") && pathname !== "/orders/new" ? "on" : ""}><BoxIcon /><span>{L(NAV.orders)}</span></Link>
         <Link href="/orders/new" className="bottom-new" aria-label={L(NAV.newOrder)}><PlusIcon /></Link>
-        <Link href="/shipments" className={pathname === "/shipments" ? "on" : ""}><TruckIcon /><span>{L(NAV.shipments)}</span></Link>
+        <Link href="/products" className={pathname.startsWith("/products") ? "on" : ""}><ShirtIcon /><span>{L(NAV.products)}</span></Link>
         <button type="button" onClick={() => setMore(true)}><MenuIcon /><span>{L(NAV.more)}</span></button>
       </nav>
       {more && <MoreSheet onClose={() => setMore(false)} />}
@@ -218,7 +217,6 @@ function MoreSheet({ onClose }: { onClose: () => void }) {
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
   const items = [
-    { href: "/products", label: NAV.products, icon: <ShirtIcon /> },
     { href: "/payments", label: NAV.payments, icon: <CardIcon /> },
     { href: "/stats", label: NAV.stats, icon: <ChartIcon /> },
     { href: "/messages", label: NAV.messages, icon: <BellIcon /> },

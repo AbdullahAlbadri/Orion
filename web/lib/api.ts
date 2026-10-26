@@ -185,6 +185,8 @@ export type OrderView = {
   title?: string | null;
   versions?: number;
   checks?: { field_id: string; label: Bilingual; resolved: boolean; at: string }[];
+  agreed_quote?: (CustomerQuote & { accepted_at: string }) | null;   // only once the customer accepted it
+  updates?: Notification[];                                         // newest first; sent with GET /orders/{id}
 };
 
 export type Bilingual = { en: string; ar: string };

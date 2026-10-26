@@ -35,6 +35,15 @@ class InboxStore:
                 (customer_id, limit),
             )).fetchall()
 
+    async def order_updates(self, customer_id: str, order_id: str, limit: int = 30) -> list[dict]:
+        """The updates sent about one order, newest first (the top of the order page)."""
+        async with self.pool.connection() as conn:
+            return await (await conn.execute(
+                f"SELECT {NOTIFICATION_SELECT} FROM notifications WHERE customer_id = %s AND order_id = %s "
+                "ORDER BY created_at DESC LIMIT %s",
+                (customer_id, order_id, limit),
+            )).fetchall()
+
     async def unread_count(self, customer_id: str) -> int:
         async with self.pool.connection() as conn:
             row = await (await conn.execute(

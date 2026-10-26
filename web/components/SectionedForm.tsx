@@ -22,7 +22,6 @@ import FileUpload from "./FileUpload";
 import MockupPanel from "./MockupPanel";
 import SizeChart from "./SizeChart";
 import PlacementEditor from "./PlacementEditor";
-import TopoTexture from "./TopoTexture";
 import SizeTable, { initialSizes, sizesToAnswer, type SizeRow } from "./SizeTable";
 
 type FormPrompt = Extract<Prompt, { kind: "form" }>;
@@ -275,8 +274,7 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
       </div>
 
       {shown.map((s) => (
-        <section key={s.id} id={`section-${s.id}`} className={`form-section board section-board section-${s.id} cross`}>
-          {s.id !== "quantity" && <TopoTexture />}
+        <section key={s.id} id={`section-${s.id}`} className={`form-section board section-board section-${s.id}`}>
           <div className="section-head">
             <div className="row">
               <span className="section-icon">{s.icon}</span>

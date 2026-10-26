@@ -696,3 +696,134 @@ html[dir="rtl"] .orbit-stop.now .anim-drive svg { animation-name: drive-rtl; }
 .pr-open { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); transition: color .2s; }
 .pr-card:hover .pr-open { color: var(--yellow); }
 @media (prefers-reduced-motion: reduce) { .pr-card { animation: none; } }
+
+/* ---------- the order page in the journey style ---------- */
+/* side panel: the order as a paper ticket, then the route on a dark board */
+.od-ticket { position: relative; background: var(--sheet); color: var(--sheet-ink); border-radius: 3px; padding: 16px 20px 14px;
+  transform: rotate(-.6deg); box-shadow: 0 30px 50px -28px rgba(0, 0, 0, .9); }
+.od-top { display: flex; justify-content: space-between; gap: 10px; padding-bottom: 8px; border-bottom: 1.5px solid var(--sheet-ink);
+  font-size: 11px; letter-spacing: .12em; color: var(--sheet-muted); }
+.od-top b { color: var(--sheet-ink); font-size: 12px; letter-spacing: .04em; }
+.od-main { display: flex; align-items: center; gap: 22px; padding: 18px 14px 12px; }
+.od-name { font-family: var(--display); font-size: 24px; font-weight: 700; line-height: 1.2; }
+.od-sub { font-size: 13px; color: var(--sheet-muted); }
+.od-barcode { display: block; height: 18px; opacity: .8;
+  background: repeating-linear-gradient(90deg, var(--sheet-ink) 0 2px, transparent 2px 4px, var(--sheet-ink) 4px 5px, transparent 5px 8px,
+    var(--sheet-ink) 8px 11px, transparent 11px 13px); }
+.od-route { background: #0d0d11; border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; }
+.od-route h2 { font-size: 20px; }
+/* the upright route: a dashed line, the travelled part gold, the current stop filled */
+.shell .vtracker::before { width: 2px; background: repeating-linear-gradient(to bottom, rgba(241, 236, 227, .22) 0 3px, transparent 3px 8px); }
+.shell .vtracker::after { width: 2px; }
+.shell .vtracker .tracker-icon { background: #141419; border: 1px solid rgba(241, 236, 227, .18); }
+.shell .vtracker .tracker-step.done .tracker-icon { background: #221d14; border-color: rgba(226, 184, 102, .65); color: var(--yellow); }
+.shell .vtracker .tracker-step.now .tracker-icon { background: var(--yellow); border-color: var(--yellow); color: var(--navy); }
+
+/* first steps: the market as departures-board rows, the product as planets */
+.pick { display: flex; flex-direction: column; gap: 18px; }
+.pick-title { font-size: clamp(26px, 3vw, 34px); margin: 0; }
+.pick-row { grid-template-columns: 110px minmax(0, 1fr) 24px; width: 100%; background: none; border-inline: 0; border-bottom: 0;
+  font: inherit; color: var(--text); text-align: start; }
+.pick-row:disabled { opacity: .6; cursor: default; }
+.pick-icon { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 50%; color: var(--yellow);
+  border: 1px solid rgba(226, 184, 102, .35); }
+.pick-planets { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr)); gap: 16px; }
+.pick-planet { display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 30px 12px 20px; border-radius: var(--radius);
+  background: #0d0d11; border: 1px solid var(--line); color: var(--text); font: inherit; cursor: pointer;
+  transition: border-color .3s, transform .3s var(--ease); animation: ov-in 500ms cubic-bezier(.22, 1, .36, 1) both;
+  animation-delay: calc(var(--i, 0) * 60ms); }
+.pick-planet:hover { border-color: rgba(226, 184, 102, .45); transform: translateY(-3px); }
+.pick-planet:hover .planet { transform: translateY(-4px); }
+.pick-planet:hover .planet-ring { transform: translate(-50%, -50%) rotate(-6deg); }
+.pick-planet:disabled { opacity: .6; cursor: default; }
+.pick-name { font-family: var(--display); font-size: 19px; }
+
+/* the form: clean dark boards, quiet question cards, square chips */
+.shell .form-boards > .board-glass { background: #0d0d11; backdrop-filter: none; }
+.shell .tab { background: transparent; border: 1px solid var(--line); border-radius: var(--radius-sm); transition: border-color .2s, background .2s; }
+.shell .tab:hover { border-color: rgba(241, 236, 227, .2); }
+.shell .tab.active { background: linear-gradient(180deg, rgba(226, 184, 102, .09), transparent); border-color: rgba(226, 184, 102, .5); }
+.shell .tab.has-error { border-color: rgba(196, 69, 47, .6); }
+.shell .tab-icon { background: transparent; border: 1px solid rgba(226, 184, 102, .35); border-radius: 50%; }
+.shell .tab.active .tab-icon { background: var(--yellow); border-color: var(--yellow); color: var(--navy); }
+.shell .tab-text .small { font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+.shell .section-board { background: #0d0d11; border: 1px solid var(--line); border-top-width: 1px; }
+.shell .section-design, .shell .section-quantity, .shell .section-quality { background: #0d0d11; border-top-color: var(--line); }
+.shell .section-head { padding-bottom: 14px; border-bottom: 1px dashed var(--line); }
+.shell .section-icon, .shell .section-quantity .section-icon, .shell .section-quality .section-icon {
+  background: transparent; border: 1px solid rgba(226, 184, 102, .45); color: var(--yellow); }
+.shell .section-board .qcard { background: #131318; backdrop-filter: none; border-radius: var(--radius-sm); }
+.shell .qcard.has-error { border-color: rgba(196, 69, 47, .55); }
+.shell .qicon { background: transparent; border: 1px solid var(--line); color: var(--yellow); }
+.shell .chip { border-radius: 6px; background: transparent; border-color: rgba(241, 236, 227, .14); }
+.shell .chip:hover { border-color: rgba(226, 184, 102, .55); }
+.shell .chip.selected { background: var(--yellow); border-color: var(--yellow); color: var(--navy); }
+.shell .chip.selected .cost { color: var(--navy); opacity: .65; }
+.shell .chip-other { border-style: dashed; }
+.shell .field-error, .shell .qcard .field-error { color: #e0806b; }
+@media (max-width: 640px) {
+  .od-main { padding-inline: 4px; gap: 18px; }
+  .pick-row { grid-template-columns: auto minmax(0, 1fr) 20px; grid-template-areas: none; }
+  .pick-planets { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) { .pick-planet { animation: none; } }
+
+/* ---------- orders board: its filters on the board itself ---------- */
+.dep-filters { display: flex; flex-direction: column; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.dep-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.dep-tab { gap: 8px; font-family: var(--font); font-size: 13px; letter-spacing: .02em; color: var(--muted); border: 0; cursor: pointer;
+  transition: color .2s; }
+.dep-tab::after { display: none; }   /* no split line: on a word it reads as a strikethrough */
+.dep-tab b { font-family: var(--font-latin), monospace; font-size: 12px; color: var(--text); opacity: .7; }
+.dep-tab:hover { color: var(--text); }
+.dep-tab.on { color: var(--navy); background: linear-gradient(#ecc97f 0 50%, #e2b866 50%); }
+.dep-tab.on b { color: var(--navy); opacity: 1; }
+.dep-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }
+.dep-tools input, .dep-tools select { width: auto; padding: 7px 4px; background: transparent; border: 0; border-bottom: 1px solid rgba(241, 236, 227, .16);
+  border-radius: 0; color: var(--text); font-size: 14px; color-scheme: dark; }
+.dep-tools input:focus, .dep-tools select:focus { outline: none; border-bottom-color: var(--yellow); }
+.dep-tools select option { background: #131318; }
+.dep-search { position: relative; display: flex; align-items: center; gap: 8px; flex: 1 1 240px; color: var(--muted); margin: 0; font-weight: 400; }
+.dep-search input { flex: 1; min-width: 0; }
+.dep-date { display: inline-flex; align-items: center; gap: 8px; margin: 0; font-size: 13px; font-weight: 400; color: var(--muted); }
+.dep-empty { padding: 18px 0; margin: 0; }
+.dep-product .planet { flex: none; }
+
+/* ---------- the old look retired everywhere: topographic textures, "+" corners, gradient cards ---------- */
+.shell .topo-texture { display: none; }
+.shell .cross::before, .shell .cross::after { content: none; }
+.shell .product-card { background: #0d0d11; border: 1px solid var(--line); box-shadow: none; color: var(--text); }
+.shell .product-card::after { content: none; }
+.shell .product-card .big { font-family: var(--display); font-weight: 500; }
+.shell .product-card .label { color: var(--muted); opacity: 1; }
+.shell .receipt-total strong { font-family: var(--display); font-weight: 400; color: var(--yellow); }
+.shell .bar span { background: #b88a36; border-radius: 4px; }
+.shell .board-signal { background: linear-gradient(90deg, rgba(226, 184, 102, .1), rgba(226, 184, 102, .02)); color: var(--text);
+  border: 1px solid rgba(226, 184, 102, .3); }
+.shell .board-ink, .shell .board-glass { background: #0d0d11; backdrop-filter: none; }
+.shell .receipt-rows li { background: #131318; border-radius: var(--radius-sm); }
+
+/* ---------- a placed order: updates, the agreed price, then the details ---------- */
+.od-col { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+.od-updates { display: flex; flex-direction: column; gap: 16px; padding: 20px 22px; border-radius: var(--radius); background: #0d0d11;
+  border: 1px solid var(--line); }
+.od-updates .ov-h { font-size: 22px; }
+/* the updates on a dashed route line, the newest in gold */
+.od-timeline { position: relative; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.od-timeline::before { content: ""; position: absolute; inset-inline-start: 11px; top: 14px; bottom: 14px; width: 2px;
+  background: repeating-linear-gradient(to bottom, rgba(241, 236, 227, .2) 0 3px, transparent 3px 8px); }
+.od-timeline li { position: relative; display: flex; align-items: flex-start; gap: 14px; padding: 10px 0; }
+.od-dot { position: relative; z-index: 1; width: 24px; height: 24px; flex: none; display: grid; place-items: center; border-radius: 50%;
+  background: #141419; border: 1px solid rgba(241, 236, 227, .2); }
+.od-timeline li.latest .od-dot { background: var(--yellow); border-color: var(--yellow); color: var(--navy); }
+.od-timeline li:not(.latest) strong { font-weight: 500; color: var(--muted); }
+.od-when { white-space: nowrap; }
+/* the agreed price: a paper ticket with dotted leaders, the total underlined */
+.od-price { background: var(--sheet); color: var(--sheet-ink); border-radius: 3px; padding: 18px 24px 16px; transform: rotate(.4deg);
+  box-shadow: 0 30px 50px -28px rgba(0, 0, 0, .9); }
+.od-price .ov-doc-top span { font-size: 11px; letter-spacing: .06em; color: var(--sheet-muted); }
+.od-price .ov-doc-rows dd { max-width: none; }
+.od-total { border-bottom: 0 !important; padding-top: 14px !important; }
+.od-total dt { font-family: var(--display); font-size: 20px; font-weight: 700; color: var(--sheet-ink) !important; }
+.od-total dd { font-size: 19px; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 6px; }
+.od-timing { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 12px 0 0; font-size: 13px; color: var(--sheet-muted); }

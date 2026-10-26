@@ -219,7 +219,10 @@ async def get_customer_order(
     order_id: str, c: ApiContext = Depends(ctx), claims: TokenClaims = Depends(current_customer)
 ) -> dict:
     await _owned(c, order_id, claims)
-    return await _view(c, order_id)
+    view = await _view(c, order_id)
+    # The status updates sent about this order, shown at the top of its page
+    view["updates"] = await c.inbox.order_updates(claims.sub, order_id)
+    return view
 
 
 @router.get("/{order_id}/receipt")

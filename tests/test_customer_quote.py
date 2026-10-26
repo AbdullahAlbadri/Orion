@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 import pytest
 
+from orion.api.views import customer_order_view
 from orion.config.pricing import Pricing
 from orion.graph.graph import OrderNotWaiting, get_order, on_event, send_reply
 from orion.tools.customer_quote import build_customer_quote
@@ -82,6 +83,7 @@ async def test_team_sends_the_quote_and_the_customer_accepts(make_order):
     assert prompt["quote"]["unit_price"] == "25.99" and prompt["quote"]["shipping"] == "440.00"
     order = await get_order(app, "o1")
     assert order["stage"] == "quote_review" and order["customer_quote"]["sent_by"] == "team@orion"
+    assert customer_order_view(order, None)["agreed_quote"] is None            # sent, not agreed yet
 
     prompt = await send_reply(app, "o1", {"accept": "maybe"})                 # not a yes or no
     assert prompt["kind"] == "quote" and prompt["error"]
@@ -89,6 +91,10 @@ async def test_team_sends_the_quote_and_the_customer_accepts(make_order):
     order = await get_order(app, "o1")
     assert order["stage"] == "awaiting_payment" and order["customer_quote"]["accepted_at"]
     assert "payment link" in order["needs_human"]
+    # The order page shows the agreed price, never what it was built from (factory price, rate, fee)
+    agreed = customer_order_view(order, None)["agreed_quote"]
+    assert agreed["unit_price"] == "25.99" and agreed["accepted_at"]
+    assert not {"basis", "factory_unit_price", "fee_rate", "rate_to_sar"} & set(agreed)
 
 
 async def test_warnings_stop_the_quote_until_the_team_sends_anyway_and_a_decline_goes_back(make_order):

@@ -102,6 +102,9 @@ async def test_stage_changes_are_recorded_and_notify_the_customer(api):
     assert inbox["unread"] == 1
     assert [n["event"] for n in inbox["items"]] == ["sourcing"]     # nothing for the customer's own steps
     assert inbox["items"][0]["href"] == f"/orders/{order_id}"
+    # The order's own page lists its updates, newest first; nothing has been agreed on price yet
+    page = (await api.get(f"/orders/{order_id}", headers=_auth(token))).json()
+    assert [u["event"] for u in page["updates"]] == ["sourcing"] and page["agreed_quote"] is None
 
     other = await _login(api, f"notify-other-{api.run}@example.com")
     await api.post("/notifications/read", json={"ids": [inbox["items"][0]["id"]]}, headers=_auth(other))
