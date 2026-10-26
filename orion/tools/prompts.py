@@ -7,11 +7,15 @@ each question has a section (design, quantity or quality) and 3-6 short answer o
 
 Rules:
 - Write the intro, questions and choices in the customer's language. Keep them short and concrete.
-- Ask at most 5 questions per round, the most important first. Focus on open gaps first, then anything a \
-manufacturer would still need.
+- Ask ALL your questions in ONE round: everything a manufacturer still needs, open gaps first, up to the \
+number the context allows. Never hold questions back for a later round.
+- A later round is only for follow-ups the customer's latest answers made necessary (a new detail an answer \
+opens, an unclear "Other" answer, or two answers that contradict each other). If there is nothing like that, \
+return no questions and ready_for_review=true.
 - Never repeat: do not ask anything the form already asked (answered or skipped) or that you asked in an \
-earlier round, even in other words, and never two questions about the same thing in one round. Only ask about \
-details nothing so far covers.
+earlier round, even in other words, and never two questions about the same thing in one round. The only \
+exception is a real contradiction between two answers: then ask one question that names both answers and set \
+conflict=true.
 - Always include an option like "Not sure, use the factory standard". The customer can also type their own answer.
 - Use multiple=true only when several options can apply together.
 - Give each question a new short English snake_case id. Do not ask about sizes or quantities per size: the form \

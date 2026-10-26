@@ -79,7 +79,7 @@ async def test_ai_cannot_ask_sizes_or_bad_ids(make_app):
     app = make_app(consultant)
     prompt = await _through_form(app, "order-1c")
     ids = [q["id"] for q in prompt["questions"]]
-    assert ids == ["cuff_style", "a", "b", "c", "d"]   # slugged, deduped, no sizes/quantity, at most 5
+    assert ids == ["cuff_style", "a", "b", "c", "d"]   # slugged, deduped, no sizes/quantity
 
 
 async def test_ai_never_repeats_a_question_and_its_choices_carry_relative_cost(make_app):
@@ -111,6 +111,47 @@ async def test_ai_never_repeats_a_question_and_its_choices_carry_relative_cost(m
     # customer gets the gap fallback instead of a repeat
     prompt = await send_reply(app, "order-1d", {"answers": {"cord_tips": "metal"}})
     assert all(q["id"] not in ("cord_tips", "cord_tip") for q in prompt.get("questions", []))
+
+
+async def test_ai_asks_everything_once_then_only_follow_ups(make_app):
+    consultant = ScriptedConsultant(
+        turns=[
+            turn(questions=[ask("cord_tips"), ask("hood_lining")]),
+            turn(questions=[ask("tip_colour", "Tip colour?")]),
+            turn(questions=[ask("more_detail", "Anything else?")]),
+        ],
+        reports=[CompletenessReport(gaps=["Thread colour?"])],
+    )
+    app = make_app(consultant)
+    prompt = await _through_form(app, "order-r")
+    assert [q["id"] for q in prompt["questions"]] == ["cord_tips", "hood_lining"]
+    first = consultant.deep_dive_calls[0]
+    assert not first.follow_up and first.max_questions == 12 and "ONE MAIN ROUND" in render_context(first)
+
+    # The second round only follows up on the answers, with a small limit
+    prompt = await send_reply(app, "order-r", {"answers": {"cord_tips": "metal", "hood_lining": "jersey"}})
+    assert [q["id"] for q in prompt["questions"]] == ["tip_colour"]
+    second = consultant.deep_dive_calls[1]
+    assert second.follow_up and second.max_questions == 3 and "FOLLOW-UP round" in render_context(second)
+
+    # No third round: the summary is shown and what the check still finds goes to the team
+    prompt = await send_reply(app, "order-r", {"answers": {"tip_colour": "black"}})
+    assert prompt["kind"] == "confirm"
+    order = await get_order(app, "order-r")
+    assert "open gap" in order["needs_human"]
+
+
+async def test_ai_may_ask_again_only_to_settle_a_contradiction(make_app):
+    conflict = FollowUpQuestion(id="fabric", prompt="You chose french terry and a summer season: which matters more?",
+                                section="design", choices=["french terry", "a lighter fabric"], conflict=True)
+    another = FollowUpQuestion(id="material", prompt="Cotton or polyester, then?", section="design",
+                               choices=["cotton", "polyester"], conflict=True)
+    consultant = ScriptedConsultant(turns=[turn(questions=[conflict, another, ask("fabric_gsm", "GSM?")])], reports=[])
+    app = make_app(consultant)
+    prompt = await _through_form(app, "order-cf")
+    # One question about something already answered, because of a contradiction; a second one and a plain
+    # repeat are dropped
+    assert [q["id"] for q in prompt["questions"]] == ["fabric"]
 
 
 async def test_ai_cost_tiers_can_be_turned_off(make_app):
@@ -233,8 +274,8 @@ async def test_custom_product_starts_from_a_description_and_pictures(make_app):
     }})
     ctx = consultant.deep_dive_calls[0]
     assert ctx.custom and ctx.lang == "ar" and ctx.images == [{"file_id": "f-1", "content_type": "image/png"}]
-    # A custom product gets a bigger first round of questions
-    assert prompt["step"] == "deep_dive" and len(prompt["questions"]) == 8
+    # A custom product's one main round asks everything at once (up to 15)
+    assert prompt["step"] == "deep_dive" and len(prompt["questions"]) == 10
 
     prompt = await send_reply(app, "order-7", {"answers": {q["id"]: "yes" for q in prompt["questions"]}})
     assert prompt["kind"] == "confirm"
@@ -244,7 +285,7 @@ async def test_custom_product_starts_from_a_description_and_pictures(make_app):
     summary = prompt["summary"]
     assert summary["extras"] == []
     design_ids = [i["id"] for s in summary["sections"] if s["id"] == "design" for i in s["items"]]
-    assert {f"detail_{i}" for i in range(8)} <= set(design_ids)
+    assert {f"detail_{i}" for i in range(10)} <= set(design_ids)
 
 
 async def test_consultant_sends_pictures_as_images():

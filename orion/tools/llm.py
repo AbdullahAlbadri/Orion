@@ -26,7 +26,8 @@ class ConsultContext(BaseModel):
     order_id: str = ""
     images: list[dict] = []        # uploaded pictures to look at: {"file_id", "content_type"}
     custom: bool = False           # a custom product: the customer described it in their own words
-    max_questions: int = 5
+    max_questions: int = 12
+    follow_up: bool = False        # a later round: only what the latest answers made necessary
     business: dict = {}            # the customer's business profile: name, type, store, what they sell
 
 
@@ -49,6 +50,11 @@ class FollowUpQuestion(BaseModel):
         description="Relative production cost of each choice, same order and length as choices: 1 = lower, "
                     "2 = medium, 3 = higher, 0 = no cost difference or unsure (always 0 for 'not sure' options). "
                     "Empty list if the choices do not differ in cost. Never an amount.",
+    )
+    conflict: bool = Field(
+        False,
+        description="True only when this asks again about something already answered because two of the "
+                    "customer's answers contradict each other; the prompt names both answers. Otherwise false.",
     )
 
 
@@ -91,13 +97,25 @@ def render_context(ctx: ConsultContext, include_chat: bool = True) -> str:
         parts.append("Questions you ALREADY ASKED in earlier rounds (never ask these again, in any wording):\n"
                      + json.dumps(asked_before, ensure_ascii=False, indent=1))
     parts.append(f"Current spec:\n{ctx.spec.model_dump_json(include={'quantity', 'answers', 'open_gaps'}, indent=1)}")
+    if ctx.follow_up:
+        parts.append(
+            "This is a FOLLOW-UP round. The customer already answered your main round. Only ask what their latest "
+            "answers made necessary: an answer that opens a new detail, an unclear 'Other' answer, or two answers "
+            f"that contradict each other. At most {ctx.max_questions} questions; usually none, then return no "
+            "questions and ready_for_review=true."
+        )
+    else:
+        parts.append(
+            "This is your ONE MAIN ROUND: ask every question a factory still needs, all now, most important first, "
+            f"up to {ctx.max_questions}. There will be no second round except for follow-ups on these answers."
+        )
     if ctx.custom:
         parts.append(
             "This is a CUSTOM product: the customer described it in their own words"
             + (" and attached pictures (shown below)" if ctx.images else "")
-            + ". In this round, ask about every detail a factory needs to quote and make it (materials, size or "
-            "dimensions, colours, construction, logo/decoration, labels, packaging), skipping whatever the "
-            f"description or pictures already answer. Up to {ctx.max_questions} questions."
+            + ". Cover every detail a factory needs to quote and make it (materials, size or dimensions, colours, "
+            "construction, logo/decoration, labels, packaging), skipping whatever the description or pictures "
+            "already answer."
         )
     if ctx.compliance_notes:
         parts.append("Compliance notes (unverified, do not promise anything):\n- " + "\n- ".join(ctx.compliance_notes))

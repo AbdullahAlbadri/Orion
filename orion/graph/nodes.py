@@ -32,8 +32,9 @@ log = logging.getLogger(__name__)
 
 WAIT = "wait_for_customer"
 _QUANTITY_QUESTION = Question(id=QUANTITY_ID, prompt="Total quantity", type="number")
-MAX_FOLLOW_UPS = 5
-MAX_FOLLOW_UPS_CUSTOM = 8      # a custom product starts from a description, so the first rounds ask more
+MAX_FOLLOW_UPS = 12            # the AI's one main round asks everything still needed at once
+MAX_FOLLOW_UPS_CUSTOM = 15     # a custom product starts from a description, so its main round asks more
+MAX_FOLLOW_UPS_LATER = 3       # a later round only follows up on answers (Policy.ai_question_rounds)
 FOLLOW_UP_INTRO = {"en": "A few more details to get your product right:", "ar": "بعض التفاصيل الإضافية لنصنع منتجك بدقة:"}
 
 
@@ -292,11 +293,17 @@ def _follow_ups(
     seen_prompts = [_plain(p) for q in market_questions for p in (q.prompt, q.prompt_ar) if p]
     seen_prompts += [_plain(label) for label in spec.labels.values()]
     out: list[Question] = []
+    conflicts = 0
     for f in turn.questions:
         qid = _slug(f.id)
-        if not qid or not f.prompt.strip() or _repeats(qid, f.prompt, seen_ids, seen_prompts):
-            log.info("dropped repeated follow-up %r", f.id)
+        if not qid or not f.prompt.strip():
             continue
+        if _repeats(qid, f.prompt, seen_ids, seen_prompts):
+            # Asking again is allowed once per round, and only to settle answers that contradict each other
+            if not f.conflict or conflicts:
+                log.info("dropped repeated follow-up %r", f.id)
+                continue
+            conflicts += 1
         if price_violation(" ".join([f.prompt, *f.choices])):
             log.info("dropped follow-up %r with price language", f.id)
             continue
@@ -373,19 +380,26 @@ async def deep_dive(state: OrderState, consultant: Consultant, policy: Policy = 
         if text:
             messages.append({"role": "customer", "content": text})
 
+    # The first round asks everything at once; later rounds only follow up, and after the last one nothing more
+    # is asked (the summary is shown, open gaps go to the team)
+    rounds = state.get("ai_rounds", 0)
+    last = rounds >= policy.ai_question_rounds
     ctx = _context(state, spec, messages).model_copy(update={"lang": lang})
+    if rounds:
+        ctx = ctx.model_copy(update={"follow_up": True, "max_questions": MAX_FOLLOW_UPS_LATER})
     turn = await consultant.deep_dive(ctx)
     apply_updates(spec, ctx.questions, turn.updates)
-    questions = _follow_ups(turn, market_questions, spec, ctx.max_questions, policy.ai_cost_tiers)
+    questions = [] if last else _follow_ups(turn, market_questions, spec, ctx.max_questions, policy.ai_cost_tiers)
 
     # Guard against a loop with no customer in it: right after the completeness check found gaps,
     # the AI must ask the customer something rather than declaring itself done again.
-    ready = turn.ready_for_review and not (reply is None and spec.open_gaps)
+    ready = last or (turn.ready_for_review and not (reply is None and spec.open_gaps))
     if not ready and not questions:
         questions = _gap_questions(spec)
 
     update = {"spec": spec.model_dump(), "messages": messages, "reply": None, "pending": None, **lang_update}
     if not ready:
+        update["ai_rounds"] = rounds + 1
         intro = turn.intro.strip() or FOLLOW_UP_INTRO[lang]
         messages.append({"role": "orion", "content": intro + "\n" + "\n".join(f"- {q.prompt}" for q in questions)})
         update["pending"] = {
@@ -415,8 +429,9 @@ async def completeness_check(state: OrderState, consultant: Consultant, policy: 
 
     rounds = state.get("gap_rounds", 0) + 1 if gaps else 0
     update = {"spec": spec.model_dump(), "gap_rounds": rounds}
-    if gaps and rounds >= policy.max_gap_rounds:
-        update["needs_human"] = f"Spec still has {len(gaps)} open gap(s) after {rounds} rounds"
+    if gaps and (rounds >= policy.max_gap_rounds or state.get("ai_rounds", 0) >= policy.ai_question_rounds):
+        # No more questions for the customer: show the summary and let the team settle what is open
+        update["needs_human"] = f"Spec still has {len(gaps)} open gap(s) after the AI's questions"
     return update
 
 
@@ -449,6 +464,8 @@ def customer_confirm(state: OrderState) -> dict:
                 "messages": messages,
                 "stage": "draft",
                 "gap_rounds": 0,
+                # a change request gets one follow-up round, not a whole new round of questions
+                "ai_rounds": min(state.get("ai_rounds", 0), 1),
                 "needs_human": None,
                 "reply": None,
                 "pending": None,

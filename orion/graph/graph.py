@@ -155,6 +155,7 @@ async def start_order(
         "policy_version": POLICY_VERSION,
         "messages": [],
         "gap_rounds": 0,
+        "ai_rounds": 0,
         "spec_versions": [],
         "human_tasks": [],
         "manufacturer_attempts": [],

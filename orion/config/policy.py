@@ -24,3 +24,6 @@ class Policy(BaseModel):
     # The AI's follow-up choices show a relative $ / $$ / $$$ like the form's (its own estimate, never an amount).
     ai_cost_tiers: bool = True                   # TODO(decide): or only tiers the team set in config
     mockups_per_order: int = 5                   # TODO(decide): AI mockup images a customer may make per order
+    # Rounds of AI questions: the first asks everything still needed at once; later ones only follow up on what
+    # the answers made necessary. After the last round the summary is shown and open gaps go to the team.
+    ai_question_rounds: int = 2                  # TODO(decide)

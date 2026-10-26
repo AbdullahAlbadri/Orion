@@ -32,6 +32,7 @@ Search the code for `TODO(decide)` to find every open flag.
 | `post_confirmation_changes` | `route_to_team` | Team will discuss policy |
 | `quote_validity_days` | `7` | Placeholder, not decided |
 | `customer_response_expiry_days` | `14` | Placeholder, not decided |
+| `ai_question_rounds` | `2` | First round asks everything at once; the second only follows up on answers; then open gaps go to the team |
 | production / quality check / arrival problem | stub to team | Not designed yet |
 
 ## Open questions
