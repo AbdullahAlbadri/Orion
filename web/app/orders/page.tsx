@@ -6,8 +6,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
-import { BoxIcon, SearchIcon } from "@/components/Icons";
-import { Empty, PageHead, ProductThumb, StatusChip, Tabs } from "@/components/ui";
+import { ArrowIcon, BoxIcon, PlaneIcon, SearchIcon } from "@/components/Icons";
+import { Empty, PageHead, ProductThumb, Tabs } from "@/components/ui";
 import { api, type OrderRow } from "@/lib/api";
 import { useRequireUser } from "@/lib/auth";
 import { ago, COMMON, formatDate, NAV, t } from "@/lib/copy";
@@ -31,6 +31,7 @@ const C = {
   none: t("لا طلبات هنا.", "No orders here."),
   noneText: t("صف ما تريد صنعه، ونتولى المصنع والشحن.", "Describe what you want to make, and we handle the factory and shipping."),
   noMatch: t("لا نتائج لهذا البحث.", "Nothing matches this search."),
+  board: t("المغادرات", "Departures"),
 };
 
 type Filter = Group | "all";
@@ -134,7 +135,6 @@ export default function OrdersPage() {
               { key: "all", label: L(COMMON.all), count: counts.all },
             ]} />
           </div>
-          <section className="panel">
           <div className="toolbar">
             <label className="search">
               <SearchIcon width={18} height={18} />
@@ -155,48 +155,49 @@ export default function OrdersPage() {
           </div>
 
           {shown.length === 0 ? <p className="muted">{L(C.noMatch)}</p> : (
-            <table className="table">
-              <thead>
-                <tr><th>{L(C.product)}</th><th>{L(C.reference)}</th><th>{L(C.market)}</th><th>{L(C.status)}</th>
-                  <th>{L(C.updated)}</th><th aria-label="actions" /></tr>
-              </thead>
-              <tbody>
-                {shown.map((o) => {
-                  const group = groupOf(o.stage);
-                  return (
-                    <tr key={o.id} className="click" onClick={() => router.push(`/orders/${o.id}`)}>
-                      <td><div className="cell-product"><ProductThumb option={o.option} size={44} />
-                        <strong className="ellipsis">{orderName(o, lang)}</strong></div></td>
-                      <td data-label={L(C.reference)}><span className="flap">{o.id}</span></td>
-                      <td data-label={L(C.market)}>{marketName(o.market)}</td>
-                      <td data-label={L(C.status)}><StatusChip status={o.status} tone={chipTone(o)} /></td>
-                      <td data-label={L(C.updated)}><span title={formatDate(o.updated_at, lang, calendar, true)}>{ago(o.updated_at, lang)}</span></td>
-                      <td onClick={(e) => e.stopPropagation()}>
-                        <div className="row" style={{ justifyContent: "flex-end" }}>
-                          {group === "draft" && o.stage === "draft" && (confirming === o.id ? (
-                            <>
-                              <span className="muted small">{L(C.discardSure)}</span>
-                              <button type="button" className="btn btn-sm" onClick={() => discard(o.id)}>{L(C.yes)}</button>
-                              <button type="button" className="btn-ghost btn-sm" onClick={() => setConfirming(null)}>{L(C.keep)}</button>
-                            </>
-                          ) : (
-                            <button type="button" className="link-btn" onClick={() => setConfirming(o.id)}>{L(C.discard)}</button>
-                          ))}
-                          {group === "delivered" && o.product_id && (
-                            <Link href={`/products/${o.product_id}`} className="btn-outline">{L(COMMON.reorder)}</Link>
-                          )}
-                          <Link href={`/orders/${o.id}`} className="btn-outline">
-                            {group === "draft" ? L(COMMON.continueDraft) : L(COMMON.open)}
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div className="dep-board">
+              <div className="dep-head">
+                <span className="dep-title"><PlaneIcon className="flip-forward" width={24} height={24} /> {L(C.board)}</span>
+                <span className="dep-route" dir="ltr">CN → KSA</span>
+              </div>
+              <div className="dep-cols" aria-hidden>
+                <span>{L(C.reference)}</span><span>{L(C.product)}</span><span>{L(C.updated)}</span><span>{L(C.status)}</span><span /><span />
+              </div>
+              {shown.map((o, i) => {
+                const group = groupOf(o.stage);
+                const tone = chipTone(o);
+                return (
+                  <div key={o.id} className="dep-row" style={{ ["--i" as string]: i }} onClick={() => router.push(`/orders/${o.id}`)}>
+                    <span className="flap dep-code">{o.id}</span>
+                    <span className="dep-product">
+                      <ProductThumb option={o.option} size={40} />
+                      <span className="stack-sm"><strong className="ellipsis">{orderName(o, lang)}</strong><small>{marketName(o.market)}</small></span>
+                    </span>
+                    <span className="dep-place" title={formatDate(o.updated_at, lang, calendar, true)}>{ago(o.updated_at, lang)}</span>
+                    <span className={`flap dep-status ${tone}`}>{tone === "you" && <i className="dep-blink" />}{o.status[lang]}</span>
+                    <span className="dep-actions" onClick={(e) => e.stopPropagation()}>
+                      {group === "draft" && o.stage === "draft" && (confirming === o.id ? (
+                        <>
+                          <span className="muted small">{L(C.discardSure)}</span>
+                          <button type="button" className="btn btn-sm" onClick={() => discard(o.id)}>{L(C.yes)}</button>
+                          <button type="button" className="btn-ghost btn-sm" onClick={() => setConfirming(null)}>{L(C.keep)}</button>
+                        </>
+                      ) : (
+                        <button type="button" className="link-btn" onClick={() => setConfirming(o.id)}>{L(C.discard)}</button>
+                      ))}
+                      {group === "delivered" && o.product_id && (
+                        <Link href={`/products/${o.product_id}`} className="btn-outline">{L(COMMON.reorder)}</Link>
+                      )}
+                      <Link href={`/orders/${o.id}`} className="btn-outline">
+                        {group === "draft" ? L(COMMON.continueDraft) : L(COMMON.open)}
+                      </Link>
+                    </span>
+                    <ArrowIcon className="dep-more flip-forward" width={18} height={18} />
+                  </div>
+                );
+              })}
+            </div>
           )}
-          </section>
         </>
       )}
     </>

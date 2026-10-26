@@ -16,6 +16,7 @@ import {
   BellIcon, BoxIcon, BuildingIcon, CardIcon, ChartIcon, GearIcon, GlobeIcon, HelpIcon, HomeIcon, LogoutIcon,
   MenuIcon, PlusIcon, ShirtIcon, TruckIcon, UserIcon,
 } from "./Icons";
+import Sky from "./Sky";
 import "../app/app.css";
 
 export function Logo() {
@@ -60,6 +61,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const L = (x: Record<"ar" | "en", string>) => x[lang];
   return (
     <div className="shell">
+      <Sky />
       <aside className="sidebar">
         <Logo />
         <nav className="side-nav" aria-label={L(NAV.account)}>
