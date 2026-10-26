@@ -73,9 +73,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         <div className="side-bottom">
           <Link href="/help" className={`side-link${pathname === "/help" ? " active" : ""}`}><HelpIcon /><span>{L(NAV.help)}</span></Link>
         </div>
-        <div className="blob blob-a" aria-hidden />
-        <div className="blob blob-b" aria-hidden />
-        <div className="blob blob-c" aria-hidden />
+        <SideOrbit />
       </aside>
 
       <div className="content">
@@ -92,6 +90,23 @@ export default function AppShell({ children }: { children: ReactNode }) {
       </nav>
       {more && <MoreSheet onClose={() => setMore(false)} />}
     </div>
+  );
+}
+
+/** The sidebar's quiet corner: a small tilted orbit with one light going round and a few stars. */
+function SideOrbit() {
+  return (
+    <svg className="side-orbit" viewBox="0 0 220 140" aria-hidden>
+      {[[24, 18, 1.2], [188, 30, 1], [150, 8, .8], [40, 120, .9], [204, 112, 1.3], [96, 132, .7]].map(([x, y, r], i) => (
+        <circle key={i} className="side-star" cx={x} cy={y} r={r} style={{ ["--d" as string]: `${i * .9}s` }} />
+      ))}
+      <g transform="rotate(-12 110 70)">
+        <path id="side-orbit-path" className="side-orbit-ring" d="M30 70 A80 26 0 1 1 190 70 A80 26 0 1 1 30 70" />
+        <circle className="side-orbit-light" r="3">
+          <animateMotion dur="9s" repeatCount="indefinite"><mpath href="#side-orbit-path" /></animateMotion>
+        </circle>
+      </g>
+    </svg>
   );
 }
 

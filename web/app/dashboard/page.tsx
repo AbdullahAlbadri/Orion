@@ -1,16 +1,14 @@
 "use client";
 
-// Overview (docs/website/app/10-overview.md): what needs the customer, where each order is, the latest order,
-// a few numbers, and product ideas from the business profile. Refreshes itself every minute.
+// Overview (docs/website/app/10-overview.md): what needs the customer, where each order is, the latest order
+// as a paper document, a few numbers, and product ideas from the business profile. Refreshes itself every minute.
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 
-import {
-  ArrowIcon, BellIcon, BoxIcon, BuildingIcon, ChatIcon, ClockIcon, FactoryIcon, HashIcon, ReplayIcon, SparkleIcon,
-} from "@/components/Icons";
+import { ArrowIcon, BellIcon, BuildingIcon, ReplayIcon, SparkleIcon } from "@/components/Icons";
 import OrderTracker from "@/components/OrderTracker";
-import { PageHead, ProductThumb, StatusChip } from "@/components/ui";
+import { ProductThumb, StatusChip } from "@/components/ui";
 import {
   api, type BusinessView, type FullStats, type Notification, type OrderRow, type OrderView, type Product,
   type SupportRequest, type SummaryItem,
@@ -23,6 +21,8 @@ import { ACTIONS, chipTone, groupOf, needsAction, orderName } from "@/lib/orders
 
 const C = {
   attention: t("بحاجة لانتباهك", "Needs your attention"),
+  inProgress: t("قيد التنفيذ", "In progress"),
+  delivered: t("تم تسليمها", "Delivered"),
   teamQuestion: t("فريق أوريون ينتظر ردك", "The Orion team is waiting for your reply"),
   reply: t("رد", "Reply"),
   latest: t("الطلب الأخير", "Latest order"),
@@ -46,7 +46,6 @@ const C = {
     "Add your business name and what you sell, and the assistant will suggest branded products."),
   ideasLoading: t("نجهّز اقتراحات لنشاطك…", "Preparing ideas for your business…"),
   ideasNone: t("لا اقتراحات متاحة الآن.", "No ideas available right now."),
-  custom: t("منتج مخصص", "Custom product"),
   reorder: t("اطلب مرة أخرى", "Order again"),
   updates: t("آخر التحديثات", "Latest updates"),
   allUpdates: t("كل الرسائل", "All messages"),
@@ -66,6 +65,13 @@ type Data = {
   orders: OrderRow[]; business: BusinessView | null; support: SupportRequest[]; updates: Notification[];
   products: Product[]; stats: FullStats | null;
 };
+
+const Forward = ({ size = 14 }: { size?: number }) => <ArrowIcon className="flip-forward" width={size} height={size} />;
+
+/** A section heading with an optional link on the far side. */
+function Head({ id, children, more }: { id?: string; children: ReactNode; more?: ReactNode }) {
+  return <div className="ov-h-row"><h2 id={id} className="ov-h">{children}</h2>{more}</div>;
+}
 
 export default function Overview() {
   const user = useRequireUser();
@@ -103,6 +109,8 @@ export default function Overview() {
   const attention = orders.filter(needsAction);
   const waitingTeam = support.filter((s) => s.status === "waiting_customer");
   const inProgress = orders.filter((o) => ["draft", "active"].includes(groupOf(o.stage)));
+  const delivered = orders.filter((o) => groupOf(o.stage) === "delivered").length;
+  const needYou = attention.length + waitingTeam.length;
   const missing = business ? business.completeness.total - business.completeness.done : 0;
   const isNew = orders.length === 0;
 
@@ -118,28 +126,39 @@ export default function Overview() {
   }
 
   return (
-    <>
-      <PageHead title={`${L(NAV.hello)}${me?.name ? ` ${me.name}` : ""}`} />
+    <div className="ov">
+      <header className="ov-head">
+        <div>
+          <p className="ov-kicker">{L(NAV.overview)}</p>
+          <h1 className="ov-title">{L(NAV.hello)}{me?.name ? ` ${me.name}` : ""}</h1>
+        </div>
+        {!isNew && (
+          <dl className="ov-counts">
+            <div><dt>{L(C.inProgress)}</dt><dd>{num(inProgress.length)}</dd></div>
+            <div className={needYou > 0 ? "hot" : undefined}><dt>{L(C.attention)}</dt><dd>{num(needYou)}</dd></div>
+            <div><dt>{L(C.delivered)}</dt><dd>{num(delivered)}</dd></div>
+          </dl>
+        )}
+      </header>
 
-      {(attention.length > 0 || waitingTeam.length > 0) && (
-        <section aria-labelledby="attention" style={{ marginBottom: 20 }}>
-          <h2 id="attention">{L(C.attention)}</h2>
-          <div className="attention">
+      {needYou > 0 && (
+        <section className="ov-section" aria-labelledby="attention">
+          <Head id="attention"><span className="ov-pulse" aria-hidden /> {L(C.attention)}</Head>
+          <div className="ov-alerts">
             {attention.map((o) => (
-              <div key={o.id} className="attention-item">
-                <span className="dot" aria-hidden />
-                <ProductThumb option={o.option} size={40} />
-                <div className="grow stack-sm">
+              <div key={o.id} className="ov-alert">
+                <ProductThumb option={o.option} size={44} />
+                <div className="stack-sm grow">
                   <strong className="ellipsis">{L(ACTIONS[o.stage].label)}</strong>
-                  <span className="muted small ellipsis">{orderName(o, lang)}</span>
+                  <span className="muted small ellipsis">{orderName(o, lang)} · <span className="mono">{o.id}</span></span>
                 </div>
                 <Link href={`/orders/${o.id}`} className="btn btn-sm">{L(ACTIONS[o.stage].button)}</Link>
               </div>
             ))}
             {waitingTeam.map((s) => (
-              <div key={s.id} className="attention-item">
-                <span className="dot" aria-hidden />
-                <div className="grow stack-sm">
+              <div key={s.id} className="ov-alert">
+                <span className="ov-alert-icon"><BellIcon width={20} height={20} /></span>
+                <div className="stack-sm grow">
                   <strong>{L(C.teamQuestion)}</strong>
                   <span className="muted small ellipsis">#{s.ref} · {s.last_message}</span>
                 </div>
@@ -151,37 +170,34 @@ export default function Overview() {
       )}
 
       {isNew ? (
-        <section className="board board-ink cross welcome-card">
+        <section className="ov-welcome ov-section">
           <div className="stack">
-            <h2 style={{ margin: 0, fontSize: 26 }}>{L(C.welcome)}</h2>
+            <h2 className="ov-welcome-title">{L(C.welcome)}</h2>
             <p className="muted" style={{ margin: 0 }}>{L(C.welcomeText)}</p>
-            <Link href="/orders/new" className="btn" style={{ alignSelf: "flex-start" }}>{L(C.welcome)}</Link>
+            <Link href="/orders/new" className="btn" style={{ alignSelf: "flex-start" }}>{L(C.welcome)} <Forward size={16} /></Link>
           </div>
-          <ol className="welcome-steps">
-            {[C.step1, C.step2, C.step3].map((s, i) => <li key={i}><span className="n">{i + 1}</span><span>{L(s)}</span></li>)}
+          <ol className="ov-route">
+            {[C.step1, C.step2, C.step3].map((s, i) => <li key={i}><span className="n">{num(i + 1)}</span><span>{L(s)}</span></li>)}
           </ol>
         </section>
       ) : (
-        inProgress.length > 0 && <OrderTracker orders={inProgress} />
+        inProgress.length > 0 && <div className="ov-section"><OrderTracker orders={inProgress} /></div>
       )}
 
       {!isNew && (
-        <div className="overview-grid section-gap">
+        <div className="ov-grid ov-section">
           <LatestOrder order={orders[0]} />
-          <section className="board board-glass">
-            <div className="spread" style={{ marginBottom: 12 }}>
-              <h2 style={{ margin: 0 }}>{L(C.stats)}</h2>
-              <Link href="/stats" className="small">{L(C.allStats)}</Link>
-            </div>
-            <div className="mini-tiles">
-              <MiniTile icon={<BoxIcon />} label={L(C.confirmed)} value={num(stats?.orders.submitted ?? 0)} />
-              <MiniTile icon={<HashIcon />} label={L(C.pieces)} value={num(stats?.orders.pieces ?? 0)} />
-              <MiniTile icon={<FactoryIcon />} label={L(C.factories)} value={num(stats?.factories_contacted ?? 0)} />
-              <MiniTile icon={<ChatIcon />} label={L(C.checks)} value={num(stats?.orders.mismatches_caught ?? 0)} />
+          <section className="ov-numbers" aria-labelledby="numbers">
+            <Head id="numbers" more={<Link href="/stats" className="ov-more">{L(C.allStats)} <Forward /></Link>}>{L(C.stats)}</Head>
+            <dl className="ov-ledger">
+              <Figure label={L(C.confirmed)} value={num(stats?.orders.submitted ?? 0)} />
+              <Figure label={L(C.pieces)} value={num(stats?.orders.pieces ?? 0)} />
+              <Figure label={L(C.factories)} value={num(stats?.factories_contacted ?? 0)} />
+              <Figure label={L(C.checks)} value={num(stats?.orders.mismatches_caught ?? 0)} />
               {stats && stats.time_saved_hours > 0 && (
-                <MiniTile icon={<ClockIcon />} label={L(C.timeSaved)} value={`≈ ${duration(stats.time_saved_hours, lang)}`} wide />
+                <Figure label={L(C.timeSaved)} value={`≈ ${duration(stats.time_saved_hours, lang)}`} wide />
               )}
-            </div>
+            </dl>
           </section>
         </div>
       )}
@@ -191,14 +207,14 @@ export default function Overview() {
       }, key)} busy={busy} />
 
       {products.length > 0 && (
-        <section className="section-gap">
-          <div className="section-title"><h2>{L(C.reorder)}</h2><Link href="/products" className="small">{L(NAV.products)}</Link></div>
-          <div className="card-grid">
+        <section className="ov-section" aria-labelledby="reorder">
+          <Head id="reorder" more={<Link href="/products" className="ov-more">{L(NAV.products)} <Forward /></Link>}>{L(C.reorder)}</Head>
+          <div className="ov-rows">
             {products.slice(0, 3).map((p) => (
-              <div key={p.id} className="link-card">
-                <ProductThumb option={p.option} picture={p.picture} size={52} />
+              <div key={p.id} className="ov-row">
+                <ProductThumb option={p.option} picture={p.picture} size={48} />
                 <div className="stack-sm grow">
-                  <Link href={`/products/${p.id}`} className="ellipsis" style={{ color: "var(--text)", fontWeight: 600 }}>{orderName(p, lang)}</Link>
+                  <Link href={`/products/${p.id}`} className="ov-row-title ellipsis">{orderName(p, lang)}</Link>
                   <span className="muted small">{p.last_quantity ? `${num(p.last_quantity)} ${L(COMMON.pieces)}` : ""}</span>
                 </div>
                 <button type="button" className="btn-outline" disabled={busy === p.id}
@@ -210,12 +226,12 @@ export default function Overview() {
       )}
 
       {updates.length > 0 && (
-        <section className="section-gap">
-          <div className="section-title"><h2>{L(C.updates)}</h2><Link href="/messages" className="small">{L(C.allUpdates)}</Link></div>
-          <div className="attention">
+        <section className="ov-section" aria-labelledby="updates">
+          <Head id="updates" more={<Link href="/messages" className="ov-more">{L(C.allUpdates)} <Forward /></Link>}>{L(C.updates)}</Head>
+          <div className="ov-rows">
             {updates.map((n) => (
-              <Link key={n.id} href={n.href || "/messages"} className="link-card">
-                <BellIcon />
+              <Link key={n.id} href={n.href || "/messages"} className="ov-row">
+                <span className="ov-alert-icon"><BellIcon width={18} height={18} /></span>
                 <div className="stack-sm grow">
                   <strong className="ellipsis">{lang === "ar" ? n.title_ar : n.title_en}</strong>
                   {(lang === "ar" ? n.body_ar : n.body_en) && <span className="muted small ellipsis">{lang === "ar" ? n.body_ar : n.body_en}</span>}
@@ -228,31 +244,24 @@ export default function Overview() {
       )}
 
       {missing > 0 && (
-        <section className="section-gap">
-          <Link href="/business" className="link-card" style={{ borderColor: "rgba(254,183,47,.35)" }}>
-            <BuildingIcon />
-            <div className="stack-sm grow">
-              <strong>{L(C.missing).replace("{n}", num(missing))}</strong>
-              <span className="muted small">{L(C.missingHint)}</span>
-            </div>
-            <span className="btn-outline">{L(C.complete)} <ArrowIcon className="flip-forward" width={14} height={14} /></span>
-          </Link>
-        </section>
+        <Link href="/business" className="ov-nudge ov-section">
+          <span className="ov-alert-icon"><BuildingIcon width={20} height={20} /></span>
+          <div className="stack-sm grow">
+            <strong>{L(C.missing).replace("{n}", num(missing))}</strong>
+            <span className="muted small">{L(C.missingHint)}</span>
+          </div>
+          <span className="ov-more">{L(C.complete)} <Forward /></span>
+        </Link>
       )}
-    </>
-  );
-}
-
-function MiniTile({ icon, label, value, wide }: { icon: React.ReactNode; label: string; value: string; wide?: boolean }) {
-  return (
-    <div className={`mini-tile${wide ? " wide" : ""}`}>
-      <span className="mini-icon">{icon}</span>
-      <span className="stack-sm"><span className="muted small">{label}</span><strong>{value}</strong></span>
     </div>
   );
 }
 
-/** The most recently updated order, with its first few details from the summary. */
+function Figure({ label, value, wide }: { label: string; value: string; wide?: boolean }) {
+  return <div className={wide ? "wide" : undefined}><dt>{label}</dt><dd>{value}</dd></div>;
+}
+
+/** The most recently updated order as a paper document: its code, status and first few details. */
 function LatestOrder({ order }: { order: OrderRow }) {
   const { lang } = useLang();
   const { calendar } = useMe();
@@ -264,31 +273,34 @@ function LatestOrder({ order }: { order: OrderRow }) {
     api<OrderView>(`/orders/${encodeURIComponent(order.id)}`).then((v) => {
       if (!live) return;
       const all = (v.summary?.sections ?? []).flatMap((s) => s.items).filter((i) => i.type !== "placement" && i.type !== "file");
-      setItems(all.slice(0, 4));
+      setItems(all.slice(0, 5));
     }).catch(() => live && setItems([]));
     return () => { live = false; };
   }, [order.id, lang]);
 
   return (
-    <section className="board board-glass latest-order">
-      <div className="spread"><h2 style={{ margin: 0 }}>{L(C.latest)}</h2><StatusChip status={order.status} tone={chipTone(order)} /></div>
-      <div className="latest-head">
-        <ProductThumb option={order.option} size={84} />
-        <div className="stack-sm">
-          <strong style={{ fontSize: 20 }} className="ellipsis">{orderName(order, lang)}</strong>
+    <article className="ov-doc" aria-labelledby="latest">
+      <div className="ov-doc-top"><b id="latest">{L(C.latest)}</b><span dir="ltr">{order.id}</span></div>
+      <div className="ov-doc-head">
+        <ProductThumb option={order.option} size={64} />
+        <div className="stack-sm grow">
+          <h3 className="ellipsis">{orderName(order, lang)}</h3>
           {order.quantity ? <span>{num(order.quantity)} {L(COMMON.pieces)}</span> : null}
-          <span className="muted small">{L(C.created)} {formatDate(order.created_at, lang, calendar)} · {L(C.updated)} {ago(order.updated_at, lang)}</span>
         </div>
+        <StatusChip status={order.status} tone={chipTone(order)} />
       </div>
-      {items === null ? <div className="skeleton" style={{ height: 70 }} /> : items.length === 0 ? (
-        <p className="muted small" style={{ margin: 0 }}>{L(C.noDetails)}</p>
+      {items === null ? <div className="ov-doc-skeleton" /> : items.length === 0 ? (
+        <p className="ov-doc-empty">{L(C.noDetails)}</p>
       ) : (
-        <dl className="latest-details">
-          {items.map((i) => <div key={i.id}><dt>{i.label}</dt><dd>{i.value}</dd></div>)}
+        <dl className="ov-doc-rows">
+          {items.map((i) => <div key={i.id}><dt>{i.label}</dt><i aria-hidden /><dd>{i.value}</dd></div>)}
         </dl>
       )}
-      <Link href={`/orders/${order.id}`} className="btn-outline" style={{ alignSelf: "flex-start" }}>{L(C.open)}</Link>
-    </section>
+      <div className="ov-doc-foot">
+        <span>{L(C.created)} {formatDate(order.created_at, lang, calendar)} · {L(C.updated)} {ago(order.updated_at, lang)}</span>
+        <Link href={`/orders/${order.id}`} className="ov-doc-open">{L(C.open)} <Forward /></Link>
+      </div>
+    </article>
   );
 }
 
@@ -315,49 +327,49 @@ function IdeasSection({ onStart, busy }: { onStart: (idea: Idea, key: string) =>
 
   if (ideas?.status === "unavailable" && ideas.items.length === 0) return null;
   return (
-    <section className="section-gap">
-      <div className="section-title">
-        <h2><SparkleIcon width={20} height={20} style={{ color: "var(--yellow)", verticalAlign: -3 }} /> {L(C.ideas)}</h2>
-        {ideas && ideas.items.length > 0 && (
-          <button type="button" className="btn-ghost btn-sm" onClick={refresh} disabled={refreshing}>
-            <ReplayIcon width={16} height={16} className={refreshing ? "spinning" : ""} /> {L(C.ideasMore)}
-          </button>
-        )}
-      </div>
+    <section className="ov-section" aria-labelledby="ideas">
+      <Head id="ideas" more={ideas && ideas.items.length > 0 && (
+        <button type="button" className="ov-more" onClick={refresh} disabled={refreshing}>
+          <ReplayIcon width={15} height={15} className={refreshing ? "spinning" : ""} /> {L(C.ideasMore)}
+        </button>
+      )}>
+        <SparkleIcon width={20} height={20} className="ov-spark" /> {L(C.ideas)}
+      </Head>
       {ideas === null ? (
-        <div className="idea-grid">
-          {[0, 1, 2].map((i) => <div key={i} className="idea-card skeleton" style={{ height: 190 }} />)}
-          <p className="muted small" style={{ margin: 0 }}>{L(C.ideasLoading)}</p>
-        </div>
+        <>
+          <div className="ov-ideas">{[0, 1, 2].map((i) => <div key={i} className="ov-idea skeleton" style={{ height: 200 }} />)}</div>
+          <p className="muted small">{L(C.ideasLoading)}</p>
+        </>
       ) : ideas.status === "no_profile" ? (
-        <Link href="/business" className="link-card idea-cta">
-          <span className="mini-icon"><SparkleIcon /></span>
+        <Link href="/business" className="ov-nudge">
+          <span className="ov-alert-icon"><SparkleIcon width={20} height={20} /></span>
           <div className="stack-sm grow"><strong>{L(C.ideasProfile)}</strong><span className="muted small">{L(C.ideasProfileText)}</span></div>
-          <ArrowIcon className="flip-forward" width={18} height={18} />
+          <Forward size={18} />
         </Link>
       ) : ideas.items.length === 0 ? <p className="muted">{L(C.ideasNone)}</p> : (
         <>
-          <div className="idea-grid">
+          <div className="ov-ideas">
             {ideas.items.map((idea, i) => {
               const key = `idea-${i}`;
               return (
-                <article key={key} className="idea-card" style={{ ["--i" as string]: i }}>
-                  <div className="row" style={{ alignItems: "center" }}>
+                <article key={key} className="ov-idea" style={{ ["--i" as string]: i }}>
+                  <div className="ov-idea-top">
+                    <span className="ov-idea-n" dir="ltr">{String(i + 1).padStart(2, "0")}</span>
                     {idea.option === "custom"
-                      ? <span className="thumb thumb-icon" style={{ width: 48, height: 48 }}><SparkleIcon /></span>
-                      : <ProductThumb option={idea.option} size={48} />}
-                    <strong className="grow">{idea.title}</strong>
+                      ? <span className="thumb thumb-icon" style={{ width: 44, height: 44 }}><SparkleIcon /></span>
+                      : <ProductThumb option={idea.option} size={44} />}
                   </div>
+                  <h3>{idea.title}</h3>
                   <p>{idea.why}</p>
                   {idea.details && <p className="muted small">{idea.details}</p>}
-                  <button type="button" className="btn-outline" disabled={busy === key} onClick={() => onStart(idea, key)}>
-                    {L(C.ideaStart)}
+                  <button type="button" className="ov-more ov-idea-go" disabled={busy === key} onClick={() => onStart(idea, key)}>
+                    {L(C.ideaStart)} <Forward />
                   </button>
                 </article>
               );
             })}
           </div>
-          <p className="muted small" style={{ marginTop: 10 }}>{L(C.ideasNote)}</p>
+          <p className="muted small" style={{ marginTop: 12 }}>{L(C.ideasNote)}</p>
         </>
       )}
     </section>
