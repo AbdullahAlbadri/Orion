@@ -1,7 +1,8 @@
 "use client";
 
 // Order tracker for the Overview: the order's steps along a wavy orbit, the travelled part in gold, the current
-// step's icon in a pulsing gold circle, done steps checked. On an order's page the same steps stand upright (JourneyTracker),
+// step's icon in a pulsing gold circle, moving in its own way (the factory smokes, the gear turns, the truck
+// drives), done steps checked. On an order's page the same steps stand upright (JourneyTracker),
 // each current icon animated in its own way. Several orders in progress: chips switch between them.
 // Still when the customer prefers reduced motion.
 import Link from "next/link";
@@ -116,7 +117,10 @@ export default function OrderTracker({ orders }: { orders: OrderRow[] }) {
             return (
               <li key={s.key} className={`orbit-stop ${state}`} style={{ ["--i" as string]: i }}
                 aria-current={state === "now" ? "step" : undefined}>
-                <span className="orbit-dot">{state === "done" ? <CheckIcon /> : s.icon}</span>
+                <span className={`orbit-dot anim-${s.anim}`}>
+                  {state === "done" ? <CheckIcon /> : s.icon}
+                  {state === "now" && s.anim === "smoke" && <><i className="puff p1" /><i className="puff p2" /></>}
+                </span>
                 <span className="orbit-label">{L(s.label)}</span>
               </li>
             );

@@ -55,6 +55,7 @@ const C = {
   ideasLoading: t("نجهّز اقتراحات لنشاطك…", "Preparing ideas for your business…"),
   ideasNone: t("لا اقتراحات متاحة الآن.", "No ideas available right now."),
   reorder: t("اطلب مرة أخرى", "Order again"),
+  timesOrdered: t("مرات الطلب {n}", "ordered {n}×"),
   updates: t("آخر التحديثات", "Latest updates"),
   allUpdates: t("كل الرسائل", "All messages"),
   missing: t("{n} تفاصيل ناقصة في ملف نشاطك التجاري", "{n} details missing in your business profile"),
@@ -223,19 +224,8 @@ export default function Overview() {
       {products.length > 0 && (
         <section className="ov-section" aria-labelledby="reorder">
           <Head id="reorder" more={<Link href="/products" className="ov-more">{L(NAV.products)} <Forward /></Link>}>{L(C.reorder)}</Head>
-          <div className="ov-rows">
-            {products.slice(0, 3).map((p) => (
-              <div key={p.id} className="ov-row">
-                <ProductThumb option={p.option} picture={p.picture} size={48} />
-                <div className="stack-sm grow">
-                  <Link href={`/products/${p.id}`} className="ov-row-title ellipsis">{orderName(p, lang)}</Link>
-                  <span className="muted small">{p.last_quantity ? `${num(p.last_quantity)} ${L(COMMON.pieces)}` : ""}</span>
-                </div>
-                <button type="button" className="btn-outline" disabled={busy === p.id}
-                  onClick={() => start(`/products/${encodeURIComponent(p.id)}/reorder`, undefined, p.id)}>{L(COMMON.reorder)}</button>
-              </div>
-            ))}
-          </div>
+          <ProductOrbit products={products.slice(0, 5)} busy={busy}
+            onReorder={(p) => start(`/products/${encodeURIComponent(p.id)}/reorder`, undefined, p.id)} />
         </section>
       )}
 
@@ -279,6 +269,50 @@ function Figure({ label, hint, value, chart, wide }: { label: string; hint: stri
       <span className="ov-fig-label">{label}</span>
       <small className="ov-fig-hint">{hint}</small>
       {chart}
+    </div>
+  );
+}
+
+// The orbit arc for "Order again": a sine bump across the width, in a 1000 x 290 box. ORBIT_Y is the height of a
+// planet's centre when it sits at the arc's ends; planets rise by up to ORBIT_RISE in the middle.
+const ORBIT_Y = 102, ORBIT_RISE = 46;
+const ORBIT_ARC = Array.from({ length: 41 }, (_, i) => {
+  const x = i * 25;
+  return `${i ? "L" : "M"} ${x} ${(ORBIT_Y - ORBIT_RISE * Math.sin((Math.PI * x) / 1000)).toFixed(1)}`;
+}).join(" ");
+
+/** Past products as ringed planets along an orbit: the product type drawn inside, name, last quantity, a reorder button. */
+function ProductOrbit({ products, busy, onReorder }: { products: Product[]; busy: string | null; onReorder: (p: Product) => void }) {
+  const { lang } = useLang();
+  const L = (x: Record<"ar" | "en", string>) => x[lang];
+  return (
+    <div className="ov-orbit">
+      <svg viewBox="0 0 1000 290" preserveAspectRatio="none" aria-hidden>
+        <path id="ov-orbit-arc" className="ov-orbit-arc" d={ORBIT_ARC} />
+        <path className="ov-orbit-arc far" d={ORBIT_ARC} transform="translate(0 34)" />
+        <circle className="ov-orbit-light" r="3">
+          <animateMotion dur="14s" repeatCount="indefinite"><mpath href="#ov-orbit-arc" /></animateMotion>
+        </circle>
+      </svg>
+      <ul className="ov-planets">
+        {products.map((p, i) => (
+          <li key={p.id} className="ov-planet"
+            style={{ ["--lift" as string]: Math.sin((Math.PI * (i + 0.5)) / products.length).toFixed(3), ["--i" as string]: i }}>
+            <Link href={`/products/${p.id}`} className="ov-planet-body" aria-label={orderName(p, lang)}>
+              <span className="ov-planet-ring" aria-hidden />
+              <span className="ov-planet-orb"><ProductThumb option={p.option} size={64} /></span>
+              <span className="ov-planet-ring front" aria-hidden />
+            </Link>
+            <Link href={`/products/${p.id}`} className="ov-planet-name ellipsis">{orderName(p, lang)}</Link>
+            <span className="ov-planet-meta">
+              {p.last_quantity ? `${num(p.last_quantity)} ${L(COMMON.pieces)} · ` : ""}{L(C.timesOrdered).replace("{n}", num(p.orders))}
+            </span>
+            <button type="button" className="ov-planet-go" disabled={busy === p.id} onClick={() => onReorder(p)}>
+              <ReplayIcon width={14} height={14} /> {L(COMMON.reorder)}
+            </button>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
