@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ArrowIcon, BellIcon, BuildingIcon, ReplayIcon, SparkleIcon } from "@/components/Icons";
 import { FactoryDots, lastMonths, MonthBars, ShareBar, TimeParts } from "@/components/OverviewCharts";
 import OrderTracker from "@/components/OrderTracker";
+import Planet from "@/components/Planet";
 import { ProductThumb, StatusChip } from "@/components/ui";
 import {
   api, type BusinessView, type FullStats, type Notification, type OrderRow, type OrderView, type Product,
@@ -299,9 +300,7 @@ function ProductOrbit({ products, busy, onReorder }: { products: Product[]; busy
           <li key={p.id} className="ov-planet"
             style={{ ["--lift" as string]: Math.sin((Math.PI * (i + 0.5)) / products.length).toFixed(3), ["--i" as string]: i }}>
             <Link href={`/products/${p.id}`} className="ov-planet-body" aria-label={orderName(p, lang)}>
-              <span className="ov-planet-ring" aria-hidden />
-              <span className="ov-planet-orb"><ProductThumb option={p.option} size={64} /></span>
-              <span className="ov-planet-ring front" aria-hidden />
+              <Planet option={p.option} />
             </Link>
             <Link href={`/products/${p.id}`} className="ov-planet-name ellipsis">{orderName(p, lang)}</Link>
             <span className="ov-planet-meta">

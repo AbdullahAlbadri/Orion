@@ -634,19 +634,7 @@ html[dir="rtl"] .orbit-stop.now .anim-drive svg { animation-name: drive-rtl; }
 .ov-planets { position: relative; list-style: none; margin: 0; padding: 56px 0 0; display: flex; justify-content: space-around; }
 .ov-planet { flex: 1; min-width: 0; max-width: 240px; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center;
   translate: 0 calc(var(--lift) * -46px); animation: ov-in 600ms cubic-bezier(.22, 1, .36, 1) both; animation-delay: calc(var(--i) * 110ms); }
-/* a flat planet with a tilted ring: the ring's back half behind it, the front half across it */
-.ov-planet-body { position: relative; width: 92px; height: 92px; margin-bottom: 8px; display: grid; place-items: center;
-  transition: transform .45s var(--ease); }
-.ov-planet-orb { position: relative; z-index: 1; width: 92px; height: 92px; border-radius: 50%; display: grid; place-items: center;
-  overflow: hidden; background: #18181e; border: 1px solid rgba(241, 236, 227, .16); }
-.ov-planet-orb .thumb { border-radius: 50%; background: transparent; }
-.ov-planet-orb .thumb .garment { fill: rgba(226, 184, 102, .1); stroke: var(--yellow); }
-.ov-planet-orb .thumb .garment-detail { stroke: rgba(226, 184, 102, .7); }
-.ov-planet-ring { position: absolute; left: 50%; top: 50%; width: 140px; height: 34px; margin: -17px 0 0 -70px; border-radius: 50%;
-  border: 1.5px solid rgba(226, 184, 102, .55); transform: rotate(-16deg); transition: transform .45s var(--ease); pointer-events: none; }
-.ov-planet-ring.front { z-index: 2; clip-path: inset(50% 0 0 0); }
-.ov-planet:hover .ov-planet-body { transform: translateY(-5px); }
-.ov-planet:hover .ov-planet-ring { transform: rotate(-6deg); }
+.ov-planet-body { display: block; margin-bottom: 8px; }
 .ov-planet-name { max-width: 92%; font-family: var(--display); font-size: 18px; color: var(--text); }
 .ov-planet-name:hover { color: var(--yellow); }
 .ov-planet-meta { font-size: 12px; color: var(--muted); }
@@ -663,3 +651,48 @@ html[dir="rtl"] .orbit-stop.now .anim-drive svg { animation-name: drive-rtl; }
   .ov-planet { flex: 0 0 150px; translate: none; scroll-snap-align: start; }
 }
 @media (prefers-reduced-motion: reduce) { .ov-planet, .ov-planet-go:hover svg { animation: none; } .ov-orbit-light { display: none; } }
+
+/* ---------- a product as a planet (components/Planet.tsx): a flat body with a tilted ring ---------- */
+.planet { --size: 92px; position: relative; display: grid; place-items: center; width: var(--size); height: var(--size);
+  transition: transform .45s var(--ease); }
+.planet-orb { position: relative; z-index: 1; width: 100%; height: 100%; border-radius: 50%; display: grid; place-items: center;
+  overflow: hidden; background: #18181e; border: 1px solid rgba(241, 236, 227, .16); }
+.planet-orb .thumb { border-radius: 50%; background: transparent; }
+.planet-orb .thumb .garment { fill: rgba(226, 184, 102, .1); stroke: var(--yellow); }
+.planet-orb .thumb .garment-detail { stroke: rgba(226, 184, 102, .7); }
+.planet-ring { position: absolute; left: 50%; top: 50%; width: calc(var(--size) * 1.52); height: calc(var(--size) * .37); border-radius: 50%;
+  border: 1.5px solid rgba(226, 184, 102, .55); transform: translate(-50%, -50%) rotate(-16deg); transition: transform .45s var(--ease);
+  pointer-events: none; }
+.planet-ring.front { z-index: 2; clip-path: inset(50% 0 0 0); }
+.ov-planet:hover .planet, .pr-card:hover .planet { transform: translateY(-5px); }
+.ov-planet:hover .planet-ring, .pr-card:hover .planet-ring { transform: translate(-50%, -50%) rotate(-6deg); }
+
+/* ---------- My Products: a card per product, its planet in a patch of night sky ---------- */
+.pr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr)); gap: 20px; }
+.pr-card { display: flex; flex-direction: column; overflow: hidden; border-radius: var(--radius); background: #0d0d11; color: var(--text);
+  border: 1px solid var(--line); transition: border-color .3s, transform .3s var(--ease);
+  animation: ov-in 500ms cubic-bezier(.22, 1, .36, 1) both; animation-delay: calc(var(--i, 0) * 70ms); }
+.pr-card:hover { color: var(--text); border-color: rgba(226, 184, 102, .4); transform: translateY(-3px); }
+.pr-sky { position: relative; display: grid; place-items: center; height: 170px; overflow: hidden; border-bottom: 1px dashed var(--line);
+  background:
+    radial-gradient(1.2px 1.2px at 12% 22%, rgba(241, 236, 227, .55) 50%, transparent 52%),
+    radial-gradient(1px 1px at 30% 78%, rgba(241, 236, 227, .4) 50%, transparent 52%),
+    radial-gradient(1.4px 1.4px at 74% 18%, rgba(226, 184, 102, .6) 50%, transparent 52%),
+    radial-gradient(1px 1px at 86% 64%, rgba(241, 236, 227, .45) 50%, transparent 52%),
+    radial-gradient(1px 1px at 55% 90%, rgba(241, 236, 227, .35) 50%, transparent 52%),
+    linear-gradient(180deg, #121217, #0d0d11); }
+/* a faint orbit through the sky, behind the planet */
+.pr-sky::before { content: ""; position: absolute; left: -10%; right: -10%; top: 50%; height: 120px; margin-top: -60px; border-radius: 50%;
+  border: 1px dashed rgba(241, 236, 227, .08); transform: rotate(-8deg); }
+.pr-body { display: flex; flex-direction: column; gap: 4px; padding: 16px 18px 16px; }
+.pr-market { font-size: 12px; color: var(--muted); }
+.pr-name { font-family: var(--display); font-size: 22px; font-weight: 500; line-height: 1.25; }
+.pr-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 10px 0 12px; padding: 10px 0;
+  border-block: 1px solid var(--line); }
+.pr-facts span { display: flex; flex-direction: column; min-width: 0; }
+.pr-facts small { font-size: 11px; color: var(--muted); }
+.pr-facts b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pr-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.pr-open { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); transition: color .2s; }
+.pr-card:hover .pr-open { color: var(--yellow); }
+@media (prefers-reduced-motion: reduce) { .pr-card { animation: none; } }

@@ -5,8 +5,9 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-import { SearchIcon, ShirtIcon } from "@/components/Icons";
-import { Empty, PageHead, ProductThumb, StatusChip, Tabs } from "@/components/ui";
+import { ArrowIcon, SearchIcon, ShirtIcon } from "@/components/Icons";
+import Planet from "@/components/Planet";
+import { Empty, PageHead, StatusChip, Tabs } from "@/components/ui";
 import { api, type Product } from "@/lib/api";
 import { useRequireUser } from "@/lib/auth";
 import { COMMON, formatDate, NAV, num, t } from "@/lib/copy";
@@ -75,24 +76,23 @@ export default function ProductsPage() {
                 action={<Link href="/orders/new" className="btn">{L(COMMON.startFirst)}</Link>} />
             : <p className="muted">{L(C.noArchived)}</p>
         ) : (
-          <div className="card-grid">
-            {shown.map((p) => (
-              <Link key={p.id} href={`/products/${p.id}`} className="order-card">
-                <div className="top">
-                  <ProductThumb option={p.option} picture={p.picture} size={64} />
-                  <div className="stack-sm">
-                    <strong className="ellipsis">{orderName(p, lang)}</strong>
-                    <span className="muted small">{HOME.markets.items.find((x) => x.id === p.market)?.name[lang]}</span>
-                  </div>
-                </div>
-                <div className="spread small">
-                  <span><span className="muted">{L(C.lastOrdered)}: </span>{formatDate(p.last_ordered_at, lang, calendar)}</span>
-                  <span><span className="muted">{L(C.orders)}: </span>{num(p.orders)}</span>
-                </div>
-                <div className="spread small">
-                  <span><span className="muted">{L(C.lastQty)}: </span>{p.last_quantity ? num(p.last_quantity) : "—"}</span>
-                  <StatusChip status={p.status} tone={chipTone({ stage: p.latest_stage, waiting_on: null })} />
-                </div>
+          <div className="pr-grid">
+            {shown.map((p, i) => (
+              <Link key={p.id} href={`/products/${p.id}`} className="pr-card" style={{ ["--i" as string]: i }}>
+                <span className="pr-sky"><Planet option={p.option} size={96} /></span>
+                <span className="pr-body">
+                  <span className="pr-market">{HOME.markets.items.find((x) => x.id === p.market)?.name[lang]}</span>
+                  <strong className="pr-name ellipsis">{orderName(p, lang)}</strong>
+                  <span className="pr-facts">
+                    <span><small>{L(C.lastOrdered)}</small><b>{formatDate(p.last_ordered_at, lang, calendar)}</b></span>
+                    <span><small>{L(C.orders)}</small><b>{num(p.orders)}</b></span>
+                    <span><small>{L(C.lastQty)}</small><b>{p.last_quantity ? num(p.last_quantity) : "—"}</b></span>
+                  </span>
+                  <span className="pr-foot">
+                    <StatusChip status={p.status} tone={chipTone({ stage: p.latest_stage, waiting_on: null })} />
+                    <span className="pr-open">{L(COMMON.open)} <ArrowIcon className="flip-forward" width={14} height={14} /></span>
+                  </span>
+                </span>
               </Link>
             ))}
           </div>
