@@ -176,7 +176,7 @@ MAX_IMAGE_BYTES = 5 * 1024 * 1024
 
 class OpenRouterConsultant:
     def __init__(self, api_key: str, base_url: str, model: str, load_image: Optional[ImageLoader] = None):
-        self._model = OpenRouterModel(api_key, base_url, model, temperature=0.3, max_tokens=2500)
+        self._model = OpenRouterModel(api_key, base_url, model, temperature=0.3, max_tokens=8000)   # one round can hold 12-15 questions with their choices
         self._load_image = load_image
 
     async def _content(self, ctx: ConsultContext) -> list[dict] | str:
