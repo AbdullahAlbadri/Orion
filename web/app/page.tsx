@@ -13,6 +13,7 @@ import Markets from "@/components/landing/Markets";
 import Network from "@/components/landing/Network";
 import PaperTrail from "@/components/landing/PaperTrail";
 import RouteMap from "@/components/landing/RouteMap";
+import Stars from "@/components/landing/Stars";
 import LegalDrawer from "@/components/LegalDrawer";
 import { useAuth } from "@/lib/auth";
 import { HOME, type T } from "@/lib/home";
@@ -41,6 +42,7 @@ export default function Landing() {
       <Nav startHref={startHref} signedIn={!!user} />
 
       <section className="ln-hero" id="top">
+        <Stars />
         <div className="ln-wrap">
           <p className="ln-kicker ln-enter">{L(HOME.hero.kicker)}</p>
           <h1 className="ln-hero-title" key={lang}>

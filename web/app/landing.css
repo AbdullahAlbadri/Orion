@@ -99,15 +99,38 @@ html[dir="ltr"] .ln-hero-title { font-size: clamp(44px, 6.2vw, 96px); max-width:
 .ln-routemap { position: relative; height: 300px; margin-top: 40px; animation: ln-fade 1.2s var(--ease) .6s both; }
 .ln-routemap svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .ln-arc-out { fill: none; stroke: rgba(241, 236, 227, .32); stroke-width: 1.2; stroke-dasharray: 3 7; vector-effect: non-scaling-stroke; }
-.ln-arc-back { fill: none; stroke: var(--gold); stroke-width: 1.6; vector-effect: non-scaling-stroke;
+/* no non-scaling stroke here: it measures the dash in screen pixels and the draw would stop partway */
+.ln-arc-back { fill: none; stroke: var(--gold); stroke-width: 1.6;
   stroke-dasharray: 1; stroke-dashoffset: 1; animation: ln-draw 3.2s var(--ease) .9s forwards; }
 @keyframes ln-draw { to { stroke-dashoffset: 0; } }
 .ln-traveller { fill: var(--text); filter: drop-shadow(0 0 6px var(--gold)); }
 .ln-traveller.gold { fill: var(--gold); }
-.ln-city { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
-.ln-city-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 6px var(--gold-soft), 0 0 24px var(--gold); }
-.ln-city b { font-weight: 500; font-size: 15px; white-space: nowrap; }
+.ln-orbit-ring { fill: none; stroke: rgba(241, 236, 227, .1); stroke-width: 1; stroke-dasharray: 1 6; vector-effect: non-scaling-stroke; }
+/* Each city is a point on the orbit; its name sits outside the orbit so no line crosses it */
+.ln-city { position: absolute; width: 0; height: 0; }
+.ln-city-dot { position: absolute; left: -6px; top: -6px; width: 12px; height: 12px; border-radius: 50%; background: var(--gold);
+  box-shadow: 0 0 0 6px var(--gold-soft), 0 0 24px var(--gold); }
+.ln-city-label { position: absolute; top: 0; transform: translateY(-50%); display: flex; flex-direction: column; gap: 2px; white-space: nowrap; }
+.ln-city.west .ln-city-label { right: 22px; align-items: flex-end; text-align: right; }
+.ln-city.east .ln-city-label { left: 22px; align-items: flex-start; text-align: left; }
+.ln-city b { font-weight: 500; font-size: 15px; }
 .ln-city small { font-size: 11px; letter-spacing: .16em; color: var(--muted); }
+
+/* The sky: a starfield over the whole hero and Orion beside the headline */
+.ln-hero > .ln-wrap { position: relative; z-index: 1; }
+.ln-stars { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.ln-stars circle { fill: var(--text); opacity: .45; }
+.ln-stars .tw { animation: ln-twinkle 4s ease-in-out infinite; animation-delay: var(--d); }
+@keyframes ln-twinkle { 50% { opacity: .06; } }
+.ln-constellation { position: absolute; top: 120px; inset-inline-end: max(5vw, 24px); width: 200px; pointer-events: none; text-align: center; }
+.ln-constellation svg { display: block; width: 100%; height: auto; overflow: visible; }
+.ln-constellation span { display: block; margin-top: 12px; font-size: 11px; letter-spacing: .4em; color: var(--muted); animation: ln-fade 1.2s var(--ease) 2.6s both; }
+.ln-const-line { stroke: rgba(226, 184, 102, .38); stroke-width: 1; stroke-dasharray: 1; stroke-dashoffset: 1;
+  animation: ln-draw 1.4s var(--ease) forwards; animation-delay: calc(1s + var(--i) * 160ms); }
+.ln-const-star { fill: var(--text); filter: drop-shadow(0 0 5px rgba(241, 236, 227, .9)); animation: ln-shine 5s ease-in-out infinite; animation-delay: var(--d); }
+.ln-const-star.betelgeuse { fill: #f2a65a; filter: drop-shadow(0 0 7px #f2a65a); }
+.ln-const-star.rigel { fill: #d6e4ff; filter: drop-shadow(0 0 7px #d6e4ff); }
+@keyframes ln-shine { 50% { opacity: .5; } }
 
 /* Sections and their heads: the number is the route stop */
 .ln-section { position: relative; padding: clamp(90px, 12vw, 150px) 0; scroll-margin-top: 70px; }
@@ -335,8 +358,11 @@ html[dir="rtl"] .ln-board-row:hover .ln-board-more { transform: translateX(-4px)
   .ln-hide-sm { display: none; }
   .ln-nav-actions .ln-btn.sm { display: none; }
   .ln-hero { padding-top: 120px; }
-  .ln-routemap { height: 210px; margin-inline: 22px; }
-  .ln-city b { font-size: 12px; }
+  .ln-routemap { height: auto; aspect-ratio: 10 / 3; margin: 56px 40px 24px; } /* same ratio as the drawing, so dots stay round */
+  .ln-city b, .ln-constellation { display: none; }
+  .ln-city-label { gap: 0; }
+  .ln-city.west .ln-city-label { right: 14px; }
+  .ln-city.east .ln-city-label { left: 14px; }
   .ln-head { grid-template-columns: auto 1fr; }
   .ln-head-aside { grid-column: 1 / -1; padding: 0; }
   .ln-stop { width: 100%; margin-inline-start: 0 !important; }
@@ -363,7 +389,7 @@ html[dir="rtl"] .ln-board-row:hover .ln-board-more { transform: translateX(-4px)
 }
 @media (prefers-reduced-motion: reduce) {
   .ln *, .ln *::before, .ln *::after { animation: none !important; transition: none !important; }
-  .ln-arc-back { stroke-dashoffset: 0; }
+  .ln-arc-back, .ln-const-line { stroke-dashoffset: 0; }
   [data-reveal], .ln-line > span { opacity: 1 !important; transform: none !important; }
   .ln-stamp { opacity: .85; transform: rotate(-14deg); }
   .ln-flap { transform: none; }

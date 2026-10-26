@@ -42,8 +42,11 @@ export default function PaperTrail() {
         const [px, py] = i ? pts[i - 1] : [box.width / 2, 0];
         path += ` C ${px} ${(py + y) / 2}, ${x} ${(py + y) / 2}, ${x} ${y}`;
       });
+      // ...and ends on top of the door's pin
       const [lx, ly] = pts[pts.length - 1];
-      path += ` C ${lx} ${box.height}, ${box.width / 2} ${box.height - 30}, ${box.width / 2} ${box.height + 60}`;
+      const pin = t.querySelector<HTMLElement>(".ln-dest-pin")!.getBoundingClientRect();
+      const ex = pin.left - box.left + pin.width / 2, ey = pin.top - box.top - 2;
+      path += ` C ${lx} ${(ly + ey) / 2}, ${ex} ${(ly + ey) / 2}, ${ex} ${ey}`;
       b.setAttribute("d", path);
       d.setAttribute("d", path);
       len = d.getTotalLength();
