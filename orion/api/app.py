@@ -9,6 +9,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from orion import deps
 from orion.api import auth, inbox, me, orders, products, team
 from orion.api.context import ApiContext
 from orion.api.oidc import apple_verifier, google_verifier
@@ -54,13 +55,16 @@ def create_app(context: Optional[ApiContext] = None, settings: Optional[Settings
                 verifiers["google"] = google_verifier(settings.google_client_id)
             if settings.apple_client_id:
                 verifiers["apple"] = apple_verifier(settings.apple_client_id)
-            # TODO(decide): email provider (Resend / Postmark / SES); console until then
+            # Login codes go out through the Orion mailbox when it is set (Gmail limits it to about 500 a day);
+            # otherwise they are printed to the log. TODO(decide): email provider (Resend / Postmark / SES)
+            login_mail = deps.mailbox(settings)
+            log.info("login codes: %s", "emailed" if login_mail else "printed to the log (no mailbox set)")
             assistant = OpenRouterAssistant(
                 settings.openrouter_api_key.get_secret_value(), settings.openrouter_base_url, settings.assist_model
             )
             app.state.ctx = ApiContext(
                 graph=graph, deps=deps, pool=pool, settings=settings,
-                accounts=AccountStore(pool), email=ConsoleEmailSender(), verifiers=verifiers, assistant=assistant,
+                accounts=AccountStore(pool), email=login_mail or ConsoleEmailSender(), verifiers=verifiers, assistant=assistant,
                 # TODO(step 7): S3-compatible object storage on Hetzner
                 files=LocalFileStore(settings.upload_dir),
                 # Product ideas on the Overview: the same small, cheap model as "Ask Orion"
