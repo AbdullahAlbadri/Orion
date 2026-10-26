@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     mail_address: Optional[str] = None
     mail_app_password: SecretStr = SecretStr("")      # Gmail: an app password, not the account password
     smtp_host: str = "smtp.gmail.com"
-    smtp_port: int = 465
+    smtp_port: int = 587   # STARTTLS; 465 (implicit TLS) also works but Hetzner blocks it
     imap_host: str = "imap.gmail.com"
     google_client_id: Optional[str] = None            # Google sign-in is off until this is set
     apple_client_id: Optional[str] = None             # Apple sign-in is off until this is set

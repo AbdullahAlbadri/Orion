@@ -13,6 +13,8 @@ import logging
 import re
 import smtplib
 import socket
+import ssl
+from contextlib import contextmanager
 from dataclasses import dataclass
 from email.message import EmailMessage
 from email.policy import default as default_policy
@@ -127,6 +129,25 @@ class _SMTP4(smtplib.SMTP_SSL):
         return self.context.wrap_socket(_connect_ipv4(host, port, timeout), server_hostname=self._host)
 
 
+class _SMTPStartTLS(smtplib.SMTP):
+    """Port 587: connect in the clear, then upgrade (STARTTLS). Hetzner blocks outgoing port 465."""
+
+    def _get_socket(self, host, port, timeout):
+        return _connect_ipv4(host, port, timeout)
+
+
+@contextmanager
+def _smtp(host: str, port: int):
+    """A logged-out SMTP connection: implicit TLS on 465, STARTTLS on anything else (587)."""
+    if port == 465:
+        with _SMTP4(host, port, timeout=30) as smtp:
+            yield smtp
+    else:
+        with _SMTPStartTLS(host, port, timeout=30) as smtp:
+            smtp.starttls(context=ssl.create_default_context())
+            yield smtp
+
+
 class _IMAP4(imaplib.IMAP4_SSL):
     def _create_socket(self, timeout):
         return self.ssl_context.wrap_socket(_connect_ipv4(self.host, self.port, timeout or 30), server_hostname=self.host)
@@ -152,7 +173,7 @@ class GmailMailbox:
         await asyncio.to_thread(self._send, msg)
 
     def _send(self, msg: EmailMessage) -> None:
-        with _SMTP4(self.smtp_host, self.smtp_port, timeout=30) as smtp:
+        with _smtp(self.smtp_host, self.smtp_port) as smtp:
             smtp.login(self.address, self._password)
             smtp.send_message(msg)
 
@@ -161,7 +182,7 @@ class GmailMailbox:
         return await asyncio.to_thread(self._check)
 
     def _check(self) -> str:
-        with _SMTP4(self.smtp_host, self.smtp_port, timeout=30) as smtp:
+        with _smtp(self.smtp_host, self.smtp_port) as smtp:
             smtp.login(self.address, self._password)
         imap = self._imap()
         try:
