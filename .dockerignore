@@ -1,0 +1,12 @@
+.venv
+.git
+.env
+web
+data
+docs
+evals
+tests
+scripts
+**/__pycache__
+*.ipynb
+.vscode

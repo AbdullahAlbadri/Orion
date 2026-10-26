@@ -1,0 +1,19 @@
+# The Orion website (Next.js, built on a developer machine, shipped as web.tar.gz and unpacked to /opt/orion/web).
+# Listens on 127.0.0.1 only; nginx is the public door.
+[Unit]
+Description=Orion website
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/orion/web
+Environment=NODE_ENV=production PORT=3100 HOSTNAME=127.0.0.1
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=3
+User=orion
+Group=orion
+NoNewPrivileges=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,62 @@
+# Production on the Hetzner server: the database, the API and the worker. Own project name, volumes and ports,
+# separate from the n8n system and anything else on the server. The website runs beside it (deploy/orion-web.service)
+# and nginx is the only public door (deploy/nginx-orion.conf). Nothing here is published to the internet:
+# the API listens on 127.0.0.1 only.
+#
+#   cd /opt/orion && docker compose -f docker-compose.prod.yml up -d --build
+name: orion-prod
+
+x-backend: &backend
+  build: .
+  env_file: .env
+  restart: unless-stopped
+  volumes:
+    - uploads:/data
+  environment:
+    UPLOAD_DIR: /data/uploads
+    # The database is the compose service below, whatever DATABASE_URL says in .env for local work
+    DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Runs once per deploy: brings the tables up to date, then stops
+  migrate:
+    <<: *backend
+    restart: "no"
+    command: ["uv", "run", "--no-sync", "alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *backend
+    ports:
+      - "127.0.0.1:8100:8100"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    <<: *backend
+    command: ["uv", "run", "--no-sync", "python", "-m", "orion.worker"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:
+  uploads:
