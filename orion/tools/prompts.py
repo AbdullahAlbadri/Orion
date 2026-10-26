@@ -90,7 +90,7 @@ SUGGEST_SYSTEM = """\
 You suggest custom products that a small business in Saudi Arabia could make with Orion (a service that has \
 products made by manufacturers for the business, under its own brand).
 
-- Read the business profile and suggest up to 3 products that clearly fit what this business sells and who \
+- Read the business profile and suggest exactly 3 different products that clearly fit what this business sells and who \
 its customers are: branded items for its own use (uniforms, staff wear), for selling, or for packaging and gifts.
 - Use only the product type ids you are given. Use "custom" only for an idea none of them covers, and then \
 describe it so a factory could understand it.

@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { ArrowIcon, BellIcon, BuildingIcon, ReplayIcon, SparkleIcon } from "@/components/Icons";
-import { PiecesChart } from "@/components/OverviewCharts";
+import { FactoryDots, lastMonths, MonthBars, ShareBar, TimeParts } from "@/components/OverviewCharts";
 import OrderTracker from "@/components/OrderTracker";
 import { ProductThumb, StatusChip } from "@/components/ui";
 import {
@@ -36,6 +36,7 @@ const C = {
   confirmedHint: t("أكدتها وأرسلناها للمصانع", "You confirmed them; we sent them to factories"),
   pieces: t("قطع مطلوبة", "Pieces ordered"),
   piecesHint: t("مجموع القطع في كل طلباتك", "All pieces across your orders"),
+  ordersUnit: t("طلب", "orders"),
   factories: t("مصانع تواصلنا معها", "Factories contacted"),
   factoriesHint: t("راسلناها نيابة عنك", "We contacted them for you"),
   checks: t("أخطاء أوقفناها", "Mistakes stopped"),
@@ -120,6 +121,7 @@ export default function Overview() {
   const needYou = attention.length + waitingTeam.length;
   const missing = business ? business.completeness.total - business.completeness.done : 0;
   const isNew = orders.length === 0;
+  const months = stats ? lastMonths(stats.order_list, lang) : null;
 
   async function start(path: string, body?: unknown, key?: string) {
     setBusy(key ?? path);
@@ -196,16 +198,20 @@ export default function Overview() {
           <LatestOrder order={orders[0]} />
           <section className="ov-numbers ov-board" aria-labelledby="numbers">
             <Head id="numbers" more={<Link href="/stats" className="ov-more">{L(C.allStats)} <Forward /></Link>}>{L(C.stats)}</Head>
-            <dl className="ov-ledger">
-              <Figure label={L(C.confirmed)} hint={L(C.confirmedHint)} value={num(stats?.orders.submitted ?? 0)} />
-              <Figure label={L(C.pieces)} hint={L(C.piecesHint)} value={num(stats?.orders.pieces ?? 0)} />
-              <Figure label={L(C.factories)} hint={L(C.factoriesHint)} value={num(stats?.factories_contacted ?? 0)} />
-              <Figure label={L(C.checks)} hint={L(C.checksHint)} value={num(stats?.orders.mismatches_caught ?? 0)} />
+            <div className="ov-ledger">
+              <Figure label={L(C.confirmed)} hint={L(C.confirmedHint)} value={num(stats?.orders.submitted ?? 0)}
+                chart={months && <MonthBars months={months} pick={(m) => m.orders} unit={L(C.ordersUnit)} title={L(C.confirmed)} />} />
+              <Figure label={L(C.pieces)} hint={L(C.piecesHint)} value={num(stats?.orders.pieces ?? 0)}
+                chart={months && <MonthBars months={months} pick={(m) => m.pieces} unit={L(COMMON.pieces)} title={L(C.pieces)} />} />
+              <Figure label={L(C.factories)} hint={L(C.factoriesHint)} value={num(stats?.factories_contacted ?? 0)}
+                chart={<FactoryDots count={stats?.factories_contacted ?? 0} />} />
+              <Figure label={L(C.checks)} hint={L(C.checksHint)} value={num(stats?.orders.mismatches_caught ?? 0)}
+                chart={stats && <ShareBar part={stats.orders.orders_with_mismatches} total={stats.orders.submitted} />} />
               {stats && stats.time_saved_hours > 0 && (
-                <Figure label={L(C.timeSaved)} hint={L(C.timeSavedHint)} value={`≈ ${duration(stats.time_saved_hours, lang)}`} wide />
+                <Figure label={L(C.timeSaved)} hint={L(C.timeSavedHint)} value={`≈ ${duration(stats.time_saved_hours, lang)}`} wide
+                  chart={<TimeParts stats={stats} />} />
               )}
-            </dl>
-            {stats && <PiecesChart list={stats.order_list} />}
+            </div>
           </section>
         </div>
       )}
@@ -266,8 +272,15 @@ export default function Overview() {
 }
 
 /** One number on the board: the figure, what it is, and a short line saying what it counts. */
-function Figure({ label, hint, value, wide }: { label: string; hint: string; value: string; wide?: boolean }) {
-  return <div className={wide ? "wide" : undefined}><dt>{label}<small>{hint}</small></dt><dd>{value}</dd></div>;
+function Figure({ label, hint, value, chart, wide }: { label: string; hint: string; value: string; chart?: ReactNode; wide?: boolean }) {
+  return (
+    <div className={`ov-fig${wide ? " wide" : ""}`}>
+      <strong className="ov-fig-value">{value}</strong>
+      <span className="ov-fig-label">{label}</span>
+      <small className="ov-fig-hint">{hint}</small>
+      {chart}
+    </div>
+  );
 }
 
 /** The most recently updated order as a paper document: its code, status and first few details. */
@@ -282,7 +295,7 @@ function LatestOrder({ order }: { order: OrderRow }) {
     api<OrderView>(`/orders/${encodeURIComponent(order.id)}`).then((v) => {
       if (!live) return;
       const all = (v.summary?.sections ?? []).flatMap((s) => s.items).filter((i) => i.type !== "placement" && i.type !== "file");
-      setItems(all.slice(0, 5));
+      setItems(all.slice(0, 8));
     }).catch(() => live && setItems([]));
     return () => { live = false; };
   }, [order.id, lang]);

@@ -1,7 +1,7 @@
 "use client";
 
-// Order tracker for the Overview: the order's steps along a wavy orbit, the travelled part in gold and a rocket
-// landing on the current step, done steps checked. On an order's page the same steps stand upright (JourneyTracker),
+// Order tracker for the Overview: the order's steps along a wavy orbit, the travelled part in gold, the current
+// step's icon in a pulsing gold circle, done steps checked. On an order's page the same steps stand upright (JourneyTracker),
 // each current icon animated in its own way. Several orders in progress: chips switch between them.
 // Still when the customer prefers reduced motion.
 import Link from "next/link";
@@ -116,9 +116,7 @@ export default function OrderTracker({ orders }: { orders: OrderRow[] }) {
             return (
               <li key={s.key} className={`orbit-stop ${state}`} style={{ ["--i" as string]: i }}
                 aria-current={state === "now" ? "step" : undefined}>
-                {state === "now" ? <><span className="orbit-pad" aria-hidden /><Rocket /></> : (
-                  <span className="orbit-dot">{state === "done" ? <CheckIcon /> : s.icon}</span>
-                )}
+                <span className="orbit-dot">{state === "done" ? <CheckIcon /> : s.icon}</span>
                 <span className="orbit-label">{L(s.label)}</span>
               </li>
             );
@@ -130,22 +128,8 @@ export default function OrderTracker({ orders }: { orders: OrderRow[] }) {
 }
 
 // The route as a wave: it crosses the middle line at every step and swings up and down between them,
-// like a rocket's path through space. The stops sit where it crosses (x = 50, 150, 250 ... in a 100-wide slot).
+// like a path through space. The stops sit where it crosses (x = 50, 150, 250 ... in a 100-wide slot).
 const WAVE = TRACK.slice(1).reduce((d, _, i) => {
   const x = i * 100 + 50;
   return `${d} Q ${x + 50} ${i % 2 ? 104 : 16} ${x + 100} 60`;
 }, "M 50 60");
-
-/** A small rocket that lands on the current step. */
-function Rocket() {
-  return (
-    <span className="orbit-rocket" aria-hidden>
-      <svg viewBox="0 0 56 28">
-        <path className="rk-flame" d="M2 14 L13 9 L11 14 L13 19 Z" />
-        <path className="rk-fin" d="M16 9 L11 2 H19 L24 9 Z M16 19 L11 26 H19 L24 19 Z" />
-        <path className="rk-body" d="M13 8.5 H34 C42 8.5 49 11 53 14 C49 17 42 19.5 34 19.5 H13 Z" />
-        <circle className="rk-window" cx="36" cy="14" r="3" />
-      </svg>
-    </span>
-  );
-}

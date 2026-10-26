@@ -16,7 +16,7 @@ from orion.tools.llm import OpenRouterModel
 from orion.tools.price_guard import price_violation
 from orion.tools.prompts import SUGGEST_SYSTEM
 
-PROMPT_VERSION = 1
+PROMPT_VERSION = 2   # 2: always three ideas
 MAX_IDEAS = 3
 
 
@@ -28,7 +28,7 @@ class ProductIdea(BaseModel):
 
 
 class IdeaList(BaseModel):
-    ideas: list[ProductIdea] = Field(description=f"Up to {MAX_IDEAS} ideas, best first")
+    ideas: list[ProductIdea] = Field(description=f"Exactly {MAX_IDEAS} ideas, best first")
 
 
 class Suggester(Protocol):

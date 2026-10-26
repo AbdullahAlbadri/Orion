@@ -304,8 +304,8 @@ a.ov-row:hover { color: var(--text); background: linear-gradient(90deg, transpar
 .ov-nudge:hover { color: var(--text); background: rgba(226, 184, 102, .05); }
 
 /* latest order (a paper document) beside the numbers */
-.ov-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 28px; align-items: start; }
-.ov-doc { position: relative; background: var(--sheet); color: var(--sheet-ink); padding: 22px 26px 20px; border-radius: 3px;
+.ov-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 28px; align-items: stretch; }
+.ov-doc { position: relative; display: flex; flex-direction: column; background: var(--sheet); color: var(--sheet-ink); padding: 22px 26px 20px; border-radius: 3px;
   transform: rotate(-.6deg); box-shadow: 0 30px 60px -28px rgba(0, 0, 0, .9); transition: transform .5s var(--ease); }
 .ov-doc:hover { transform: rotate(0deg) translateY(-3px); }
 .ov-doc-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-bottom: 10px; margin-bottom: 16px;
@@ -325,18 +325,12 @@ a.ov-row:hover { color: var(--text); background: linear-gradient(90deg, transpar
 .ov-doc-empty { color: var(--sheet-muted); margin: 0; }
 .ov-doc-skeleton { height: 120px; border-radius: 4px; animation: shimmer 1.4s linear infinite;
   background: linear-gradient(90deg, rgba(27, 25, 21, .05) 25%, rgba(27, 25, 21, .1) 50%, rgba(27, 25, 21, .05) 75%) 0 0 / 200% 100%; }
-.ov-doc-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 16px; font-size: 13px; color: var(--sheet-muted); }
+.ov-doc-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: auto; padding-top: 16px; font-size: 13px; color: var(--sheet-muted); }
 .ov-doc-open { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 3px; background: var(--sheet-ink); color: var(--sheet); font-weight: 700; font-size: 13px; }
 .ov-doc-open:hover { color: var(--yellow); }
 
 /* numbers: a ledger with big figures */
 .ov-ledger { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; border-top: 1px solid var(--line); }
-.ov-ledger div { display: flex; flex-direction: column-reverse; gap: 4px; padding: 14px 4px; border-bottom: 1px solid var(--line); }
-.ov-ledger div:nth-child(odd):not(.wide) { border-inline-end: 1px solid var(--line); padding-inline-end: 18px; }
-.ov-ledger div:nth-child(even) { padding-inline-start: 18px; }
-.ov-ledger div.wide { grid-column: 1 / -1; padding-inline: 4px; }
-.ov-ledger dd { margin: 0; font-family: var(--display); font-size: 34px; line-height: 1; font-variant-numeric: tabular-nums; }
-.ov-ledger dt { font-size: 14px; color: var(--muted); }
 
 /* ideas: white paper tickets with a perforated stub, slightly askew */
 .ov-ideas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; filter: drop-shadow(0 26px 28px rgba(0, 0, 0, .55)); }
@@ -385,7 +379,6 @@ a.ov-row:hover { color: var(--text); background: linear-gradient(90deg, transpar
   .ov-counts dd { font-size: 30px; }
   .ov-counts dt { font-size: 12px; }
   .ov-doc { padding: 18px 18px 16px; transform: none; }
-  .ov-ledger dd { font-size: 32px; }
   .ov-alert { flex-wrap: wrap; }
   .ov-alert .btn { margin-inline-start: auto; }
   .ov-welcome { padding: 22px; }
@@ -559,47 +552,20 @@ html[dir="rtl"] .orbit-line { transform: scaleX(-1); }
 .orbit-label { position: absolute; top: calc(var(--mid) + 26px); font-size: 13px; color: var(--muted); text-align: center; line-height: 1.3; padding-inline: 2px; }
 .orbit-stop.done .orbit-label { color: var(--text); }
 .orbit-stop.now .orbit-label { color: var(--yellow); font-weight: 700; }
-/* the rocket lands on the current step: it comes down upright with its flame on, touches the pad and the flame
-   cuts out. The drawing points right, so it is turned nose up and lifted so its tail rests on the point. */
-.orbit-rocket { --lift: 26px; position: absolute; top: var(--mid); left: 50%; width: 56px; height: 28px; z-index: 1;
-  transform: translate(-50%, calc(-50% - var(--lift))) rotate(-90deg); filter: drop-shadow(0 0 10px rgba(226, 184, 102, .45));
-  animation: rk-land 1.6s cubic-bezier(.2, .7, .3, 1) 1.1s both; }
-@keyframes rk-land { from { translate: 0 -56px; opacity: 0; } 25% { opacity: 1; } }
-.orbit-pad { position: absolute; top: var(--mid); left: 50%; width: 34px; height: 10px; translate: -50% -50%; border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(226, 184, 102, .85), rgba(226, 184, 102, .15) 70%, transparent);
-  animation: pad-glow 1.6s ease-out 1.1s both; }
-@keyframes pad-glow { from { opacity: .2; scale: .4; } 85% { opacity: 1; scale: 1.25; } to { scale: 1; } }
-.orbit-rocket svg { display: block; width: 100%; height: 100%; overflow: visible; }
-.rk-body { fill: var(--sheet); }
-.rk-fin { fill: var(--yellow); }
-.rk-window { fill: var(--sheet-ink); stroke: var(--yellow); stroke-width: 1.5; }
-.rk-flame { fill: #f0a050; transform-box: fill-box; transform-origin: right center;
-  animation: rk-flame .22s ease-in-out infinite alternate, rk-cut .35s ease-in 2.6s forwards; }
-@keyframes rk-flame { to { transform: scaleX(.55); } }
-@keyframes rk-cut { to { opacity: 0; } }
+/* the current step: its icon in a gold circle with a soft pulse once the gold line reaches it */
+.orbit-stop.now .orbit-dot { background: var(--yellow); border-color: var(--yellow); color: var(--navy);
+  box-shadow: 0 0 0 0 rgba(226, 184, 102, .55); animation: ov-in 500ms cubic-bezier(.22, 1, .36, 1) both, dot-pulse 2.2s ease-out 1.4s infinite; }
+@keyframes dot-pulse { 70%, 100% { box-shadow: 0 0 0 14px rgba(226, 184, 102, 0); } }
 @media (max-width: 640px) {
   .orbit-track { --mid: 40px; height: calc(var(--mid) + 56px); }
   .orbit-dot { width: 22px; height: 22px; }
   .orbit-dot svg { width: 11px; height: 11px; }
-  .orbit-rocket { --lift: 18px; width: 40px; height: 20px; }
   .orbit-label { top: calc(var(--mid) + 18px); font-size: 11px; white-space: nowrap; }
   .orbit-stop:not(.now) .orbit-label { visibility: hidden; }
 }
-@media (prefers-reduced-motion: reduce) { .orbit-clip, .orbit-rocket, .orbit-pad, .orbit-dot { animation: none; } .rk-flame { display: none; } }
+@media (prefers-reduced-motion: reduce) { .orbit-clip, .orbit-dot, .orbit-stop.now .orbit-dot { animation: none; } }
 
 /* ---------- overview: the numbers board and its chart (chart gold, the hovered month in the brand gold) ---------- */
-.chart { margin: 0; }
-.chart-title { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
-.chart-note { margin: 10px 0 0; font-size: 13px; color: var(--muted); }
-.col-chart { display: flex; align-items: stretch; gap: 10px; height: 170px; padding-top: 30px; }
-.col { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; outline: none; }
-.col:focus-visible .col-label { color: var(--yellow); }
-.col-track { position: relative; flex: 1; width: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center;
-  border-bottom: 1px solid var(--line); }
-.col-bar { display: block; width: min(30px, 70%); background: #b88a36; border-radius: 4px 4px 0 0; transition: background .2s, height .6s var(--ease); }
-.col.on .col-bar { background: var(--yellow); }
-.col-label { font-size: 12px; color: var(--muted); text-align: center; line-height: 1.25; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.col.on .col-label { color: var(--text); }
 .chart-tip { position: absolute; top: 0; left: 50%; z-index: 2; transform: translate(-50%, -100%); white-space: nowrap; pointer-events: none;
   padding: 5px 9px; border-radius: 4px; background: var(--sheet); color: var(--sheet-ink); font-size: 12px; box-shadow: 0 10px 20px -8px rgba(0, 0, 0, .8); }
 
@@ -608,9 +574,33 @@ html[dir="rtl"] .orbit-line { transform: scaleX(-1); }
 .ov-board { background: #0d0d11; border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px 16px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .03), 0 40px 80px -50px rgba(0, 0, 0, .9); }
 .ov-board .ov-h { font-size: 21px; }
-.ov-board .ov-ledger dd { font-size: 30px; }
-.ov-board .ov-ledger div { padding-block: 12px; }
-.ov-ledger dt { display: flex; flex-direction: column; gap: 1px; }
-.ov-ledger dt small { font-size: 12px; color: #6f6b64; line-height: 1.35; }
-.ov-board .chart { margin-top: 16px; }
-.ov-board .col-chart { height: 130px; padding-top: 26px; }
+
+/* the numbers board: each figure with what it counts and a small chart under it */
+.ov-fig { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 14px 4px 16px; border-bottom: 1px solid var(--line); }
+.ov-ledger .ov-fig:nth-child(odd):not(.wide) { border-inline-end: 1px solid var(--line); padding-inline-end: 18px; }
+.ov-ledger .ov-fig:nth-child(even) { padding-inline-start: 18px; }
+.ov-fig.wide { grid-column: 1 / -1; padding-inline: 4px; border-bottom: 0; }
+.ov-fig-value { font-family: var(--display); font-weight: 400; font-size: 30px; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.ov-fig-label { font-size: 14px; color: var(--text); }
+.ov-fig-hint { font-size: 12px; color: #6f6b64; line-height: 1.35; }
+.mini { margin: 10px 0 0; }
+.mini-bars { display: flex; align-items: flex-end; gap: 5px; height: 46px; border-bottom: 1px solid var(--line); }
+.mini-col { position: relative; flex: 1; height: 100%; display: flex; align-items: flex-end; justify-content: center; outline: none; }
+.mini-bar { display: block; width: 100%; max-width: 18px; background: #b88a36; border-radius: 3px 3px 0 0; transition: background .2s; }
+.mini-col.on .mini-bar, .mini-col:focus-visible .mini-bar { background: var(--yellow); }
+.mini-axis { display: flex; justify-content: space-between; margin-top: 4px; font-size: 11px; color: #6f6b64; }
+.mini-dots { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 10px; min-height: 22px; color: #b88a36; }
+.mini-dots svg { animation: ov-in 400ms cubic-bezier(.22, 1, .36, 1) both; animation-delay: calc(var(--i) * 50ms); }
+.mini-more { font-size: 12px; color: var(--muted); margin-inline-start: 2px; }
+.mini-empty { width: 100%; height: 1px; background: var(--line); }
+.mini-share { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.mini-track { display: block; height: 8px; background: rgba(241, 236, 227, .07); border-radius: 4px; overflow: hidden; }
+.mini-fill { display: block; height: 100%; background: #b88a36; border-radius: 4px; transition: width .6s var(--ease); }
+.mini-note { font-size: 12px; color: var(--muted); }
+.mini-rows { display: flex; flex-direction: column; gap: 9px; margin-top: 12px; }
+.mini-row { display: grid; grid-template-columns: 120px minmax(0, 1fr) 70px; gap: 12px; align-items: center; font-size: 13px; }
+.mini-row-label { color: var(--muted); }
+.mini-row-value { text-align: end; font-variant-numeric: tabular-nums; }
+.mini-row:hover .mini-fill { background: var(--yellow); }
+@media (max-width: 640px) { .mini-row { grid-template-columns: 100px minmax(0, 1fr) 60px; } .ov-fig-value { font-size: 26px; } }
+@media (prefers-reduced-motion: reduce) { .mini-dots svg { animation: none; } }
