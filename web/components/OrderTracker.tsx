@@ -1,7 +1,7 @@
 "use client";
 
-// Order tracker for the Overview: the order's steps along a wavy orbit, the travelled part in gold with a rocket
-// at the current step, done steps checked. On an order's page the same steps stand upright (JourneyTracker),
+// Order tracker for the Overview: the order's steps along a wavy orbit, the travelled part in gold and a rocket
+// landing on the current step, done steps checked. On an order's page the same steps stand upright (JourneyTracker),
 // each current icon animated in its own way. Several orders in progress: chips switch between them.
 // Still when the customer prefers reduced motion.
 import Link from "next/link";
@@ -71,8 +71,6 @@ export default function OrderTracker({ orders }: { orders: OrderRow[] }) {
   if (!order) return null;
   const current = stepIndex(order.stage);
   const fill = current / (TRACK.length - 1);   // 0-1: how far the gold line reaches
-  // the wave dips into odd steps and climbs into even ones; the rocket follows it
-  const heading = current === 0 ? "flat" : current % 2 ? "down" : "up";
 
   return (
     <section className="board board-ink tracker" aria-labelledby="tracker-title">
@@ -116,9 +114,9 @@ export default function OrderTracker({ orders }: { orders: OrderRow[] }) {
           {TRACK.map((s, i) => {
             const state = i < current ? "done" : i === current ? "now" : "next";
             return (
-              <li key={s.key} className={`orbit-stop ${state}${state === "now" ? ` ${heading}` : ""}`} style={{ ["--i" as string]: i }}
+              <li key={s.key} className={`orbit-stop ${state}`} style={{ ["--i" as string]: i }}
                 aria-current={state === "now" ? "step" : undefined}>
-                {state === "now" ? <Rocket /> : (
+                {state === "now" ? <><span className="orbit-pad" aria-hidden /><Rocket /></> : (
                   <span className="orbit-dot">{state === "done" ? <CheckIcon /> : s.icon}</span>
                 )}
                 <span className="orbit-label">{L(s.label)}</span>
@@ -138,7 +136,7 @@ const WAVE = TRACK.slice(1).reduce((d, _, i) => {
   return `${d} Q ${x + 50} ${i % 2 ? 104 : 16} ${x + 100} 60`;
 }, "M 50 60");
 
-/** A small rocket at the current step, pointing along the route, its flame flickering. */
+/** A small rocket that lands on the current step. */
 function Rocket() {
   return (
     <span className="orbit-rocket" aria-hidden>
