@@ -9,7 +9,9 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field
 
-QuestionType = Literal["choice", "number", "text", "file", "size_table", "placement"]
+from orion.tools.colors import HEX, color_name
+
+QuestionType = Literal["choice", "number", "text", "file", "size_table", "placement", "color_zones"]
 # Form sections shown to the customer (one tab each)
 Section = Literal["design", "quantity", "quality"]
 
@@ -28,7 +30,8 @@ class Question(BaseModel):
     section: Section = "design"
     allow_other: bool = False      # choice: the customer may type their own answer ("Other")
     multiple: bool = False         # choice: the customer may pick several (answer is a list)
-    mockup: Optional[str] = None   # placement: garment drawing to place logos/labels on (set per product)
+    mockup: Optional[str] = None   # placement / color_zones: garment drawing (set per product)
+    zones: list[dict] = []         # color_zones: the garment's parts the customer can colour (config/garment_zones.py)
     multiline: bool = False        # text: a long answer (a description), shown as a large box
     # Offer the brand kit saved on the business profile here: its colours (choice) or its logos (file).
     # Only a suggestion; nothing is filled in until the customer taps it.
@@ -86,6 +89,8 @@ def format_answer(value: Any) -> str:
     """Human-readable answer for receipts and messages."""
     if is_placement_list(value):
         return "; ".join(describe_placement(v) for v in value)
+    if is_color_zones(value):
+        return "; ".join(f"{zone.replace('_', ' ')}: {color_name(hex_code)} ({hex_code})" for zone, hex_code in value.items())
     if is_file_list(value):
         return ", ".join(v["name"] for v in value)
     if isinstance(value, list):
@@ -117,6 +122,9 @@ def validate_answer(question: Question, raw: Any) -> Any:
 
     if question.type == "placement":
         return _validate_placements(raw)
+
+    if question.type == "color_zones":
+        return _validate_color_zones(raw, question)
 
     if question.type == "file":
         return _validate_files(raw)
@@ -177,6 +185,24 @@ def is_file_list(value: Any) -> bool:
     """Uploaded files; placements also name a file_id (the picture they show) but are not files themselves."""
     return isinstance(value, list) and bool(value) and all(
         isinstance(v, dict) and "file_id" in v and "view" not in v for v in value)
+
+
+def is_color_zones(value: Any) -> bool:
+    """{zone id: "#rrggbb"}: a colour for each part of the garment."""
+    return isinstance(value, dict) and bool(value) and all(
+        isinstance(k, str) and isinstance(v, str) and HEX.match(v) for k, v in value.items())
+
+
+def _validate_color_zones(raw: Any, question: Question) -> Any:
+    if not isinstance(raw, dict) or not raw:
+        raise InvalidAnswer("choose a colour for at least one part")
+    known = {z["id"] for z in question.zones}
+    out = {}
+    for zone, hex_code in raw.items():
+        if (known and zone not in known) or not isinstance(hex_code, str) or not HEX.match(hex_code.strip()):
+            raise InvalidAnswer("each part needs a colour as #RRGGBB")
+        out[str(zone)] = hex_code.strip().lower()
+    return out
 
 
 def is_placement_list(value: Any) -> bool:

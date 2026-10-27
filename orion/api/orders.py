@@ -21,7 +21,9 @@ from orion.tools.assist import safe_answer
 from orion.config.policy import Policy
 from orion.tools.files import ALLOWED, MAX_FILES_PER_ORDER, sniff_type
 from orion.tools.brief import mockup_brief
-from orion.tools.mockup import REFERENCE_TYPES, compose_artwork, mockup_prompt
+from orion.tools.mockup import (
+    REFERENCE_TYPES, artwork_guide, artwork_prompt, compose_artwork, mockup_prompt, target_boxes,
+)
 from orion.graph.graph import OrderNotWaiting, get_order, waiting_on
 from orion.runtime import discard_order, send_customer_reply, start_customer_order
 
@@ -349,11 +351,26 @@ async def make_mockup(
         log.exception("mockup for order %s failed", order_id)
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, "the image could not be made, try again") from None
     if pictures and sniff_type(image.data) in REFERENCE_TYPES:
+        blank, cost = image.data, image.cost
         try:
-            image.data = compose_artwork(image.data, option.mockup, placements, pictures)
+            boxes = target_boxes(blank, option.mockup, placements)
+            order = list(dict.fromkeys(p["file_id"] for p, _ in boxes))           # attached image numbers 3, 4, ...
+            edit_prompt = artwork_prompt(boxes, [order.index(p["file_id"]) + 3 for p, _ in boxes],
+                                         str(answers.get("decoration_method") or ""))
+            refs = [(blank, "image/png"), (artwork_guide(blank, boxes), "image/png")] + [
+                (pictures[f], sniff_type(pictures[f]) or "image/png") for f in order]
+            edited = await c.mockups.make(edit_prompt, refs, aspect, model=c.settings.mockup_edit_model)
+            if sniff_type(edited.data) not in REFERENCE_TYPES:
+                raise ValueError("the editing model returned no image")
+            image = edited
+            image.cost = (cost or 0) + (edited.cost or 0) if (cost or edited.cost) else None
         except Exception:
-            log.exception("putting the artwork on the mockup of order %s failed", order_id)
-            pictures = {}
+            log.exception("editing artwork onto the mockup of order %s failed; putting it on in code", order_id)
+            try:
+                image.data = compose_artwork(blank, option.mockup, placements, pictures)
+            except Exception:
+                log.exception("putting the artwork on the mockup of order %s failed", order_id)
+                pictures = {}
     content_type = sniff_type(image.data)
     if content_type not in REFERENCE_TYPES:          # only ever store and serve a real raster image
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, "the image could not be made, try again")

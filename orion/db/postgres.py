@@ -264,7 +264,8 @@ class EmailRelayChannel(ManualRelayChannel):
                 if loaded:
                     pictures[fid] = loaded[0]
         try:
-            png = placement_diagram.render(message.diagram.get("mockup"), message.diagram["placements"], pictures)
+            png = placement_diagram.render(message.diagram.get("mockup"), message.diagram["placements"], pictures,
+                                           message.diagram.get("colors"))
         except Exception:
             log.exception("placement drawing for %s failed; sent without it", message.id)
             return []

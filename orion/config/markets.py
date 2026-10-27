@@ -9,6 +9,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 from orion.config.size_charts import SIZE_CHARTS
+from orion.config.garment_zones import zones_for
 from orion.spec import QUANTITY_ID, SIZE_TABLE_ID, Question, Section
 
 CUSTOM_OPTION = "custom"
@@ -303,6 +304,12 @@ APPAREL = Market(
             hint="Under Other you can add a Pantone or HEX code.",
             hint_ar="في «أخرى» يمكنك إضافة رمز اللون (Pantone أو HEX).",
         ),
+        Question(
+            id="color_zones", prompt="Colour each part (optional)", prompt_ar="لوّن كل جزء (اختياري)",
+            type="color_zones", required=False,
+            hint="Tap a part of the garment and pick its colour, or use the palette above for one colour overall.",
+            hint_ar="اضغط على جزء من القطعة واختر لونه، أو استخدم الألوان أعلاه للون واحد.",
+        ),
         choice(
             "decoration_method", "How should the logo/design be applied?", "كيف يُطبَّق الشعار أو التصميم؟",
             [("screen print", "طباعة شاشة (سلك سكرين)", 1), ("DTG print", "طباعة رقمية مباشرة (DTG)", 2),
@@ -431,6 +438,8 @@ def get_questions(market_id: str, option_id: str) -> list[Question]:
     def specialise(q: Question) -> Question:
         if q.type == "placement" and option.mockup:
             return q.model_copy(update={"mockup": option.mockup})
+        if q.type == "color_zones" and option.mockup:
+            return q.model_copy(update={"mockup": option.mockup, "zones": zones_for(option.mockup)})
         if q.type == "size_table" and chart:
             return q.model_copy(update={"size_chart": chart})
         return q

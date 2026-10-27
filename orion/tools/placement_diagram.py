@@ -9,6 +9,9 @@ from typing import Optional
 
 from PIL import Image, ImageDraw, ImageFont
 
+from orion.config.garment_zones import zones_for
+from orion.tools.colors import color_name
+
 VIEW_W, VIEW_H = 400, 440
 
 _HOODIE_BODY = "M145 58 L255 58 L322 76 L388 300 L344 314 L302 170 L302 424 L98 424 L98 170 L56 314 L12 300 L78 76 Z"
@@ -95,16 +98,19 @@ def _font(size: int):
         return ImageFont.load_default()
 
 
-def render(mockup: Optional[str], placements: list[dict], pictures: dict[str, bytes]) -> Optional[bytes]:
-    """A PNG of the placements, or None when there is nothing to draw. `pictures`: file id -> image bytes."""
+def render(mockup: Optional[str], placements: list[dict], pictures: dict[str, bytes],
+           colors: Optional[dict[str, str]] = None) -> Optional[bytes]:
+    """A PNG of the placements and the colour of each part, or None when there is nothing to draw.
+    `pictures`: file id -> image bytes; `colors`: zone id -> "#rrggbb"."""
     placements = [p for p in placements if p.get("view") in ("front", "back")]
-    if not placements:
+    zones = [z for z in zones_for(mockup) if z["id"] in (colors or {})]
+    if not placements and not zones:
         return None
     cm_per_unit, views = GARMENTS.get(mockup or "", GARMENTS["tee"])
-    shown = [v for v in ("front", "back") if any(p["view"] == v for p in placements)]
+    shown = ["front", "back"] if zones else [v for v in ("front", "back") if any(p["view"] == v for p in placements)]
     scale, pad, head = 1.5, 30, 54
     w, h = int(VIEW_W * scale), int(VIEW_H * scale)
-    legend_h = 34 * len(placements) + 24
+    legend_h = 34 * (len(placements) + len(zones)) + 24
     canvas = Image.new("RGB", (pad + len(shown) * (w + pad), head + h + pad + legend_h), "white")
     draw = ImageDraw.Draw(canvas)
     small, big = _font(18), _font(26)
@@ -115,6 +121,17 @@ def render(mockup: Optional[str], placements: list[dict], pictures: dict[str, by
         ox, oy = pad + col * (w + pad), head
         draw.text((ox, 14), view.upper(), font=big, fill=ink)
         body, details = views[view]
+        for zone in zones:                                  # the part colours, under the outlines
+            path = zone.get(view)
+            if not path:
+                continue
+            fill = tuple(int(colors[zone["id"]][i:i + 2], 16) for i in (1, 3, 5))
+            for line in parse_path(path):
+                points = [(ox + x * scale, oy + y * scale) for x, y in line]
+                if zone["stroke"]:
+                    draw.line(points, fill=fill, width=int(14 * scale), joint="curve")
+                else:
+                    draw.polygon(points, fill=fill)
         for path in [body, *details]:
             for line in parse_path(path):
                 draw.line([(ox + x * scale, oy + y * scale) for x, y in line], fill=grey if path != body else ink,
@@ -142,6 +159,12 @@ def render(mockup: Optional[str], placements: list[dict], pictures: dict[str, by
         kind = "Logo" if p.get("kind") == "logo" else "Label"
         text = f"{number[id(p)]}.  {kind}, {p['view']}, {p['width_cm']:g} x {p['height_cm']:g} cm"
         draw.text((pad, y), text, font=small, fill=ink)
+        y += 34
+    for zone in zones:
+        hex_code = colors[zone["id"]]
+        fill = tuple(int(hex_code[i:i + 2], 16) for i in (1, 3, 5))
+        draw.rectangle((pad, y, pad + 22, y + 22), fill=fill, outline=grey)
+        draw.text((pad + 34, y), f"{zone['en']}: {color_name(hex_code)} ({hex_code})", font=small, fill=ink)
         y += 34
     out = io.BytesIO()
     canvas.save(out, "PNG")

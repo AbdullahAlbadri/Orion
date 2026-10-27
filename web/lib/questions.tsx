@@ -9,7 +9,7 @@ import type { Question } from "./api";
 import type { Lang } from "./i18n";
 
 const ICONS: Record<string, () => ReactNode> = {
-  colors: () => <PaletteIcon />, decoration_method: () => <NeedleIcon />, decoration_placement: () => <TargetIcon />,
+  colors: () => <PaletteIcon />, color_zones: () => <PaletteIcon />, decoration_method: () => <NeedleIcon />, decoration_placement: () => <TargetIcon />,
   artwork: () => <ImageIcon />, fabric: () => <LayersIcon />, fabric_gsm: () => <ScaleIcon />,
   size_breakdown: () => <RulerIcon />, size_standard: () => <RulerIcon />, quantity: () => <HashIcon />,
   labels: () => <TagIcon />, embellishment: () => <SparkleIcon />, dimensions: () => <RulerIcon />,

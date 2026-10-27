@@ -120,3 +120,37 @@ def test_details_without_a_section_are_sorted_by_wording():
     assert guess_section("delivery_date", "Delivery date") == "quantity"
     assert guess_section("hood_shape", "Hood shape") == "design"
     assert guess_section("x", "نوع القماش") == "quality"
+
+def test_color_zones_are_checked_against_the_garment_and_read_as_plain_colour_names():
+    from orion.config.markets import get_questions
+    from orion.spec import InvalidAnswer, format_answer, is_color_zones, validate_answer
+
+    q = next(x for x in get_questions("apparel", "hoodie") if x.type == "color_zones")
+    assert {z["id"] for z in q.zones} == {"body", "sleeves", "hood", "cuffs", "pocket"}
+    value = validate_answer(q, {"body": "#1B2A4A", "hood": "#FFFFFF"})
+    assert value == {"body": "#1b2a4a", "hood": "#ffffff"} and is_color_zones(value)
+    assert format_answer(value) == "body: navy (#1b2a4a); hood: white (#ffffff)"
+    for bad in ({"wheels": "#111111"}, {"body": "navy"}, {"body": "#12345"}, {}):
+        try:
+            validate_answer(q, bad)
+        except InvalidAnswer:
+            continue
+        raise AssertionError(f"{bad} should be refused")
+
+
+def test_the_manufacturer_drawing_shows_the_part_colours_even_without_logos():
+    import io
+
+    from PIL import Image
+
+    from orion.graph.manufacturer_request import placement_diagram
+    from orion.spec import ProductSpec
+    from orion.tools import placement_diagram as drawing
+
+    spec = ProductSpec(market="apparel", option="hoodie")
+    assert placement_diagram(spec) is None
+    spec.answers["color_zones"] = {"hood": "#8a1c2b"}
+    d = placement_diagram(spec)
+    assert d["colors"] == {"hood": "#8a1c2b"} and d["placements"] == []
+    png = Image.open(io.BytesIO(drawing.render(d["mockup"], d["placements"], {}, d["colors"]))).convert("RGB")
+    assert (0x8a, 0x1c, 0x2b) in {png.getpixel((x, y)) for x in range(0, png.width, 3) for y in range(0, 300, 3)}

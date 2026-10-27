@@ -9,7 +9,9 @@ from typing import Any, Optional
 
 from orion.config.markets import MARKETS, get_questions
 from orion.graph.pre_receipt import _humanize, build_summary
-from orion.spec import QUANTITY_ID, SIZE_TABLE_ID, ProductSpec, describe_placement, is_file_list, is_placement_list
+from orion.spec import (
+    QUANTITY_ID, SIZE_TABLE_ID, ProductSpec, describe_placement, is_color_zones, is_file_list, is_placement_list,
+)
 
 NOT_TRANSLATED = {QUANTITY_ID, SIZE_TABLE_ID}
 
@@ -42,11 +44,16 @@ def placements_of(spec: ProductSpec) -> list[dict]:
     return [p for v in spec.answers.values() if is_placement_list(v) for p in v]
 
 
+def colors_of(spec: ProductSpec) -> dict[str, str]:
+    """The colour the customer chose for each part of the garment, from the frozen spec."""
+    return next((v for v in spec.answers.values() if is_color_zones(v)), {})
+
+
 def placement_diagram(spec: ProductSpec) -> Optional[dict]:
-    placements = placements_of(spec)
-    if not placements:
+    placements, colors = placements_of(spec), colors_of(spec)
+    if not placements and not colors:
         return None
-    return {"mockup": MARKETS[spec.market].options[spec.option].mockup, "placements": placements}
+    return {"mockup": MARKETS[spec.market].options[spec.option].mockup, "placements": placements, "colors": colors}
 
 
 def render_request(spec: ProductSpec, spec_zh: dict, order_id: str = "") -> str:
@@ -98,8 +105,8 @@ def render_request(spec: ProductSpec, spec_zh: dict, order_id: str = "") -> str:
         lines += [f"{i}. {name(item, 'zh')}：{value(item, 'zh')}" for i, item in enumerate(section["items"], 1)]
     if files:
         lines += ["", "附件（随本邮件发送）："] + [f"附件{n}：{f['name']}" for n, f in enumerate(files, 1)]
-    if placements_of(spec):
-        lines += ["", f"附件「{PLACEMENT_DIAGRAM}」：标明每个标志和标签位置与尺寸的示意图（请按此图的位置和尺寸生产）。"]
+    if placement_diagram(spec):
+        lines += ["", f"附件「{PLACEMENT_DIAGRAM}」：标明各部位颜色以及每个标志和标签位置与尺寸的示意图（请按此图生产）。"]
     lines += [
         "",
         "请回复以下信息：",
@@ -128,9 +135,9 @@ def render_request(spec: ProductSpec, spec_zh: dict, order_id: str = "") -> str:
         lines += [f"{i}. {name(item, 'en')}: {value(item, 'en')}" for i, item in enumerate(section["items"], 1)]
     if files:
         lines += ["", "Attachments (sent with this email):"] + [f"Attachment {n}: {f['name']}" for n, f in enumerate(files, 1)]
-    if placements_of(spec):
-        lines += ["", f"Attachment \"{PLACEMENT_DIAGRAM}\": a drawing of the garment with every logo and label numbered at its "
-                      "position and size. Please produce the placements exactly as drawn."]
+    if placement_diagram(spec):
+        lines += ["", f"Attachment \"{PLACEMENT_DIAGRAM}\": a drawing of the garment with the colour of each part and every "
+                      "logo and label numbered at its position and size. Please produce it exactly as drawn."]
     lines += [
         "",
         "Please reply with:",

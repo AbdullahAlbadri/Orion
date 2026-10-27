@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     # fallback when it fails. Google nano-banana kept hitting 429 quota errors.
     mockup_model: str = "openai/gpt-image-2"
     mockup_fallback_model: str = "bytedance-seed/seedream-5-0-pro"
+    # Second pass: puts the customer's real files on the blank photo (an editing model that keeps references exact)
+    mockup_edit_model: str = "google/gemini-3-pro-image"
 
     database_url: str
 

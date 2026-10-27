@@ -21,6 +21,10 @@ const SECTION_TITLES: Record<string, { title: TextKey; icon: ReactNode }> = {
 const isFiles = (raw: unknown): raw is UploadedFile[] =>
   Array.isArray(raw) && raw.length > 0 && raw.every((f) => typeof f === "object" && f !== null && "file_id" in f);
 
+const isZoneColors = (raw: unknown): raw is Record<string, string> =>
+  typeof raw === "object" && raw !== null && !Array.isArray(raw) && Object.keys(raw).length > 0
+  && Object.values(raw).every((v) => typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v));
+
 const isPlacements = (raw: unknown): raw is Placement[] =>
   Array.isArray(raw) && raw.length > 0 && raw.every((p) => typeof p === "object" && p !== null && "view" in p);
 
@@ -114,6 +118,16 @@ function Row({ item, mockup, orderId, logoUrl }: {
             <MockupPreview mockup={mockup} items={item.raw} logoUrl={logoUrl} />
             <span className="row-value small" dir="auto">{item.value}</span>
           </>
+        ) : isZoneColors(item.raw) ? (
+          <span className="row-value zone-summary">
+            {Object.entries(item.raw).map(([zone, hex]) => (
+              <span key={zone} className="zone-summary-item">
+                <span className="swatch" style={{ background: hex }} aria-hidden />
+                <span dir="auto">{zone.replace(/_/g, " ")}</span>
+                <span className="muted small" dir="ltr">{hex}</span>
+              </span>
+            ))}
+          </span>
         ) : isFiles(item.raw) ? (
           <span className="row-value">
             {item.raw.map((f) => <span key={f.file_id} className="row">

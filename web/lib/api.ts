@@ -8,14 +8,15 @@ export type User = { id: string; email: string; name?: string | null };
 export type Question = {
   id: string;
   prompt: string;
-  type: "choice" | "number" | "text" | "file" | "size_table" | "placement";
+  type: "choice" | "number" | "text" | "file" | "size_table" | "placement" | "color_zones";
   choices: string[];
   required: boolean;
   hint?: string | null;
   section: Section;
   allow_other?: boolean;   // "Other" chip with the customer's own text
   multiple?: boolean;      // several options may be picked
-  mockup?: string | null;  // placement: which garment drawing
+  mockup?: string | null;  // placement / color_zones: which garment drawing
+  zones?: { id: string; en: string; ar: string; front: string | null; back: string | null; stroke: boolean }[];   // color_zones
   multiline?: boolean;     // text: a long description (large box)
   brand?: "colors" | "logo" | null;   // offer the business profile's brand colours / saved logos here
   size_chart?: SizeChartData | null;  // size_table: typical measurements in cm, behind the info icon

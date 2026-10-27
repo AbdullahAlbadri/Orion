@@ -318,6 +318,28 @@ button { font: inherit; cursor: pointer; border: 0; }
 .segmented button:hover { color: var(--text); }
 .segmented button.on { background: var(--card-2); color: var(--yellow); font-weight: 600; }
 
+/* colour each part of the garment */
+.zones { display: flex; flex-direction: column; gap: 14px; }
+.zones .zone { fill: rgba(241, 236, 227, .04); stroke: rgba(241, 236, 227, .35); stroke-width: 1.5; cursor: pointer; transition: filter .15s; }
+.zones .zone.stroke { fill: none; stroke-width: 12; stroke-linecap: round; }
+.zones .zone:hover { filter: brightness(1.15); }
+.zones .zone.on { stroke: var(--yellow); stroke-width: 3; stroke-dasharray: 7 4; }
+.zones .zone.stroke.on { stroke-dasharray: none; }
+.zones .zone:focus-visible { outline: none; stroke: var(--yellow); stroke-width: 3; }
+.zone-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.zone-list li { display: flex; align-items: center; gap: 4px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+.zone-list li.on { border-color: rgba(226, 184, 102, .7); }
+.zone-pick { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: none; border: 0; color: var(--text); font: inherit; cursor: pointer; }
+.zone-chip { width: 22px; height: 22px; border-radius: 50%; border: 1px solid rgba(241, 236, 227, .35); flex: none; }
+.zone-palette { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.zone-swatch { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(241, 236, 227, .25); cursor: pointer; padding: 0; }
+.zone-swatch.on { border-color: var(--yellow); box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--yellow); }
+.zone-swatch:disabled, .zone-hex:disabled { opacity: .4; cursor: default; }
+.zone-custom input { width: 34px; height: 34px; padding: 0; border: 0; background: none; cursor: pointer; }
+.zone-hex { width: 110px; padding: 8px 10px; }
+.zone-summary { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.zone-summary-item { display: inline-flex; align-items: center; gap: 6px; }
+
 /* logo / label placement on a garment drawing */
 .placement { display: flex; flex-direction: column; gap: 12px; }
 .mockup-wrap { display: flex; justify-content: center; background: radial-gradient(circle at 50% 40%, #1f1f26, var(--card)); border-radius: 18px; padding: 12px; }

@@ -7,7 +7,7 @@ from PIL import Image, ImageDraw
 
 from orion.config.markets import get_questions
 from orion.tools.brief import mockup_brief
-from orion.tools.mockup import MockupImage, compose_artwork, mockup_prompt
+from orion.tools.mockup import MockupImage, artwork_guide, artwork_prompt, compose_artwork, mockup_prompt, target_boxes
 from test_api import PNG, _auth, _login, api  # noqa: F401  (api is a fixture)
 
 LOGO_AT_LEFT_CHEST = [{"kind": "logo", "view": "front", "x": 0.63, "y": 0.3, "width_cm": 9, "height_cm": 7}]
@@ -19,8 +19,8 @@ class FakeMaker:
     def __init__(self, data=PNG):
         self.data, self.calls = data, []
 
-    async def make(self, prompt, references, aspect_ratio):
-        self.calls.append({"prompt": prompt, "references": references, "aspect": aspect_ratio})
+    async def make(self, prompt, references, aspect_ratio, model=None):
+        self.calls.append({"prompt": prompt, "references": references, "aspect": aspect_ratio, "model": model})
         return MockupImage(self.data, "image/png", 0.01)
 
 
@@ -114,3 +114,20 @@ def test_the_brief_is_a_numbered_markdown_file_that_overrides_the_product_name()
     assert "1. **Hoodie style** (Type): zip-up" in brief and "(Collar): crew neck, no hood" in brief
     assert "OVERRIDE" in brief and "no hood" in brief and "flexible" not in brief
     assert "Check the picture against requirements 1 to 2" in brief
+
+
+def test_the_editing_pass_gets_a_numbered_guide_and_a_written_instruction():
+    placements = [{"kind": "logo", "view": "front", "x": 0.5, "y": 0.4, "width_cm": 20, "height_cm": 10, "file_id": "a"},
+                  {"kind": "label", "view": "back", "x": 0.5, "y": 0.2, "width_cm": 5, "height_cm": 2.5, "file_id": "b"}]
+    photo = _studio_photo(True)
+    boxes = target_boxes(photo, "hoodie", placements)
+    assert [p["file_id"] for p, _ in boxes] == ["a", "b"]
+    (_, front), (_, back) = boxes
+    assert front[0] < front[2] <= 800 and back[0] >= 800                    # each box is in its own half
+    assert (front[2] - front[0]) > (back[2] - back[0]) * 3                  # 20 cm is much wider than 5 cm
+    guide = Image.open(io.BytesIO(artwork_guide(photo, boxes))).convert("RGB")
+    assert guide.getpixel((front[0], (front[1] + front[3]) // 2)) == (255, 0, 200)   # the box outline
+    prompt = artwork_prompt(boxes, [3, 4], "embroidery")
+    assert "Box 1 (front view, 20 x 10 cm logo): artwork = image 3" in prompt
+    assert "Box 2 (back view, 5 x 2.5 cm label): artwork = image 4" in prompt
+    assert "really embroidery" in prompt and "Remove the magenta boxes" in prompt

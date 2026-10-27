@@ -21,6 +21,7 @@ import { BRAND, Swatch, colorAnswer } from "./BrandKit";
 import FileUpload from "./FileUpload";
 import MockupPanel from "./MockupPanel";
 import SizeChart from "./SizeChart";
+import ColorZoneEditor from "./ColorZoneEditor";
 import PlacementEditor from "./PlacementEditor";
 import SizeTable, { initialSizes, sizesToAnswer, type SizeRow } from "./SizeTable";
 
@@ -74,6 +75,10 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
   const [placements, setPlacements] = useState<Record<string, Placement[]>>(() =>
     Object.fromEntries(prompt.questions.filter((q) => q.type === "placement")
       .map((q) => [q.id, Array.isArray(prompt.values[q.id]) ? (prompt.values[q.id] as Placement[]) : []])));
+  const [zoneColors, setZoneColors] = useState<Record<string, Record<string, string>>>(() =>
+    Object.fromEntries(prompt.questions.filter((q) => q.type === "color_zones")
+      .map((q) => [q.id, (prompt.values[q.id] && typeof prompt.values[q.id] === "object" && !Array.isArray(prompt.values[q.id])
+        ? prompt.values[q.id] : {}) as Record<string, string>])));
   const [sizes, setSizes] = useState<Record<string, SizeRow[]>>(() =>
     Object.fromEntries(prompt.questions.filter((q) => q.type === "size_table")
       .map((q) => [q.id, initialSizes(prompt.values[q.id])])));
@@ -95,8 +100,9 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
     for (const q of prompt.questions) if (q.type === "choice") out[q.id] = choiceAnswer(q, choices[q.id]);
     for (const [id, items] of Object.entries(placements)) out[id] = items;
     for (const [id, items] of Object.entries(files)) out[id] = items;
+    for (const [id, map] of Object.entries(zoneColors)) out[id] = map;
     return out;
-  }, [values, sizes, choices, placements, files, prompt.questions]);
+  }, [values, sizes, choices, placements, files, zoneColors, prompt.questions]);
 
   // Every uploaded picture can be placed on the garment, each drawn at its real proportions
   const allFiles = useMemo(() => {
@@ -130,6 +136,7 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
   const isAnswered = (q: Question) => {
     if (q.type === "size_table") return Object.keys(sizesToAnswer(sizes[q.id] ?? [])).length > 0;
     if (q.type === "placement") return (placements[q.id] ?? []).length > 0;
+    if (q.type === "color_zones") return Object.keys(zoneColors[q.id] ?? {}).length > 0;
     if (q.type === "file") return (files[q.id] ?? []).length > 0;
     if (q.type === "choice") return choiceAnswer(q, choices[q.id]).length > 0;
     return Boolean(values[q.id]?.trim());
@@ -193,6 +200,9 @@ export default function SectionedForm({ orderId, prompt: raw, send, busy }: {
             method={method} onChange={(items) => setPlacements((prev) => ({ ...prev, [q.id]: items }))} />
           <MockupPanel orderId={orderId} answers={answers} />
         </>
+      ) : q.type === "color_zones" ? (
+        <ColorZoneEditor question={q} value={zoneColors[q.id] ?? {}}
+          onChange={(next) => setZoneColors((prev) => ({ ...prev, [q.id]: next }))} />
       ) : q.type === "file" ? (
         <FileUpload orderId={orderId} value={files[q.id]} pictures={q.id !== "artwork"}
           saved={q.brand === "logo" && kit ? kit.logos : undefined}
@@ -341,7 +351,7 @@ function QuestionCard({ q, error, children }: { q: Question; error?: string; chi
   const guide = QUESTION_GUIDES[q.id];
   const infoLabel = q.size_chart ? (lang === "ar" ? "جدول المقاسات" : "Size chart")
     : guide && GUIDES[guide] ? GUIDES[guide].title[lang] : null;
-  const wide = q.type === "size_table" || q.type === "choice" || q.type === "placement" || q.type === "file" || q.multiline;
+  const wide = q.type === "size_table" || q.type === "choice" || q.type === "placement" || q.type === "color_zones" || q.type === "file" || q.multiline;
   return (
     <div className={`qcard${wide ? " wide" : ""}${error ? " has-error" : ""}`}>
       <div className="qhead">
