@@ -20,7 +20,7 @@ from orion.spec import Section, is_file_list, is_placement_list
 from orion.tools.assist import safe_answer
 from orion.config.policy import Policy
 from orion.tools.files import ALLOWED, MAX_FILES_PER_ORDER, sniff_type
-from orion.tools.mockup import REFERENCE_TYPES, mockup_prompt
+from orion.tools.mockup import REFERENCE_TYPES, compose_artwork, mockup_prompt
 from orion.graph.graph import OrderNotWaiting, get_order, waiting_on
 from orion.runtime import discard_order, send_customer_reply, start_customer_order
 
@@ -307,36 +307,45 @@ async def make_mockup(
 
     questions = get_questions(spec["market"], spec["option"])
     answers = {q.id: body.answers[q.id] for q in questions if q.id in body.answers}
-    # Reference pictures: the ones placed on the garment (in order), else the first picture in the form; only
-    # this order's files, and only formats an image model can read
+    # The pictures placed on the garment, else the first picture in the form; only this order's files, and only
+    # formats that can be drawn onto the photo
     own_files = await c.accounts.file_ids(order_id)
     placed = [p["file_id"] for v in answers.values() if isinstance(v, list)
               for p in v if isinstance(p, dict) and "view" in p and p.get("file_id")]
-    # other uploads (a sticker, a label design) follow the placed ones, with the question they answer
-    uploads = {str(f["file_id"]): q.prompt.rstrip("?؟:. ") for q in questions
-               for f in (answers.get(q.id) if is_file_list(answers.get(q.id)) else [])}
-    candidates = list(dict.fromkeys(placed + [f for f in uploads if f not in placed])) or list(file_ids_in(answers))
-    pictures, references = [], []
+    candidates = list(dict.fromkeys(placed)) or list(file_ids_in(answers))[:1]
+    pictures: dict[str, bytes] = {}
     for file_id in candidates:
         row = await c.accounts.order_file(order_id, file_id) if file_id in own_files else None
         if row and row["content_type"] in REFERENCE_TYPES:
-            pictures.append(file_id)
-            references.append((c.files.load(row["storage_key"]), row["content_type"]))
-        if len(references) == 4:
+            pictures[file_id] = c.files.load(row["storage_key"])
+        if len(pictures) == 6:
             break
-    product = MARKETS[spec["market"]].options[spec["option"]].name
-    prompt, aspect = mockup_prompt(product, questions, answers, pictures, uploads)
+    option = MARKETS[spec["market"]].options[spec["option"]]
+    # The image model draws the blank product only; the customer's real files are put on it in code afterwards,
+    # at the positions from the placement editor (a model redraws logos instead of copying them)
+    placements = [p for v in answers.values() if isinstance(v, list) for p in v
+                  if isinstance(p, dict) and "view" in p and p.get("file_id") in pictures]
+    if not placements and pictures:
+        placements = [{"kind": "logo", "view": "front", "x": 0.63, "y": 0.3, "width_cm": 9, "height_cm": 7,
+                       "file_id": next(iter(pictures))}]
+    prompt, aspect = mockup_prompt(option.name, questions, answers)
     try:
-        image = await c.mockups.make(prompt, references, aspect)
+        image = await c.mockups.make(prompt, [], aspect)
     except Exception:
         log.exception("mockup for order %s failed", order_id)
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, "the image could not be made, try again") from None
+    if pictures and sniff_type(image.data) in REFERENCE_TYPES:
+        try:
+            image.data = compose_artwork(image.data, option.mockup, placements, pictures)
+        except Exception:
+            log.exception("putting the artwork on the mockup of order %s failed", order_id)
+            pictures = {}
     content_type = sniff_type(image.data)
     if content_type not in REFERENCE_TYPES:          # only ever store and serve a real raster image
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, "the image could not be made, try again")
     key = c.files.save(image.data, ALLOWED[content_type])
     row = await c.accounts.add_mockup(order_id, claims.sub, key, content_type, c.mockups.model, image.cost)
-    return {**row, "logo_used": bool(references), **(await _mockup_list(c, order_id))}
+    return {**row, "logo_used": bool(pictures), **(await _mockup_list(c, order_id))}
 
 
 @router.get("/{order_id}/mockups/{mockup_id}")
