@@ -141,7 +141,9 @@ def render(mockup: Optional[str], placements: list[dict], pictures: dict[str, by
             cx, cy = ox + p["x"] * w, oy + p["y"] * h
             box = (cx - pw / 2, cy - ph / 2, cx + pw / 2, cy + ph / 2)
             data = pictures.get(p.get("file_id") or "")
-            if data:
+            if p.get("kind") == "color":                          # a solid colour patch
+                draw.rectangle(box, fill=tuple(int(p["color"][i:i + 2], 16) for i in (1, 3, 5)))
+            elif data:
                 try:
                     pic = Image.open(io.BytesIO(data)).convert("RGBA")
                     pic.thumbnail((max(1, int(pw)), max(1, int(ph))))
@@ -156,7 +158,8 @@ def render(mockup: Optional[str], placements: list[dict], pictures: dict[str, by
     y = head + h + pad
     draw.line([(pad, y - 12), (canvas.width - pad, y - 12)], fill=grey, width=1)
     for p in placements:
-        kind = "Logo" if p.get("kind") == "logo" else "Label"
+        kind = {"logo": "Logo", "label": "Label"}.get(p.get("kind"), f"Colour patch {color_name(p['color'])} ({p['color']})"
+                                                   if p.get("kind") == "color" else "Label")
         text = f"{number[id(p)]}.  {kind}, {p['view']}, {p['width_cm']:g} x {p['height_cm']:g} cm"
         draw.text((pad, y), text, font=small, fill=ink)
         y += 34

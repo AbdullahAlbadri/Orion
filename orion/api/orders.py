@@ -340,7 +340,7 @@ async def make_mockup(
     # The image model draws the blank product only; the customer's real files are put on it in code afterwards,
     # at the positions from the placement editor (a model redraws logos instead of copying them)
     placements = [p for v in answers.values() if isinstance(v, list) for p in v
-                  if isinstance(p, dict) and "view" in p and p.get("file_id") in pictures]
+                  if isinstance(p, dict) and "view" in p and (p.get("file_id") in pictures or p.get("kind") == "color")]
     if not placements and pictures:
         placements = [{"kind": "logo", "view": "front", "x": 0.63, "y": 0.3, "width_cm": 9, "height_cm": 7,
                        "file_id": next(iter(pictures))}]
@@ -350,12 +350,13 @@ async def make_mockup(
     except Exception:
         log.exception("mockup for order %s failed", order_id)
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, "the image could not be made, try again") from None
-    if pictures and sniff_type(image.data) in REFERENCE_TYPES:
+    if placements and sniff_type(image.data) in REFERENCE_TYPES:
         blank, cost = image.data, image.cost
         try:
             boxes = target_boxes(blank, option.mockup, placements)
-            order = list(dict.fromkeys(p["file_id"] for p, _ in boxes))           # attached image numbers 3, 4, ...
-            edit_prompt = artwork_prompt(boxes, [order.index(p["file_id"]) + 3 for p, _ in boxes],
+            order = list(dict.fromkeys(p["file_id"] for p, _ in boxes if p.get("kind") != "color"))   # images 3, 4, ...
+            edit_prompt = artwork_prompt(boxes, [None if p.get("kind") == "color" else order.index(p["file_id"]) + 3
+                                                 for p, _ in boxes],
                                          str(answers.get("decoration_method") or ""))
             refs = [(blank, "image/png"), (artwork_guide(blank, boxes), "image/png")] + [
                 (pictures[f], sniff_type(pictures[f]) or "image/png") for f in order]

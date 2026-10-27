@@ -230,28 +230,32 @@ def _validate_placements(raw: Any) -> Any:
             w, h = float(item["width_cm"]), float(item["height_cm"])
         except (KeyError, TypeError, ValueError):
             raise InvalidAnswer("each placement needs kind, view, position and size") from None
-        if kind not in ("logo", "label") or view not in ("front", "back"):
+        if kind not in ("logo", "label", "color") or view not in ("front", "back"):
             raise InvalidAnswer("unknown placement kind or view")
+        if kind == "color" and not HEX.match(str(item.get("color") or "").strip()):
+            raise InvalidAnswer("a colour patch needs a colour as #RRGGBB")
         if not (0 <= x <= 1 and 0 <= y <= 1):
             raise InvalidAnswer("placement is outside the garment")
         if not (0.5 <= w <= 60 and 0.5 <= h <= 60):
             raise InvalidAnswer("logo/label size must be between 0.5 and 60 cm")
         placed = {"kind": kind, "view": view, "x": round(x, 3), "y": round(y, 3),
                   "width_cm": round(w, 1), "height_cm": round(h, 1)}
-        if item.get("file_id"):            # the picture shown here; the API checks it belongs to the order
+        if kind == "color":
+            placed["color"] = str(item["color"]).strip().lower()
+        if item.get("file_id") and kind != "color":   # the picture shown here; the API checks it belongs to the order
             placed["file_id"] = str(item["file_id"])[:64]
         out.append(placed)
     return out
 
 
 _PLACEMENT_WORDS = {
-    "en": {"logo": "logo", "label": "label", "front": "front", "back": "back", "left": "wearer's left ",
+    "en": {"logo": "logo", "label": "label", "color": "colour patch", "front": "front", "back": "back", "left": "wearer's left ",
            "right": "wearer's right ", "centre": "centre ", "neck": "neck", "chest": "chest", "middle": "middle",
            "lower": "lower", "cm": "cm"},
-    "ar": {"logo": "شعار", "label": "ملصق", "front": "الأمام", "back": "الخلف", "left": "يسار اللابس، ",
+    "ar": {"logo": "شعار", "label": "ملصق", "color": "بقعة لون", "front": "الأمام", "back": "الخلف", "left": "يسار اللابس، ",
            "right": "يمين اللابس، ", "centre": "الوسط، ", "neck": "الرقبة", "chest": "الصدر", "middle": "المنتصف",
            "lower": "الأسفل", "cm": "سم"},
-    "zh": {"logo": "Logo", "label": "标签", "front": "正面", "back": "背面", "left": "穿着者左侧",
+    "zh": {"logo": "Logo", "label": "标签", "color": "色块", "front": "正面", "back": "背面", "left": "穿着者左侧",
            "right": "穿着者右侧", "centre": "居中", "neck": "领口", "chest": "胸部", "middle": "衣身中部",
            "lower": "下摆", "cm": "厘米"},
 }
@@ -265,10 +269,11 @@ def describe_placement(p: dict, lang: str = "en") -> str:
     wearer_left = x > 0.56 if p["view"] == "front" else x < 0.44
     wearer_right = x < 0.44 if p["view"] == "front" else x > 0.56
     side = w["left"] if wearer_left else w["right"] if wearer_right else w["centre"]
+    what = f"{w['color']} {color_name(p['color'])} ({p['color']})" if p["kind"] == "color" else w[p["kind"]]
     area = w["neck"] if y < 0.2 else w["chest"] if y < 0.42 else w["middle"] if y < 0.65 else w["lower"]
     if lang == "zh":
-        return f"{w[p['kind']]}：{w[p['view']]}{area}，{side}，宽 {p['width_cm']:g} × 高 {p['height_cm']:g} {w['cm']}"
-    return f"{w[p['kind']]}, {w[p['view']]}, {side}{area}, {p['width_cm']:g} x {p['height_cm']:g} {w['cm']}"
+        return f"{what}：{w[p['view']]}{area}，{side}，宽 {p['width_cm']:g} × 高 {p['height_cm']:g} {w['cm']}"
+    return f"{what}, {w[p['view']]}, {side}{area}, {p['width_cm']:g} x {p['height_cm']:g} {w['cm']}"
 
 
 def localize_answer(question: Optional[Question], value: Any, lang: str) -> str:

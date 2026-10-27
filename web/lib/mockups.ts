@@ -6,7 +6,7 @@ export const VIEW_W = 400;
 export const VIEW_H = 440;
 
 export type View = "front" | "back";
-export type PlacementKind = "logo" | "label";
+export type PlacementKind = "logo" | "label" | "color";
 
 export type Placement = {
   kind: PlacementKind;
@@ -16,6 +16,7 @@ export type Placement = {
   width_cm: number;
   height_cm: number;
   file_id?: string;   // the uploaded picture shown here (a logo or a label design)
+  color?: string;     // kind "color": the patch's colour, #rrggbb
 };
 
 export type Preset = { key: string; en: string; ar: string; placement: Placement };

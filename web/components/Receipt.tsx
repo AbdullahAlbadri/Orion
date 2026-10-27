@@ -162,6 +162,7 @@ function MockupPreview({ mockup, items, logoUrl }: { mockup?: string | null; ite
               const w = p.width_cm / m.cmPerUnit, h = p.height_cm / m.cmPerUnit;
               return (
                 <g key={i} className={`placed ${p.kind}`}>
+                  {p.kind === "color" && <rect x={p.x * VIEW_W - w / 2} y={p.y * VIEW_H - h / 2} width={w} height={h} rx={3} fill={p.color} />}
                   {p.kind === "logo" && logoUrl && (
                     <image href={logoUrl} x={p.x * VIEW_W - w / 2 + 2} y={p.y * VIEW_H - h / 2 + 2} width={Math.max(0, w - 4)}
                       height={Math.max(0, h - 4)} preserveAspectRatio="xMidYMid meet" />

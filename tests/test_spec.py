@@ -154,3 +154,34 @@ def test_the_manufacturer_drawing_shows_the_part_colours_even_without_logos():
     assert d["colors"] == {"hood": "#8a1c2b"} and d["placements"] == []
     png = Image.open(io.BytesIO(drawing.render(d["mockup"], d["placements"], {}, d["colors"]))).convert("RGB")
     assert (0x8a, 0x1c, 0x2b) in {png.getpixel((x, y)) for x in range(0, png.width, 3) for y in range(0, 300, 3)}
+
+
+def test_a_colour_patch_is_placed_like_a_logo_and_described_with_its_colour():
+    import io
+
+    from PIL import Image
+
+    from orion.config.markets import get_questions
+    from orion.spec import InvalidAnswer, describe_placement, validate_answer
+    from orion.tools import placement_diagram as drawing
+    from orion.tools.mockup import artwork_prompt, target_boxes
+
+    q = next(x for x in get_questions("apparel", "hoodie") if x.type == "placement")
+    patch = {"kind": "color", "view": "front", "x": 0.5, "y": 0.6, "width_cm": 30, "height_cm": 4, "color": "#C81E28"}
+    value = validate_answer(q, [patch])
+    assert value[0]["color"] == "#c81e28" and "file_id" not in value[0]
+    assert describe_placement(value[0]) .startswith("colour patch red (#c81e28), front")
+    try:
+        validate_answer(q, [{**patch, "color": "red"}])
+        raise AssertionError("a patch without a HEX colour must be refused")
+    except InvalidAnswer:
+        pass
+
+    png = Image.open(io.BytesIO(drawing.render("hoodie", value, {}))).convert("RGB")
+    assert (0xc8, 0x1e, 0x28) in {png.getpixel((x, y)) for x in range(0, png.width, 3) for y in range(300, 700, 3)}
+    photo = Image.new("RGB", (900, 900), "white")
+    photo.paste((40, 40, 44), (90, 45, 810, 855))
+    buf = io.BytesIO()
+    photo.save(buf, "PNG")
+    boxes = target_boxes(buf.getvalue(), "hoodie", value)
+    assert "a solid red fabric panel, exactly #c81e28" in artwork_prompt(boxes, [None])

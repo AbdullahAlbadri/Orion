@@ -348,6 +348,9 @@ button { font: inherit; cursor: pointer; border: 0; }
 .garment-detail { fill: none; stroke: rgba(241, 236, 227, .22); stroke-width: 2; stroke-linecap: round; }
 .placed rect:first-of-type { cursor: grab; outline: none; }
 .placed.logo rect:first-of-type { fill: rgba(226, 184, 102, .22); stroke: var(--yellow); stroke-width: 2; stroke-dasharray: 6 4; }
+.placed.color rect:first-of-type { fill: transparent; stroke: rgba(241, 236, 227, .7); stroke-width: 1.5; stroke-dasharray: 6 4; }
+.patch-color { width: 44px; height: 38px; padding: 0; border: 1px solid var(--line); border-radius: 10px; background: none; cursor: pointer; }
+.patch-color.sm { width: 30px; height: 30px; border-radius: 50%; }
 .placed.label rect:first-of-type { fill: rgba(196, 69, 47, .5); stroke: #ff8a8f; stroke-width: 1.5; }
 .placed.active rect:first-of-type { stroke-dasharray: none; stroke-width: 3; }
 .placed rect:first-of-type:focus-visible { stroke-width: 4; }

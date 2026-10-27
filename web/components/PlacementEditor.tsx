@@ -36,6 +36,7 @@ export default function PlacementEditor({ mockup, value, onChange, pictures = []
   const [current, setCurrent] = useState<string | null>(null);   // the picture the spot buttons place
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [patchColor, setPatchColor] = useState("#c81e28");
   const byId = new Map(pictures.map((p) => [p.file.file_id, p]));
   // Older placements have no picture of their own: logos show the first picture, as before
   const firstImage = pictures.find((p) => p.url);
@@ -200,6 +201,21 @@ export default function PlacementEditor({ mockup, value, onChange, pictures = []
         {uploadError && <p className="error small" style={{ margin: 0 }}>{uploadError}</p>}
       </div>
 
+      <div className="picture-tray">
+        <div className="picture-tray-head">
+          <strong>{t("colorPatchTitle")}</strong>
+          <span className="muted small">{t("colorPatchHint")}</span>
+        </div>
+        <div className="row">
+          <input type="color" className="patch-color" value={patchColor} aria-label={t("colorPatchTitle")}
+            onChange={(e) => setPatchColor(e.target.value)} />
+          <button type="button" className="chip" disabled={value.length >= MAX_ITEMS}
+            onClick={() => add({ ...spot("logo"), kind: "color", color: patchColor, width_cm: 12, height_cm: 6 }, null)}>
+            <PlusIcon width={12} height={12} /> {t("addColorPatch")}
+          </button>
+        </div>
+      </div>
+
       <div className="chips">
         {m.presets.map((pr) => (
           <button key={pr.key} type="button" className="chip" disabled={value.length >= MAX_ITEMS} onClick={() => add(pr.placement)}>
@@ -219,18 +235,20 @@ export default function PlacementEditor({ mockup, value, onChange, pictures = []
             const w = units(pl.width_cm), h = units(pl.height_cm);
             const x = pl.x * VIEW_W - w / 2, y = pl.y * VIEW_H - h / 2;
             const isSelected = selected === i;
-            const url = pictureOf(pl)?.url;
+            const url = pl.kind === "color" ? null : pictureOf(pl)?.url;
             return (
               <g key={i} className={`placed ${pl.kind}${isSelected ? " active" : ""}`}>
+                {pl.kind === "color" && <rect x={x + 1} y={y + 1} width={Math.max(0, w - 2)} height={Math.max(0, h - 2)} rx={3}
+                  fill={pl.color} className="patch-fill" pointerEvents="none" />}
                 {url && (
                   <image href={url} x={x + 2} y={y + 2} width={Math.max(0, w - 4)} height={Math.max(0, h - 4)}
                     preserveAspectRatio="xMidYMid meet" className="placed-logo" />
                 )}
                 <rect x={x} y={y} width={w} height={h} rx={pl.kind === "label" ? 2 : 6} tabIndex={0}
-                  aria-label={`${t(pl.kind === "logo" ? "logoTag" : "labelTag")} ${pl.width_cm} × ${pl.height_cm} cm`}
+                  aria-label={`${t(pl.kind === "logo" ? "logoTag" : pl.kind === "color" ? "colorPatchTag" : "labelTag")} ${pl.width_cm} × ${pl.height_cm} cm`}
                   onPointerDown={(e) => startDrag(e, i, "move")} onKeyDown={(e) => onKey(e, i)} onFocus={() => setSelected(i)} />
                 <text x={x + w / 2} y={y + h / 2} className="placed-text">
-                  {w > 34 && h > 14 && !url ? t(pl.kind === "logo" ? "logoTag" : "labelTag") : ""}
+                  {w > 34 && h > 14 && !url && pl.kind !== "color" ? t(pl.kind === "logo" ? "logoTag" : "labelTag") : ""}
                 </text>
                 <text x={x + w / 2} y={y + h + 14} className="placed-size">{pl.width_cm} × {pl.height_cm} cm</text>
                 {isSelected && (
@@ -249,11 +267,17 @@ export default function PlacementEditor({ mockup, value, onChange, pictures = []
         <ul className="placed-list">
           {value.map((pl, i) => (
             <li key={i} className={selected === i ? "active" : ""} onClick={() => { setView(pl.view); setSelected(i); }}>
-              {pictureOf(pl)?.url && (
+              {pl.kind !== "color" && pictureOf(pl)?.url && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img className="placed-thumb" src={pictureOf(pl)!.url!} alt="" />
               )}
-              <span className={`pill ${pl.kind === "logo" ? "you" : "factories"}`}>{t(pl.kind === "logo" ? "logoTag" : "labelTag")}</span>
+              {pl.kind === "color" && (
+                <input type="color" className="patch-color sm" value={pl.color ?? "#c81e28"} aria-label={t("colorPatchTitle")}
+                  onClick={(e) => e.stopPropagation()} onChange={(e) => update(i, { ...pl, color: e.target.value })} />
+              )}
+              <span className={`pill ${pl.kind === "logo" ? "you" : "factories"}`}>
+                {t(pl.kind === "logo" ? "logoTag" : pl.kind === "color" ? "colorPatchTag" : "labelTag")}
+              </span>
               <span className="muted small">{t(pl.view === "front" ? "viewFront" : "viewBack")} · {describe(pl)}</span>
               <span className="cm-inputs" dir="ltr">
                 <input type="number" min={MIN_CM} max={60} step={0.5} value={pl.width_cm} aria-label={t("widthCm")}
@@ -265,7 +289,7 @@ export default function PlacementEditor({ mockup, value, onChange, pictures = []
               </span>
               <button type="button" className="icon-btn" aria-label={t("remove")}
                 onClick={(e) => { e.stopPropagation(); onChange(value.filter((_, j) => j !== i)); setSelected(null); }}>×</button>
-              <SizeHint item={pl} method={method} aspect={pictureOf(pl)?.aspect} onApply={(w, h) => update(i, { ...pl, width_cm: w, height_cm: h })} />
+              {pl.kind !== "color" && <SizeHint item={pl} method={method} aspect={pictureOf(pl)?.aspect} onApply={(w, h) => update(i, { ...pl, width_cm: w, height_cm: h })} />}
             </li>
           ))}
         </ul>

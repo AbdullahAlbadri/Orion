@@ -15,6 +15,7 @@ import httpx
 from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageStat
 
 from orion.tools.brief import mockup_brief
+from orion.tools.colors import color_name
 from orion.tools.placement_diagram import GARMENTS, VIEW_H, VIEW_W, parse_path
 from orion.spec import (
     QUANTITY_ID, SIZE_TABLE_ID, Question, format_answer, is_file_list, is_placement_list,
@@ -104,8 +105,10 @@ def artwork_guide(base: bytes, boxes: list[tuple[dict, tuple[int, int, int, int]
     return out.getvalue()
 
 
-def artwork_prompt(boxes: list[tuple[dict, tuple[int, int, int, int]]], logo_numbers: list[int], method: str = "") -> str:
-    """The editing instruction (Markdown). `logo_numbers[i]` is the attached image number of box i's artwork."""
+def artwork_prompt(boxes: list[tuple[dict, tuple[int, int, int, int]]], logo_numbers: list[Optional[int]],
+                   method: str = "") -> str:
+    """The editing instruction (Markdown). `logo_numbers[i]` is the attached image number of box i's artwork, or None
+    for a solid colour patch."""
     lines = ["# Edit task: put the customer's artwork on the product", "",
              "## Images",
              "- Image 1: the blank product photo. Keep it exactly: the same garment, shape, colour, pose, lighting "
@@ -113,10 +116,16 @@ def artwork_prompt(boxes: list[tuple[dict, tuple[int, int, int, int]]], logo_num
              "- Image 2: the same photo with numbered magenta boxes marking where each artwork goes.",
              "- Images 3 and after: the customer's real artwork files.", "", "## Placements"]
     for n, ((p, _), image_no) in enumerate(zip(boxes, logo_numbers), 1):
-        kind = "logo" if p.get("kind") == "logo" else "label"
-        lines.append(f"- Box {n} ({p['view']} view, {p['width_cm']:g} x {p['height_cm']:g} cm {kind}): artwork = image {image_no}")
+        size = f"{p['width_cm']:g} x {p['height_cm']:g} cm"
+        if p.get("kind") == "color":
+            lines.append(f"- Box {n} ({p['view']} view, {size}): a solid {color_name(p['color'])} fabric panel, exactly "
+                         f"{p['color']}, filling the whole box (no image: dye or sew-in fabric, not a print)")
+        else:
+            kind = "logo" if p.get("kind") == "logo" else "label"
+            lines.append(f"- Box {n} ({p['view']} view, {size} {kind}): artwork = image {image_no}")
     lines += ["", "## Rules",
-              "- Put each artwork inside its box, centred, scaled to fit the box while keeping its own proportions.",
+              "- Put each artwork inside its box, centred, scaled to fit the box while keeping its own proportions. "
+              "A colour panel fills its box completely, with the fabric's texture and shading.",
               "- Copy every artwork exactly: the same shapes, colours, letters and proportions. Never redraw, restyle, "
               "translate, crop or invent anything. A photograph stays a photograph.",
               f"- Make it look really {method or 'printed'} on the fabric: it follows the folds and the texture, "
@@ -135,7 +144,7 @@ def compose_artwork(base: bytes, mockup: Optional[str], placements: list[dict], 
     two = any(p.get("view") == "back" for p in placements)
     halves = {"front": (0, image.width // 2 if two else image.width), "back": (image.width // 2, image.width)}
     for view, (left, right) in halves.items():
-        mine = [p for p in placements if p.get("view") == view and p.get("file_id") in pictures]
+        mine = [p for p in placements if p.get("view") == view and (p.get("file_id") in pictures or p.get("kind") == "color")]
         if not mine:
             continue
         box = _garment_box(image, left, right)
@@ -147,10 +156,15 @@ def compose_artwork(base: bytes, mockup: Optional[str], placements: list[dict], 
         gy0, gy1 = min(y for _, y in points), max(y for _, y in points)
         sx, sy = (box[2] - box[0]) / (gx1 - gx0), (box[3] - box[1]) / (gy1 - gy0)
         for p in mine:
-            try:
-                art = Image.open(io.BytesIO(pictures[p["file_id"]])).convert("RGBA")
-            except Exception:
-                continue
+            if p.get("kind") == "color":
+                w = max(4, int(p["width_cm"] / cm_per_unit * sx))
+                h = max(4, int(p["height_cm"] / cm_per_unit * sy))
+                art = Image.new("RGBA", (w, h), tuple(int(p["color"][i:i + 2], 16) for i in (1, 3, 5)) + (255,))
+            else:
+                try:
+                    art = Image.open(io.BytesIO(pictures[p["file_id"]])).convert("RGBA")
+                except Exception:
+                    continue
             w = max(4, int(p["width_cm"] / cm_per_unit * sx))
             h = max(4, int(p["height_cm"] / cm_per_unit * sy))
             art.thumbnail((w, h))
