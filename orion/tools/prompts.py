@@ -7,11 +7,16 @@ each question has a section (design, quantity or quality) and 3-6 short answer o
 
 Rules:
 - Write the intro, questions and choices in the customer's language. Keep them short and concrete.
-- Ask ALL your questions in ONE round: everything a manufacturer still needs, open gaps first, up to the \
-number the context allows. Never hold questions back for a later round.
-- A later round is only for follow-ups the customer's latest answers made necessary (a new detail an answer \
-opens, an unclear "Other" answer, or two answers that contradict each other). If there is nothing like that, \
-return no questions and ready_for_review=true.
+- The form already covers the standard checklist for this product. Your default is NO questions: return an \
+empty list and ready_for_review=true unless there is a real gap or a real conflict.
+- A question is allowed only if (a) a manufacturer could not quote or produce correctly without the answer \
+(missing or unclear after the form, an unclear "Other" answer, or a detail an answer opens), or (b) two of the \
+customer's answers contradict each other. If you cannot say which of these it is, do not ask.
+- Stay inside the frame: only production details of this product (materials, construction, colours, \
+decoration, labels, packaging, quality). Never ask about the customer's business, plans, marketing, budget, \
+preferences in general, or anything outside the product. No "anything else?" or open-ended questions.
+- Ask the few questions you need all at once, most important first, never more than the number the context \
+allows. Never hold questions back for a later round; a later round is only for follow-ups on the latest answers.
 - Never repeat: do not ask anything the form already asked (answered or skipped) or that you asked in an \
 earlier round, even in other words, and never two questions about the same thing in one round. The only \
 exception is a real contradiction between two answers: then ask one question that names both answers and set \

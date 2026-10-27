@@ -126,13 +126,13 @@ async def test_ai_asks_everything_once_then_only_follow_ups(make_app):
     prompt = await _through_form(app, "order-r")
     assert [q["id"] for q in prompt["questions"]] == ["cord_tips", "hood_lining"]
     first = consultant.deep_dive_calls[0]
-    assert not first.follow_up and first.max_questions == 12 and "ONE MAIN ROUND" in render_context(first)
+    assert not first.follow_up and first.max_questions == 5 and "ONE MAIN ROUND" in render_context(first)
 
     # The second round only follows up on the answers, with a small limit
     prompt = await send_reply(app, "order-r", {"answers": {"cord_tips": "metal", "hood_lining": "jersey"}})
     assert [q["id"] for q in prompt["questions"]] == ["tip_colour"]
     second = consultant.deep_dive_calls[1]
-    assert second.follow_up and second.max_questions == 3 and "FOLLOW-UP round" in render_context(second)
+    assert second.follow_up and second.max_questions == 2 and "FOLLOW-UP round" in render_context(second)
 
     # No third round: the summary is shown and what the check still finds goes to the team
     prompt = await send_reply(app, "order-r", {"answers": {"tip_colour": "black"}})
@@ -321,3 +321,41 @@ async def test_paused_order_with_a_re_asked_form_choice_accepts_the_ais_options(
     prompt = await send_reply(app, "order-1g", {"answers": {"sample": "عينة فقط، بدون إنتاج كامل"}})
     assert prompt["kind"] == "confirm"
     assert (await get_order(app, "order-1g"))["spec"]["answers"]["sample"] == "عينة فقط، بدون إنتاج كامل"
+
+
+# --- reorder: order the same, change only the quantity, or edit everything ----------------------
+
+def _prefill():
+    return {"market": "apparel", "option": "hoodie", "answers": dict(HOODIE_ANSWERS), "lang": "en"}
+
+
+async def test_reorder_same_goes_straight_to_the_summary_without_the_ai(make_app):
+    consultant = ScriptedConsultant(turns=[], reports=[])
+    app = make_app(consultant)
+    prompt = await start_order(app, "re-1", prefill=_prefill())
+    assert prompt["kind"] == "reorder" and prompt["quantity"] == 150 and prompt["can_change_quantity"]
+    prompt = await send_reply(app, "re-1", {"mode": "same"})
+    assert prompt["kind"] == "confirm" and "Total quantity: 150" in prompt["pre_receipt"]
+    assert consultant.deep_dive_calls == []                       # nothing is asked again
+
+
+async def test_reorder_quantity_only_asks_how_many_and_validates_it(make_app):
+    consultant = ScriptedConsultant(turns=[], reports=[])
+    app = make_app(consultant)
+    await start_order(app, "re-2", prefill=_prefill())
+    prompt = await send_reply(app, "re-2", {"mode": "quantity"})
+    assert prompt["kind"] == "form" and [q["id"] for q in prompt["questions"]] == ["size_breakdown"]
+    assert prompt["values"]["size_breakdown"] == {"S": 20, "M": 50, "L": 50, "XL": 30}   # as saved in the spec
+    prompt = await send_reply(app, "re-2", {"answers": {"size_breakdown": ""}})
+    assert prompt["kind"] == "form" and "size_breakdown" in prompt["errors"]
+    prompt = await send_reply(app, "re-2", {"answers": {"size_breakdown": "M:100, L:20"}})
+    assert prompt["kind"] == "confirm" and "Total quantity: 120" in prompt["pre_receipt"]
+    assert consultant.deep_dive_calls == []
+
+
+async def test_reorder_edit_shows_the_full_filled_form(make_app):
+    app = make_app(ScriptedConsultant(turns=[turn(ready=True)], reports=[CompletenessReport(gaps=[])]))
+    await start_order(app, "re-3", prefill=_prefill())
+    prompt = await send_reply(app, "re-3", {"mode": "edit"})
+    assert prompt["kind"] == "form" and prompt["values"]["fabric"] == HOODIE_ANSWERS["fabric"]
+    assert len(prompt["questions"]) > 5

@@ -106,8 +106,10 @@ def render_context(ctx: ConsultContext, include_chat: bool = True) -> str:
         )
     else:
         parts.append(
-            "This is your ONE MAIN ROUND: ask every question a factory still needs, all now, most important first, "
-            f"up to {ctx.max_questions}. There will be no second round except for follow-ups on these answers."
+            "This is your ONE MAIN ROUND. The form above already covered the standard checklist, so ask only what "
+            "a factory still could not do without (a real gap or a contradiction between answers), all now, most "
+            f"important first, at most {ctx.max_questions}. If the answers are complete, return no questions and "
+            "ready_for_review=true: that is the normal, expected result."
         )
     if ctx.custom:
         parts.append(

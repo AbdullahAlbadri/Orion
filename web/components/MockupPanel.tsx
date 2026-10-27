@@ -21,6 +21,7 @@ const C = {
   left: t("متبقٍ {n} من الصور لهذا الطلب", "{n} pictures left for this order"),
   none: t("استخدمت كل الصور المتاحة لهذا الطلب.", "You've used all the pictures for this order."),
   tooMany: t("طلبت صورًا كثيرة. حاول بعد قليل.", "Too many pictures for now. Try again a bit later."),
+  stay: t("لا تغلق الصفحة حتى تظهر الصورة.", "Please keep this page open until the picture appears."),
   failed: t("تعذّر رسم الصورة. حاول مرة أخرى.", "The picture couldn't be made. Please try again."),
   download: t("تنزيل", "Download"),
 };
@@ -83,10 +84,13 @@ export default function MockupPanel({ orderId, answers }: { orderId: string; ans
         {list && <span className="muted small">{remaining > 0 ? L(C.left).replace("{n}", String(remaining)) : L(C.none)}</span>}
       </div>
       {busy && (
-        <div className="mockup-frame mockup-loading" aria-busy="true" role="status">
-          <SparkleIcon />
-          <div className="mockup-bar" aria-hidden><span /></div>
-          <span className="small">{L(C.busy)}</span>
+        <div className="mockup-overlay" aria-busy="true" role="status">
+          <div className="mockup-overlay-card">
+            <SparkleIcon />
+            <strong>{L(C.busy)}</strong>
+            <div className="mockup-bar" aria-hidden><span /></div>
+            <span className="small muted">{L(C.stay)}</span>
+          </div>
         </div>
       )}
       {!busy && shown && (

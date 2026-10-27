@@ -177,6 +177,11 @@ async def test_confirmed_order_becomes_a_product_and_reorders_prefilled(api):
     new = r.json()
     prompt = new["prompt"]
     assert new["order_id"] != order_id and prompt["step"] == "mandatory_questions"   # no product choice again
+    assert prompt["kind"] == "reorder" and prompt["quantity"] == 150 and prompt["can_change_quantity"]
+    # "Edit details" shows the full form, filled in from the earlier order
+    r = await api.post(f"/orders/{new['order_id']}/reply", json={"reply": {"mode": "edit"}}, headers=_auth(token))
+    prompt = r.json()["prompt"]
+    assert prompt["kind"] == "form"
     assert prompt["values"]["fabric"] == HOODIE_ANSWERS["fabric"]
     copied = prompt["values"]["artwork"][0]
     assert copied["file_id"] != logo["file_id"]                                      # the new order's own copy

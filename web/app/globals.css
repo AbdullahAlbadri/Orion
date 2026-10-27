@@ -556,6 +556,16 @@ html[dir="ltr"] .auth-back:hover .auth-back-arrow { translate: -3px 0; }
 html[dir="rtl"] .mockup-bar span { transform-origin: right; }
 @keyframes mockup-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 .mockup-loading .small { color: var(--muted); text-align: center; }
+/* the whole screen is covered until the picture exists */
+.mockup-overlay { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 20px;
+  background: rgba(9, 9, 12, .82); backdrop-filter: blur(6px); }
+.mockup-overlay-card { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; max-width: 360px;
+  padding: 32px 28px; border-radius: 18px; background: var(--card); border: 1px solid var(--line); color: var(--yellow); }
+.mockup-overlay-card svg { width: 40px; height: 40px; animation: mockup-pulse 1.6s ease-in-out infinite; }
+.mockup-overlay-card strong { color: var(--text); font-weight: 600; }
+.mockup-overlay-card .mockup-bar { width: 100%; }
+@keyframes mockup-pulse { 50% { transform: scale(1.18); opacity: .6; } }
+@media (prefers-reduced-motion: reduce) { .mockup-overlay-card svg { animation: none; } }
 @keyframes mockup-shimmer { to { background-position: -300% 0; } }
 @media (prefers-reduced-motion: reduce) { .mockup-loading, .mockup-bar span { animation: none; } }
 .mockup-placeholder { display: block; aspect-ratio: 1 / 1; background: var(--card); }

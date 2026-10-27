@@ -30,6 +30,8 @@ class OrderState(TypedDict, total=False):
     # Reorder: {"market", "option", "answers", "labels", "sections"} from an earlier order. Used once to skip
     # the product choice and fill in the form; the customer still reviews and confirms every step.
     prefill: Optional[dict]
+    reorder: bool                  # a reorder that has not yet chosen: order the same, change the quantity, or edit
+    reorder_skip: bool             # the customer kept the earlier details: skip the AI questions, go to the summary
 
     # Manufacturer phase
     spec_zh: Optional[dict]        # {"product_zh", "fields": [{"id", "label_zh", "value_zh", "value_en"}]}

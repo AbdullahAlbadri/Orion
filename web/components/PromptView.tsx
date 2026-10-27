@@ -34,6 +34,8 @@ export default function PromptView({ order, send, busy }: { order: OrderView; se
       return <Choice prompt={prompt} send={send} busy={busy} />;
     case "form":
       return <SectionedForm key={`${prompt.step}:${prompt.questions.map((q) => q.id).join(",")}:${JSON.stringify(prompt.errors)}`} orderId={order.order_id} prompt={prompt} send={send} busy={busy} />;
+    case "reorder":
+      return <ReorderChoice prompt={prompt} send={send} busy={busy} orderId={order.order_id} />;
     case "confirm":
       return <Confirm prompt={prompt} send={send} busy={busy} orderId={order.order_id} />;
     case "quote":
@@ -91,6 +93,38 @@ function Choice({ prompt, send, busy }: { prompt: Extract<Prompt, { kind: "choic
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/** A reorder: the earlier details as a summary, and three ways on. Nothing is asked again unless the customer wants to. */
+function ReorderChoice({ prompt, send, busy, orderId }: {
+  prompt: Extract<Prompt, { kind: "reorder" }>; send: Send; busy: boolean; orderId: string;
+}) {
+  const { lang } = useLang();
+  const L = (ar: string, en: string) => (lang === "ar" ? ar : en);
+  return (
+    <div className="stack">
+      <div>
+        <h2 dir="auto" style={{ marginBottom: 4 }}>{lang === "ar" && prompt.prompt_ar ? prompt.prompt_ar : prompt.prompt}</h2>
+        <p className="muted" style={{ margin: 0 }}>
+          {L("نفس التفاصيل والملفات من طلبك السابق. اختر كيف تكمل:", "The same details and files as your earlier order. Choose how to continue:")}
+        </p>
+      </div>
+      <Receipt summary={prompt.summary} orderId={orderId} />
+      <div className="row">
+        <button className="btn" disabled={busy} onClick={() => send({ mode: "same" })}>
+          {busy ? "…" : L(`اطلب نفس الكمية${prompt.quantity ? ` (${prompt.quantity})` : ""}`, `Order the same${prompt.quantity ? ` (${prompt.quantity})` : ""}`)}
+        </button>
+        {prompt.can_change_quantity && (
+          <button className="btn-ghost" disabled={busy} onClick={() => send({ mode: "quantity" })}>
+            {L("غيّر الكمية فقط", "Change the quantity only")}
+          </button>
+        )}
+        <button className="btn-ghost" disabled={busy} onClick={() => send({ mode: "edit" })}>
+          {L("عدّل التفاصيل", "Edit the details")}
+        </button>
+      </div>
     </div>
   );
 }

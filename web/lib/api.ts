@@ -155,6 +155,10 @@ export type Prompt =
       values: Record<string, unknown>; errors: Record<string, string>;
     }
   | {
+      step: string; kind: "reorder"; prompt: string; prompt_ar?: string | null; summary: Summary;
+      quantity: number | null; can_change_quantity: boolean;
+    }
+  | {
       step: string; kind: "confirm"; prompt: string; prompt_ar?: string | null; pre_receipt: string;
       summary?: Summary | null; error?: string | null;
     }

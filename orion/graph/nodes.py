@@ -32,9 +32,9 @@ log = logging.getLogger(__name__)
 
 WAIT = "wait_for_customer"
 _QUANTITY_QUESTION = Question(id=QUANTITY_ID, prompt="Total quantity", type="number")
-MAX_FOLLOW_UPS = 12            # the AI's one main round asks everything still needed at once
-MAX_FOLLOW_UPS_CUSTOM = 15     # a custom product starts from a description, so its main round asks more
-MAX_FOLLOW_UPS_LATER = 3       # a later round only follows up on answers (Policy.ai_question_rounds)
+MAX_FOLLOW_UPS = 5             # the form is already complete; the AI main round only closes real gaps
+MAX_FOLLOW_UPS_CUSTOM = 12     # a custom product starts from a description, so its main round asks more
+MAX_FOLLOW_UPS_LATER = 2       # a later round only follows up on answers (Policy.ai_question_rounds)
 FOLLOW_UP_INTRO = {"en": "A few more details to get your product right:", "ar": "بعض التفاصيل الإضافية لنصنع منتجك بدقة:"}
 
 
@@ -175,7 +175,7 @@ def pick_option(state: OrderState) -> dict:
     prefill = state.get("prefill") or {}
     if reply is None and prefill.get("option") in options:
         spec = _prefilled_spec(market, prefill["option"], prefill)
-        return {"spec": spec.model_dump(), "pending": None, "prefill": None, **_lang(prefill)}
+        return {"spec": spec.model_dump(), "pending": None, "prefill": None, "reorder": True, **_lang(prefill)}
     if reply is not None:
         option_id = _match_choice(_reply_value(reply, "choice"), options)
         if option_id:
@@ -194,6 +194,50 @@ def pick_option(state: OrderState) -> dict:
     }
 
 
+def _reorder_step(state: OrderState, spec: ProductSpec, questions: list[Question]) -> dict | None:
+    """A reorder asks first what the customer wants: order the same, change only the quantity, or edit the
+    details. Returns the node's update, or None when the customer wants the full form (or it is needed because a
+    required question has no earlier answer). TODO(decide): whether "order the same" may also skip the summary."""
+    reply, pending = state.get("reply"), state.get("pending") or {}
+    lang = state.get("lang", "en")
+    how_many = [q for q in questions if q.id in (QUANTITY_ID, SIZE_TABLE_ID)]
+    if any(q.required and q.id not in spec.answers for q in questions):
+        return None
+    done = {"spec": spec.model_dump(), "reply": None, "pending": None, "reorder": False, "reorder_skip": True}
+
+    if reply is not None and pending.get("quick"):           # the quantity form
+        raw_answers = _reply_value(reply, "answers") or {}
+        errors = {}
+        for q in how_many:
+            try:
+                spec.set_answer(q.id, validate_answer(q, raw_answers.get(q.id)))
+            except InvalidAnswer as e:
+                errors[q.id] = str(e)
+        if not errors:
+            return {**done, "spec": spec.model_dump(), **_lang(reply)}
+        return {"reply": None, "pending": {**pending, "values": raw_answers, "errors": errors}}
+
+    mode = _reply_value(reply, "mode") if reply is not None else None
+    if mode == "edit":
+        return None
+    if mode == "same":
+        return {**done, **_lang(reply)}
+    if mode == "quantity" and how_many:
+        return {"reply": None, "pending": {
+            "step": "mandatory_questions", "kind": "form", "quick": True,
+            "prompt": "How many do you need this time?", "prompt_ar": "كم تحتاج هذه المرة؟",
+            "questions": [q.model_dump() for q in how_many],
+            "values": {q.id: spec.answers.get(q.id) for q in how_many if q.id in spec.answers}, "errors": {},
+        }}
+    market = _market(state)
+    return {"reply": None, "pending": {
+        "step": "mandatory_questions", "kind": "reorder",
+        "prompt": "Order this again?", "prompt_ar": "تطلب هذا المنتج مرة أخرى؟",
+        "summary": build_summary(spec, market, questions, lang), "quantity": spec.quantity,
+        "can_change_quantity": bool(how_many),
+    }}
+
+
 def mandatory_questions(state: OrderState) -> dict:
     spec = _spec(state)
     questions = get_questions(spec.market, spec.option)
@@ -202,6 +246,12 @@ def mandatory_questions(state: OrderState) -> dict:
 
     errors: dict[str, str] = {}
     reply = state.get("reply")
+    extra: dict = {}
+    if state.get("reorder"):
+        out = _reorder_step(state, spec, questions)
+        if out is not None:
+            return out
+        extra, reply = {"reorder": False}, None   # the customer chose to edit: the full form, filled in
     if reply is not None:
         raw_answers = _reply_value(reply, "answers") or {}
         for q in questions:
@@ -218,6 +268,7 @@ def mandatory_questions(state: OrderState) -> dict:
             return {"spec": spec.model_dump(), "reply": None, "pending": None, **_lang(reply)}
 
     return {
+        **extra,
         "spec": spec.model_dump(),
         "reply": None,
         "pending": {
@@ -395,7 +446,10 @@ async def deep_dive(state: OrderState, consultant: Consultant, policy: Policy = 
     # the AI must ask the customer something rather than declaring itself done again.
     ready = last or (turn.ready_for_review and not (reply is None and spec.open_gaps))
     if not ready and not questions:
-        questions = _gap_questions(spec)
+        if spec.open_gaps:
+            questions = _gap_questions(spec)
+        else:
+            ready = True    # nothing real left to ask: never invent a question
 
     update = {"spec": spec.model_dump(), "messages": messages, "reply": None, "pending": None, **lang_update}
     if not ready:
@@ -504,6 +558,12 @@ def wait_or(next_node: str):
 
 def resume_step(state: OrderState) -> str:
     return state["pending"]["step"]
+
+
+def route_after_mandatory(state: OrderState) -> str:
+    if state.get("pending"):
+        return WAIT
+    return "build_pre_receipt" if state.get("reorder_skip") else "deep_dive"
 
 
 def route_after_completeness(state: OrderState) -> str:

@@ -104,7 +104,8 @@ def build_graph(deps: Deps, checkpointer: BaseCheckpointSaver, policy: Optional[
     g.add_edge(START, "select_market")
     g.add_conditional_edges("select_market", nodes.wait_or("pick_option"), [nodes.WAIT, "pick_option"])
     g.add_conditional_edges("pick_option", nodes.wait_or("mandatory_questions"), [nodes.WAIT, "mandatory_questions"])
-    g.add_conditional_edges("mandatory_questions", nodes.wait_or("deep_dive"), [nodes.WAIT, "deep_dive"])
+    g.add_conditional_edges("mandatory_questions", nodes.route_after_mandatory,
+                            [nodes.WAIT, "deep_dive", "build_pre_receipt"])
     g.add_conditional_edges("deep_dive", nodes.wait_or("completeness_check"), [nodes.WAIT, "completeness_check"])
     g.add_conditional_edges(
         "completeness_check", nodes.route_after_completeness, ["deep_dive", "build_pre_receipt"]
