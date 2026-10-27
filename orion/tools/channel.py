@@ -3,7 +3,7 @@
 `send_to_manufacturer` is the only way nodes send anything, so the price guard cannot be skipped.
 """
 
-from typing import Protocol
+from typing import Optional, Protocol
 
 from pydantic import BaseModel
 
@@ -16,6 +16,8 @@ class OutgoingMessage(BaseModel):
     manufacturer_id: str
     text: str
     files: list[dict] = []  # the order's uploaded files to send along: [{file_id, name, content_type}]
+    # Placement drawing to attach: {"mockup": garment drawing key, "placements": [...]}, drawn when the message is sent
+    diagram: Optional[dict] = None
 
 
 class Channel(Protocol):

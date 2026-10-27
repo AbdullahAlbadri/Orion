@@ -16,7 +16,9 @@ from orion.config.china_calendar import KNOWN_YEARS, add_working_days
 from orion.config.markets import MARKETS, get_questions
 from orion.config.policy import Policy
 from orion.db.stores import ManufacturerDirectory, PriceRecord, PriceStore, Scheduler
-from orion.graph.manufacturer_request import not_translated, render_reminder, render_request, request_files
+from orion.graph.manufacturer_request import (
+    not_translated, placement_diagram, render_reminder, render_request, request_files,
+)
 from orion.graph.state import OrderState
 from orion.spec import QUANTITY_ID, ProductSpec, format_answer
 from orion.tools.channel import BlockedMessage, Channel, OutgoingMessage, send_to_manufacturer
@@ -112,6 +114,7 @@ async def contact_manufacturer(
         manufacturer_id=manufacturer.id,
         text=render_request(spec, state["spec_zh"], state["order_id"]),
         files=request_files(spec),
+        diagram=placement_diagram(spec),
     )
     try:
         await send_to_manufacturer(channel, message)

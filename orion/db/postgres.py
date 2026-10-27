@@ -10,6 +10,7 @@ from psycopg_pool import AsyncConnectionPool
 
 from orion.db.stores import DeadlineKind, Manufacturer, PriceRecord
 from orion.tools.channel import OutgoingMessage
+from orion.tools import placement_diagram
 from orion.tools.mail import Attachment, Mailer, is_email, subject_for
 
 MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024    # Gmail refuses mail over 25 MB
@@ -251,8 +252,26 @@ class EmailRelayChannel(ManualRelayChannel):
             return
         await self.mark_sent(message.id)
 
+    async def _diagram(self, message: OutgoingMessage) -> list[Attachment]:
+        """The placement drawing with the customer's own pictures on it."""
+        if not message.diagram:
+            return []
+        pictures = {}
+        for p in message.diagram["placements"]:
+            fid = p.get("file_id")
+            if fid and fid not in pictures and self.load_file:
+                loaded = await self.load_file(message.order_id, fid)
+                if loaded:
+                    pictures[fid] = loaded[0]
+        try:
+            png = placement_diagram.render(message.diagram.get("mockup"), message.diagram["placements"], pictures)
+        except Exception:
+            log.exception("placement drawing for %s failed; sent without it", message.id)
+            return []
+        return [("placement-diagram.png", png, "image/png")] if png else []
+
     async def _attachments(self, message: OutgoingMessage) -> list[Attachment]:
-        out, total = [], 0
+        out, total = await self._diagram(message), 0
         for f in message.files:
             loaded = await self.load_file(message.order_id, f["file_id"]) if self.load_file else None
             if loaded is None:
