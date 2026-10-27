@@ -18,7 +18,10 @@ class Settings(BaseSettings):
     manufacturer_reasoning_effort: Optional[str] = "low"   # low / medium / high, or empty for the model default
     classifier_model: str
     assist_model: str = "anthropic/claude-haiku-5.5"   # "Ask Orion" help on form sections (cheap)
-    mockup_model: str = "bytedance-seed/seedream-5-0-pro"  # AI product mockups, about $0.09 each; Google nano-banana kept hitting 429 quota errors
+    # AI product mockups. GPT Image 2 follows a long written brief best; Seedream (about $0.09 a picture) is the
+    # fallback when it fails. Google nano-banana kept hitting 429 quota errors.
+    mockup_model: str = "openai/gpt-image-2"
+    mockup_fallback_model: str = "bytedance-seed/seedream-5-0-pro"
 
     database_url: str
 

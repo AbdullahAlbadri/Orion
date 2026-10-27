@@ -6,6 +6,7 @@ import io
 from PIL import Image, ImageDraw
 
 from orion.config.markets import get_questions
+from orion.tools.brief import mockup_brief
 from orion.tools.mockup import MockupImage, compose_artwork, mockup_prompt
 from test_api import PNG, _auth, _login, api  # noqa: F401  (api is a fixture)
 
@@ -29,7 +30,7 @@ def test_prompt_describes_the_look_and_the_logo_position_not_the_logistics():
                "decoration_placement": LOGO_AT_LEFT_CHEST, "needed_by": "flexible", "packaging": ["branded box"]}
     prompt, aspect = mockup_prompt("Hoodie", questions, answers)
     assert "custom Hoodie" in prompt and "black" in prompt and "embroidery" in prompt and "cotton fleece" in prompt
-    assert "completely blank" in prompt and "pure white" in prompt        # the real artwork is added in code
+    assert "completely blank" in prompt and "pure white" in prompt and "OVERRIDE" in prompt        # the real artwork is added in code
     assert "flexible" not in prompt and "branded box" not in prompt and aspect == "1:1"
 
     back = LOGO_AT_LEFT_CHEST + [{"kind": "logo", "view": "back", "x": 0.5, "y": 0.45, "width_cm": 30, "height_cm": 36}]
@@ -103,3 +104,13 @@ async def test_customer_makes_mockups_from_the_form_with_their_logo(api):
     assert r.status_code == 409                                       # 5 per order
     listed = (await api.get(f"/orders/{order}/mockups", headers=_auth(token))).json()
     assert len(listed["mockups"]) == 5 and listed["remaining"] == 0
+
+
+def test_the_brief_is_a_numbered_markdown_file_that_overrides_the_product_name():
+    questions = get_questions("apparel", "hoodie")
+    brief, back = mockup_brief("Hoodie", questions, {"hoodie_style": "zip-up", "collar": "crew neck, no hood",
+                                                     "needed_by": "flexible", "decoration_placement": LOGO_AT_LEFT_CHEST})
+    assert brief.startswith("# Product brief: custom Hoodie") and not back
+    assert "1. **Hoodie style** (Type): zip-up" in brief and "(Collar): crew neck, no hood" in brief
+    assert "OVERRIDE" in brief and "no hood" in brief and "flexible" not in brief
+    assert "Check the picture against requirements 1 to 2" in brief

@@ -20,6 +20,7 @@ from orion.spec import Section, is_file_list, is_placement_list
 from orion.tools.assist import safe_answer
 from orion.config.policy import Policy
 from orion.tools.files import ALLOWED, MAX_FILES_PER_ORDER, sniff_type
+from orion.tools.brief import mockup_brief
 from orion.tools.mockup import REFERENCE_TYPES, compose_artwork, mockup_prompt
 from orion.graph.graph import OrderNotWaiting, get_order, waiting_on
 from orion.runtime import discard_order, send_customer_reply, start_customer_order
@@ -285,6 +286,19 @@ async def _mockup_list(c: ApiContext, order_id: str) -> dict:
 async def list_mockups(order_id: str, c: ApiContext = Depends(ctx), claims: TokenClaims = Depends(current_customer)) -> dict:
     await _owned(c, order_id, claims)
     return await _mockup_list(c, order_id)
+
+
+@router.get("/{order_id}/brief.md")
+async def order_brief(order_id: str, c: ApiContext = Depends(ctx), claims: TokenClaims = Depends(current_customer)) -> Response:
+    """The order as a Markdown brief (what the picture maker is told), from the details filled in so far."""
+    await _owned(c, order_id, claims)
+    spec = (await get_order(c.graph, order_id)).get("spec")
+    if not spec:
+        raise HTTPException(status.HTTP_409_CONFLICT, "pick a product first")
+    brief, _ = mockup_brief(MARKETS[spec["market"]].options[spec["option"]].name,
+                            get_questions(spec["market"], spec["option"]), spec.get("answers") or {})
+    return Response(brief, media_type="text/markdown; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="{order_id}-brief.md"'})
 
 
 @router.post("/{order_id}/mockups", status_code=status.HTTP_201_CREATED)

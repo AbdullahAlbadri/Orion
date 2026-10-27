@@ -72,7 +72,8 @@ def create_app(context: Optional[ApiContext] = None, settings: Optional[Settings
                     settings.openrouter_api_key.get_secret_value(), settings.openrouter_base_url, settings.assist_model
                 ),
                 mockups=OpenRouterMockupMaker(
-                    settings.openrouter_api_key.get_secret_value(), settings.openrouter_base_url, settings.mockup_model
+                    settings.openrouter_api_key.get_secret_value(), settings.openrouter_base_url, settings.mockup_model,
+                    settings.mockup_fallback_model,
                 ),
             )
             log.info("API ready (sign-in: email%s)", "".join(f", {p}" for p in verifiers))

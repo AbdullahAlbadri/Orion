@@ -6,6 +6,7 @@ what gets made, and mockups are never sent to a factory.
 """
 
 import base64
+import logging
 import io
 from dataclasses import dataclass
 from typing import Any, Optional, Protocol
@@ -13,10 +14,13 @@ from typing import Any, Optional, Protocol
 import httpx
 from PIL import Image, ImageChops, ImageStat
 
+from orion.tools.brief import mockup_brief
 from orion.tools.placement_diagram import GARMENTS, VIEW_H, VIEW_W, parse_path
 from orion.spec import (
     QUANTITY_ID, SIZE_TABLE_ID, Question, format_answer, is_file_list, is_placement_list,
 )
+
+log = logging.getLogger("orion.mockup")
 
 # Raster formats image models accept as a reference (SVG, PDF and EPS logos can't be shown)
 REFERENCE_TYPES = {"image/png", "image/jpeg", "image/webp"}
@@ -38,30 +42,10 @@ class MockupMaker(Protocol):
 
 
 def mockup_prompt(product: str, questions: list[Question], answers: dict[str, Any]) -> tuple[str, str]:
-    """(prompt, aspect ratio) for the BLANK product: the customer's own pictures are never given to the image model
-    (it redraws them); `compose_artwork` puts the real files on the photo afterwards."""
-    details, placements = [], []
-    for q in questions:
-        value = answers.get(q.id)
-        if q.id in NOT_VISUAL or value in (None, "", []) or is_file_list(value) or q.type == "file":
-            continue
-        if is_placement_list(value):
-            placements = value
-            continue
-        if q.type == "placement":
-            continue
-        details.append(f"- {q.prompt.rstrip('?؟:. ')}: {format_answer(value)[:200]}")
-
-    back = any(p.get("view") == "back" for p in placements)
-    lines = [f"Photorealistic e-commerce product photo of a plain, blank custom {product}, for a brand mockup.", "",
-             "Product details:", *details, "",
-             "The garment is completely blank: no logo, no print, no embroidery, no text, no label, no pattern "
-             "or graphic of any kind on the fabric. (Any logos are added afterwards.)",
-             "", ("Show the front and back views side by side, each facing the camera straight on and centred in its "
-                  "half of the picture" if back else "Show the front view, facing the camera straight on and centred")
-             + ", on an invisible mannequin, on a seamless pure white studio background with soft even lighting. "
-               "No people, no hands, no extra props."]
-    return "\n".join(lines), ("16:9" if back else "1:1")
+    """(prompt, aspect ratio) for the BLANK product: the order brief (Markdown) in full. The customer's own pictures
+    are never given to the image model (it redraws them); `compose_artwork` puts the real files on afterwards."""
+    brief, back = mockup_brief(product, questions, answers)
+    return brief, ("16:9" if back else "1:1")
 
 
 def _garment_box(image: Image.Image, left: int, right: int) -> Optional[tuple[int, int, int, int]]:
@@ -124,11 +108,21 @@ def compose_artwork(base: bytes, mockup: Optional[str], placements: list[dict], 
 class OpenRouterMockupMaker:
     """OpenRouter's image endpoint (POST /images) with the logo as an input reference."""
 
-    def __init__(self, api_key: str, base_url: str, model: str):
+    def __init__(self, api_key: str, base_url: str, model: str, fallback_model: str = ""):
         self._key, self._url, self.model = api_key, base_url.rstrip("/") + "/images", model
+        self._fallback = fallback_model
 
     async def make(self, prompt: str, references: list[tuple[bytes, str]], aspect_ratio: str) -> MockupImage:
-        body: dict[str, Any] = {"model": self.model, "prompt": prompt, "aspect_ratio": aspect_ratio}
+        try:
+            return await self._make(self.model, prompt, references, aspect_ratio)
+        except Exception:
+            if not self._fallback or self._fallback == self.model:
+                raise
+            log.exception("mockup model %s failed; trying %s", self.model, self._fallback)
+            return await self._make(self._fallback, prompt, references, aspect_ratio)
+
+    async def _make(self, model: str, prompt: str, references: list[tuple[bytes, str]], aspect_ratio: str) -> MockupImage:
+        body: dict[str, Any] = {"model": model, "prompt": prompt, "aspect_ratio": aspect_ratio}
         if references:
             body["input_references"] = [
                 {"type": "image_url",
