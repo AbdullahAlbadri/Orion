@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from orion import deps as deps_module   # the startup code below has its own variable called deps
-from orion.api import auth, inbox, me, orders, products, team
+from orion.api import auth, inbox, me, orders, products, team, wecom
 from orion.api.context import ApiContext
 from orion.api.oidc import apple_verifier, google_verifier
 from orion.config.settings import Settings, get_settings
@@ -95,6 +95,7 @@ def create_app(context: Optional[ApiContext] = None, settings: Optional[Settings
     app.include_router(me.router)
     app.include_router(inbox.router)
     app.include_router(team.router)
+    app.include_router(wecom.router)
 
     # Team console: static page using the team API from the same origin
     app.mount("/console", StaticFiles(directory=CONSOLE_DIR, html=True), name="console")

@@ -40,7 +40,7 @@ Search the code for `TODO(decide)` to find every open flag.
 - Price dataset shape: per quantity bracket, or one price per product?
 - Weekly price collection: sent by a person, or a fixed agent message that only records answers?
 - Email approach (Gmail API vs transactional service plus inbox)
-- WeChat route (WeCom vs human relay first); verify current options
+- WeChat route: WeCom "WeChat Customer Service" (微信客服) API. The factory opens our customer-service link first; then Orion may send 5 messages (2048 bytes each) per 48 h after each of their messages. Verified in the official docs; callback URL and client built, channel and worker pull still to do. Manual relay stays the fallback.
 - Payment provider, and licensing/tax/accounting advice
 - Customs/SASO requirements per product category (ask a customs broker)
 - Sample policy

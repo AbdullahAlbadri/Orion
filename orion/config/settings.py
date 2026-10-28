@@ -42,6 +42,13 @@ class Settings(BaseSettings):
     smtp_host: str = "smtp.gmail.com"
     smtp_port: int = 587   # STARTTLS; 465 (implicit TLS) also works but Hetzner blocks it
     imap_host: str = "imap.gmail.com"
+    # WeChat via WeCom's customer-service API. The callback URL (/webhooks/wecom/callback) stays off until
+    # the company id, token and key are set.
+    wecom_corp_id: Optional[str] = None
+    wecom_kf_secret: SecretStr = SecretStr("")        # the customer-service secret from the WeCom console
+    wecom_open_kfid: Optional[str] = None             # the customer-service account's id
+    wecom_callback_token: Optional[str] = None
+    wecom_encoding_aes_key: SecretStr = SecretStr("")
     google_client_id: Optional[str] = None            # Google sign-in is off until this is set
     apple_client_id: Optional[str] = None             # Apple sign-in is off until this is set
 
