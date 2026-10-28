@@ -184,4 +184,4 @@ def test_a_colour_patch_is_placed_like_a_logo_and_described_with_its_colour():
     buf = io.BytesIO()
     photo.save(buf, "PNG")
     boxes = target_boxes(buf.getvalue(), "hoodie", value)
-    assert "a solid red fabric panel, exactly #c81e28" in artwork_prompt(boxes, [None])
+    assert "re-colour the garment's fabric inside this box to red, exactly #c81e28" in artwork_prompt(boxes, [None])
