@@ -41,6 +41,8 @@ def mockup_brief(product: str, questions: list[Question], answers: dict[str, Any
              "- Follow every numbered requirement. Do not add, drop or change anything.",
              "- The garment is completely blank: no logo, no print, no embroidery, no text, no label, no pattern or "
              "graphic of any kind on the fabric (the customer's artwork is added afterwards).",
+             "- When a requirement gives a colour for a part of the garment (body, sleeves, cuffs, hem, collar, hood...), "
+             "that whole part is exactly that colour. The parts keep their natural shapes and seams.",
              "- No people, no hands, no extra props."]
     n = 0
     for section in ("design", "quality", "quantity"):

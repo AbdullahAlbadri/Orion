@@ -131,3 +131,22 @@ def test_the_editing_pass_gets_a_numbered_guide_and_a_written_instruction():
     assert "Box 1 (front view, 20 x 10 cm logo): artwork = image 3" in prompt
     assert "Box 2 (back view, 5 x 2.5 cm label): artwork = image 4" in prompt
     assert "really embroidery" in prompt and "Remove the magenta boxes" in prompt
+
+
+def test_a_colour_patch_dyes_only_the_garment_and_keeps_the_shading():
+    from PIL import Image, ImageDraw
+
+    from orion.tools.mockup import compose_artwork
+
+    photo = Image.new("RGB", (400, 400), "white")
+    draw = ImageDraw.Draw(photo)
+    draw.rectangle((100, 40, 300, 380), fill=(225, 210, 180))           # the garment
+    draw.line((100, 200, 300, 200), fill=(170, 155, 130), width=6)      # a fold
+    buffer = io.BytesIO()
+    photo.save(buffer, "PNG")
+    patch = {"kind": "color", "view": "front", "x": 0.5, "y": 0.5, "width_cm": 200, "height_cm": 200, "color": "#2e7d32"}
+    out = Image.open(io.BytesIO(compose_artwork(buffer.getvalue(), "tee", [patch], {})))
+    assert out.getpixel((5, 5)) == (255, 255, 255)                      # the background stays white
+    on_fabric, on_fold = out.getpixel((200, 100)), out.getpixel((200, 200))
+    assert on_fabric[1] > on_fabric[0] and on_fabric[1] > on_fabric[2]   # green
+    assert sum(on_fold) < sum(on_fabric)                                 # the fold is still darker

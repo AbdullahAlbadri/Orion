@@ -118,14 +118,16 @@ def artwork_prompt(boxes: list[tuple[dict, tuple[int, int, int, int]]], logo_num
     for n, ((p, _), image_no) in enumerate(zip(boxes, logo_numbers), 1):
         size = f"{p['width_cm']:g} x {p['height_cm']:g} cm"
         if p.get("kind") == "color":
-            lines.append(f"- Box {n} ({p['view']} view, {size}): a solid {color_name(p['color'])} fabric panel, exactly "
-                         f"{p['color']}, filling the whole box (no image: dye or sew-in fabric, not a print)")
+            lines.append(f"- Box {n} ({p['view']} view, {size}): re-colour the garment's fabric inside this box to "
+                         f"{color_name(p['color'])}, exactly {p['color']} (no image: dyed or sewn-in fabric, not a print). "
+                         "Only the garment changes: never paint on the background, and follow the garment's outline "
+                         "and seams where the box crosses them.")
         else:
             kind = "logo" if p.get("kind") == "logo" else "label"
             lines.append(f"- Box {n} ({p['view']} view, {size} {kind}): artwork = image {image_no}")
     lines += ["", "## Rules",
               "- Put each artwork inside its box, centred, scaled to fit the box while keeping its own proportions. "
-              "A colour panel fills its box completely, with the fabric's texture and shading.",
+              "A colour panel recolours the fabric in its box, keeping the fabric's texture, folds and shading.",
               "- Copy every artwork exactly: the same shapes, colours, letters and proportions. Never redraw, restyle, "
               "translate, crop or invent anything. A photograph stays a photograph.",
               f"- Make it look really {method or 'printed'} on the fabric: it follows the folds and the texture, "
@@ -133,6 +135,33 @@ def artwork_prompt(boxes: list[tuple[dict, tuple[int, int, int, int]]], logo_num
               "- Remove the magenta boxes and numbers completely: they are not part of the product.",
               "- Do not add anything else: no other logos, text or changes to the garment or the background."]
     return "\n".join(lines) + "\n"
+
+
+def _garment_mask(image: Image.Image) -> Image.Image:
+    """White where the garment is, black on the background (the part of the photo that differs from the white
+    backdrop and is not connected to its edge)."""
+    rgb = image.convert("RGB")
+    corners = [rgb.getpixel(c) for c in ((2, 2), (rgb.width - 3, 2), (2, rgb.height - 3), (rgb.width - 3, rgb.height - 3))]
+    bg = tuple(sorted(c[i] for c in corners)[1] for i in range(3))
+    mask = ImageChops.difference(rgb, Image.new("RGB", rgb.size, bg)).convert("L").point(lambda v: 255 if v > 28 else 0)
+    for corner in ((0, 0), (mask.width - 1, 0), (0, mask.height - 1), (mask.width - 1, mask.height - 1)):
+        if mask.getpixel(corner) == 0:
+            ImageDraw.floodfill(mask, corner, 128)         # the backdrop; what stays 0 or 255 is inside the garment
+    return mask.point(lambda v: 0 if v == 128 else 255)
+
+
+def _dye(image: Image.Image, garment: Image.Image, box: tuple[int, int, int, int], color: str) -> None:
+    """Colour the fabric inside `box` (only where the garment is) with `color`, keeping the folds and shading."""
+    box = (max(0, box[0]), max(0, box[1]), min(image.width, box[2]), min(image.height, box[3]))
+    if box[2] - box[0] < 2 or box[3] - box[1] < 2:
+        return
+    region, mask = image.crop(box), garment.crop(box)
+    light = region.convert("L")
+    mean = max(1, ImageStat.Stat(light, mask).mean[0])
+    shade = light.point(lambda v, m=mean: max(60, min(255, int(v / m * 0.85 * 255))))
+    rgb = [int(color[i:i + 2], 16) for i in (1, 3, 5)]
+    dyed = Image.merge("RGB", [ImageChops.multiply(Image.new("L", region.size, c), shade) for c in rgb])
+    image.paste(dyed, box[:2], mask)
 
 
 def compose_artwork(base: bytes, mockup: Optional[str], placements: list[dict], pictures: dict[str, bytes]) -> bytes:
@@ -143,6 +172,7 @@ def compose_artwork(base: bytes, mockup: Optional[str], placements: list[dict], 
     cm_per_unit, views = GARMENTS.get(mockup or "", GARMENTS["tee"])
     two = any(p.get("view") == "back" for p in placements)
     halves = {"front": (0, image.width // 2 if two else image.width), "back": (image.width // 2, image.width)}
+    garment = _garment_mask(image)
     for view, (left, right) in halves.items():
         mine = [p for p in placements if p.get("view") == view and (p.get("file_id") in pictures or p.get("kind") == "color")]
         if not mine:
@@ -156,20 +186,18 @@ def compose_artwork(base: bytes, mockup: Optional[str], placements: list[dict], 
         gy0, gy1 = min(y for _, y in points), max(y for _, y in points)
         sx, sy = (box[2] - box[0]) / (gx1 - gx0), (box[3] - box[1]) / (gy1 - gy0)
         for p in mine:
-            if p.get("kind") == "color":
-                w = max(4, int(p["width_cm"] / cm_per_unit * sx))
-                h = max(4, int(p["height_cm"] / cm_per_unit * sy))
-                art = Image.new("RGBA", (w, h), tuple(int(p["color"][i:i + 2], 16) for i in (1, 3, 5)) + (255,))
-            else:
-                try:
-                    art = Image.open(io.BytesIO(pictures[p["file_id"]])).convert("RGBA")
-                except Exception:
-                    continue
             w = max(4, int(p["width_cm"] / cm_per_unit * sx))
             h = max(4, int(p["height_cm"] / cm_per_unit * sy))
-            art.thumbnail((w, h))
             cx = box[0] + (p["x"] * VIEW_W - gx0) * sx
             cy = box[1] + (p["y"] * VIEW_H - gy0) * sy
+            if p.get("kind") == "color":
+                _dye(image, garment, (int(cx - w / 2), int(cy - h / 2), int(cx + w / 2), int(cy + h / 2)), p["color"])
+                continue
+            try:
+                art = Image.open(io.BytesIO(pictures[p["file_id"]])).convert("RGBA")
+            except Exception:
+                continue
+            art.thumbnail((w, h))
             pos = (int(cx - art.width / 2), int(cy - art.height / 2))
             # fabric folds and shading show through a little, so it reads as printed rather than pasted
             crop = image.crop((pos[0], pos[1], pos[0] + art.width, pos[1] + art.height)).convert("L")
