@@ -28,7 +28,8 @@ def visual_answers(questions: list[Question], answers: dict[str, Any]) -> tuple[
     return rows, placements
 
 
-def mockup_brief(product: str, questions: list[Question], answers: dict[str, Any]) -> tuple[str, bool]:
+def mockup_brief(product: str, questions: list[Question], answers: dict[str, Any],
+                 garment: bool = True) -> tuple[str, bool]:
     """(the Markdown brief, whether it shows front and back)."""
     rows, placements = visual_answers(questions, answers)
     back = any(p.get("view") == "back" for p in placements)
@@ -39,10 +40,11 @@ def mockup_brief(product: str, questions: list[Question], answers: dict[str, Any
              "name and your usual idea of it. If a requirement removes or changes a standard part (for example no "
              "hood, no zipper, a different neckline or sleeve), draw it changed or removed, never the usual version.",
              "- Follow every numbered requirement. Do not add, drop or change anything.",
-             "- The garment is completely blank: no logo, no print, no embroidery, no text, no label, no pattern or "
-             "graphic of any kind on the fabric (the customer's artwork is added afterwards).",
-             "- When a requirement gives a colour for a part of the garment (body, sleeves, cuffs, hem, collar, hood...), "
-             "that whole part is exactly that colour. The parts keep their natural shapes and seams.",
+             "- The product is completely blank: no logo, no print, no embroidery, no text, no label, no pattern or "
+             "graphic of any kind on its surface (the customer's artwork is added afterwards).",
+             *(["- When a requirement gives a colour for a part of the garment (body, sleeves, cuffs, hem, collar, "
+                "hood...), that whole part is exactly that colour. The parts keep their natural shapes and seams."]
+               if garment else []),
              "- No people, no hands, no extra props."]
     n = 0
     for section in ("design", "quality", "quantity"):
@@ -56,8 +58,11 @@ def mockup_brief(product: str, questions: list[Question], answers: dict[str, Any
     lines += ["", "## Photo",
               ("- Show the front and back views side by side, each facing the camera straight on and centred in its "
                "own half of the picture." if back else
-               "- Show the front view, facing the camera straight on and centred."),
-              "- Invisible mannequin, seamless pure white studio background, soft even lighting.",
+               "- Show the front view, facing the camera straight on and centred." if garment else
+               "- Show it centred, filling most of the picture."),
+              ("- Invisible mannequin, seamless pure white studio background, soft even lighting." if garment else
+               "- The product alone, shown from its best angle, on a seamless pure white studio background with soft "
+               "even lighting."),
               "", "## Before you finish",
               f"Check the picture against requirements 1 to {n}. Redraw anything that does not match."]
     return "\n".join(lines) + "\n", back

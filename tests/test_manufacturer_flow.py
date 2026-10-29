@@ -224,7 +224,7 @@ def test_request_is_grouped_bilingual_with_files_attached_and_placement_in_words
     text = render_request(spec, spec_zh, "ord_0123456789ab")
 
     assert "【询价单】卫衣（订单号 ord_0123456789ab）" in text and "尺码分配：M × 50，L × 50" in text
-    assert "一、款式与设计" in text and "三、面料、工艺与包装" in text
+    assert "一、款式与设计" in text and "三、材料、工艺与包装" in text
     assert "颜色：黑色" in text and "附件1 (logo.png)" in text and "附件1：logo.png" in text
     assert "Logo：正面胸部，居中，宽 12.5 × 高 11.5 厘米" in text
     assert "f-1" not in text and "x：" not in text                                    # no ids or raw coordinates

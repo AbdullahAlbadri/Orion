@@ -42,7 +42,7 @@ FACTORIES = [
 
 PRODUCTS = [
     ("manufacturer_id", 22, "The factory's id from the Factories sheet", None, "example-factory-a", "example-factory-a"),
-    ("market", 14, "apparel (more markets later)", None, "apparel", "apparel"),
+    ("market", 14, "apparel, ecom_packaging or tech_accessories", None, "apparel", "apparel"),
     ("option", 16, "Product, e.g. hoodie, tee, polo, abaya, tote. Empty = every product in the market", None,
      "hoodie", ""),
     ("rank", 8, "1 = contacted first. Lower numbers first", None, 1, 2),

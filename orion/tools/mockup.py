@@ -26,7 +26,8 @@ log = logging.getLogger("orion.mockup")
 # Raster formats image models accept as a reference (SVG, PDF and EPS logos can't be shown)
 REFERENCE_TYPES = {"image/png", "image/jpeg", "image/webp"}
 # Answers that don't change how the product looks
-NOT_VISUAL = {QUANTITY_ID, SIZE_TABLE_ID, "size_standard", "needed_by", "sample", "packaging", "labels", "fit_reference"}
+NOT_VISUAL = {QUANTITY_ID, SIZE_TABLE_ID, "size_standard", "needed_by", "sample", "packaging", "labels", "fit_reference",
+              "carton_packing", "retail_packaging", "quantity_tiers", "model_quantities", "device_models"}
 
 
 @dataclass
@@ -43,10 +44,11 @@ class MockupMaker(Protocol):
                    model: Optional[str] = None) -> MockupImage: ...
 
 
-def mockup_prompt(product: str, questions: list[Question], answers: dict[str, Any]) -> tuple[str, str]:
+def mockup_prompt(product: str, questions: list[Question], answers: dict[str, Any],
+                  garment: bool = True) -> tuple[str, str]:
     """(prompt, aspect ratio) for the BLANK product: the order brief (Markdown) in full. The customer's own pictures
     are never given to the image model (it redraws them); `compose_artwork` puts the real files on afterwards."""
-    brief, back = mockup_brief(product, questions, answers)
+    brief, back = mockup_brief(product, questions, answers, garment)
     return brief, ("16:9" if back else "1:1")
 
 
@@ -111,7 +113,7 @@ def artwork_prompt(boxes: list[tuple[dict, tuple[int, int, int, int]]], logo_num
     for a solid colour patch."""
     lines = ["# Edit task: put the customer's artwork on the product", "",
              "## Images",
-             "- Image 1: the blank product photo. Keep it exactly: the same garment, shape, colour, pose, lighting "
+             "- Image 1: the blank product photo. Keep it exactly: the same product, shape, colour, pose, lighting "
              "and background.",
              "- Image 2: the same photo with numbered magenta boxes marking where each artwork goes.",
              "- Images 3 and after: the customer's real artwork files.", "", "## Placements"]
@@ -130,10 +132,10 @@ def artwork_prompt(boxes: list[tuple[dict, tuple[int, int, int, int]]], logo_num
               "A colour panel recolours the fabric in its box, keeping the fabric's texture, folds and shading.",
               "- Copy every artwork exactly: the same shapes, colours, letters and proportions. Never redraw, restyle, "
               "translate, crop or invent anything. A photograph stays a photograph.",
-              f"- Make it look really {method or 'printed'} on the fabric: it follows the folds and the texture, "
+              f"- Make it look really {method or 'printed'} on the product: it follows its surface, folds and texture, "
               "with natural shading, and it stays clear of zippers and seams where it can.",
               "- Remove the magenta boxes and numbers completely: they are not part of the product.",
-              "- Do not add anything else: no other logos, text or changes to the garment or the background."]
+              "- Do not add anything else: no other logos, text or changes to the product or the background."]
     return "\n".join(lines) + "\n"
 
 

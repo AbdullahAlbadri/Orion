@@ -1,7 +1,7 @@
 import pytest
 
 from orion.config.markets import MARKETS, get_questions
-from orion.spec import InvalidAnswer, ProductSpec, Question, validate_answer
+from orion.spec import QUANTITY_ID, SIZE_TABLE_ID, InvalidAnswer, ProductSpec, Question, validate_answer
 
 
 def test_size_table_from_text_sets_quantity():
@@ -185,3 +185,29 @@ def test_a_colour_patch_is_placed_like_a_logo_and_described_with_its_colour():
     photo.save(buf, "PNG")
     boxes = target_boxes(buf.getvalue(), "hoodie", value)
     assert "re-colour the garment's fabric inside this box to red, exactly #c81e28" in artwork_prompt(boxes, [None])
+
+
+# --- every market's questions ---------------------------------------------------------
+
+def test_every_market_has_clean_questions_in_both_languages():
+    from orion.config.markets import MARKETS, get_questions
+
+    assert {"apparel", "ecom_packaging", "tech_accessories"} <= set(MARKETS)
+    for market in MARKETS.values():
+        for option_id in market.options:
+            questions = get_questions(market.id, option_id)
+            ids = [q.id for q in questions]
+            assert len(ids) == len(set(ids)), (market.id, option_id, "duplicate question ids")
+            assert any(q.id == QUANTITY_ID or q.id == SIZE_TABLE_ID for q in questions), (market.id, option_id)
+            for q in questions:
+                assert q.prompt and q.prompt_ar, (market.id, option_id, q.id)
+                if q.type == "choice":
+                    assert len(q.choices) == len(q.choices_ar) >= 2, (market.id, option_id, q.id)
+                    assert not q.cost_tiers or len(q.cost_tiers) == len(q.choices), (market.id, option_id, q.id)
+
+
+def test_new_markets_do_not_borrow_garment_drawings():
+    from orion.config.markets import MARKETS
+
+    for key in ("ecom_packaging", "tech_accessories"):
+        assert all(o.mockup is None for o in MARKETS[key].options.values())

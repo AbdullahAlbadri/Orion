@@ -39,7 +39,8 @@ def catalogue() -> list[dict]:
     """Product types customers can order today (live markets only)."""
     return [
         {"market": m.id, "option": o.id, "name": o.name, "name_ar": o.name_ar}
-        for m in MARKETS.values() for o in m.options.values()
+        for i, m in enumerate(MARKETS.values()) for o in m.options.values()
+        if o.id != CUSTOM_OPTION or i == 0                 # every market has "custom"; list it once
     ]
 
 

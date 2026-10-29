@@ -16,8 +16,8 @@ from orion.spec import (
 NOT_TRANSLATED = {QUANTITY_ID, SIZE_TABLE_ID}
 
 SECTIONS = {
-    "zh": {"design": "一、款式与设计", "quantity": "二、数量、尺码与交期", "quality": "三、面料、工艺与包装"},
-    "en": {"design": "A. Design", "quantity": "B. Quantity, sizes and timing", "quality": "C. Fabric, finishing and packing"},
+    "zh": {"design": "一、款式与设计", "quantity": "二、数量、尺码与交期", "quality": "三、材料、工艺与包装"},
+    "en": {"design": "A. Design", "quantity": "B. Quantity, sizes and timing", "quality": "C. Material, finishing and packing"},
 }
 
 

@@ -58,6 +58,7 @@ def has_details(state: dict) -> bool:
 class NewOrder(BaseModel):
     """Optional: start with a product already chosen (e.g. from a product idea on the Overview)."""
     option: Optional[str] = Field(None, max_length=60)
+    market: Optional[str] = Field(None, max_length=60)       # needed for "custom", which every market has
     description: Optional[str] = Field(None, max_length=600)   # custom products: the idea, as a starting text
     lang: Literal["en", "ar"] = "ar"
 
@@ -69,7 +70,8 @@ async def create_order(
     """Start an order. Clicking "new order" again does not pile up empty drafts: an untouched draft is
     reused, and an empty draft that already has a product picked is cleared so a new product can be chosen.
     Drafts with answers are kept and a separate order is started."""
-    market = next((m for m in MARKETS.values() if body and body.option in m.options), None)
+    market = next((m for m in MARKETS.values() if body and body.option in m.options
+                   and (not body.market or body.market == m.id)), None)
     for row in await c.accounts.customer_orders(claims.sub):
         if row["stage"] != "draft":
             continue
@@ -297,8 +299,9 @@ async def order_brief(order_id: str, c: ApiContext = Depends(ctx), claims: Token
     spec = (await get_order(c.graph, order_id)).get("spec")
     if not spec:
         raise HTTPException(status.HTTP_409_CONFLICT, "pick a product first")
-    brief, _ = mockup_brief(MARKETS[spec["market"]].options[spec["option"]].name,
-                            get_questions(spec["market"], spec["option"]), spec.get("answers") or {})
+    option = MARKETS[spec["market"]].options[spec["option"]]
+    brief, _ = mockup_brief(option.name, get_questions(spec["market"], spec["option"]), spec.get("answers") or {},
+                            garment=option.mockup is not None)
     return Response(brief, media_type="text/markdown; charset=utf-8",
                     headers={"Content-Disposition": f'attachment; filename="{order_id}-brief.md"'})
 
@@ -342,9 +345,11 @@ async def make_mockup(
     placements = [p for v in answers.values() if isinstance(v, list) for p in v
                   if isinstance(p, dict) and "view" in p and (p.get("file_id") in pictures or p.get("kind") == "color")]
     if not placements and pictures:
-        placements = [{"kind": "logo", "view": "front", "x": 0.63, "y": 0.3, "width_cm": 9, "height_cm": 7,
-                       "file_id": next(iter(pictures))}]
-    prompt, aspect = mockup_prompt(option.name, questions, answers)
+        # A garment: a chest logo. Anything else: centred and large (sized against the tee drawing used to find the box)
+        spot = ({"x": 0.63, "y": 0.3, "width_cm": 9, "height_cm": 7} if option.mockup else
+                {"x": 0.5, "y": 0.5, "width_cm": 40, "height_cm": 30})
+        placements = [{"kind": "logo", "view": "front", **spot, "file_id": next(iter(pictures))}]
+    prompt, aspect = mockup_prompt(option.name, questions, answers, garment=option.mockup is not None)
     try:
         image = await c.mockups.make(prompt, [], aspect)
     except Exception:
